@@ -93,9 +93,7 @@
       }
       document.getElementById('start').addEventListener('click', function(){
         if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('medium'); } catch(e){} }
-        // next step of onboarding will go here
-        var sub = document.getElementById('sub');
-        sub.textContent = 'Чудово — перше запитання вже готуємо. (Тут почнеться діалог із Sixtio.)';
+        window.location.href = 'onboarding.html';
       });
     })();
   </script>
