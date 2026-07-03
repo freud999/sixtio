@@ -66,6 +66,11 @@
   .chip:nth-child(even){ background:var(--teal); }
   .profile-card .summary{ font-size:14px; line-height:1.55; color:var(--text); }
   .profile-card .next{ font-size:12px; color:var(--hint); margin-top:12px; }
+  .continue-btn{ align-self:center; width:92%; margin:12px 0 8px; border:none; border-radius:14px;
+    padding:15px; font-size:16px; font-weight:600; color:#fff; background:var(--violet-deep);
+    cursor:pointer; transition:transform .12s ease, opacity .12s ease;
+    animation:pop .3s ease; opacity:0; animation-fill-mode:forwards; }
+  .continue-btn:active{ transform:scale(0.98); opacity:.92; }
 
   /* composer */
   .composer{ display:flex; gap:8px; align-items:flex-end;
@@ -317,6 +322,18 @@
         scrollToBottom();
       }
 
+      function addContinueButton(){
+        var btn = document.createElement('button');
+        btn.className = 'continue-btn';
+        btn.textContent = 'Продовжити';
+        btn.addEventListener('click', function(){
+          if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('medium'); } catch(err){} }
+          window.location.href = 'waiting.html';
+        });
+        chat.appendChild(btn);
+        scrollToBottom();
+      }
+
       function finish(){
         localStorage.setItem('sixtio_onboarding_complete', 'true');
         composer.classList.add('hidden');
@@ -329,14 +346,30 @@
           } else {
             renderFallbackCard();
           }
+          addContinueButton();
         }).catch(function(){
           typingEl.remove();
           renderFallbackCard();
+          addContinueButton();
         });
         if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.notificationOccurred('success'); } catch(err){} }
       }
 
-      askNext();
+      // If this account already finished onboarding, skip straight to the waiting screen.
+      api('/api/me', {}).then(function(me){
+        if (me && me.profile) {
+          localStorage.setItem('sixtio_profile', JSON.stringify(me.profile));
+          window.location.replace('waiting.html');
+        } else {
+          askNext();
+        }
+      }).catch(function(){
+        if (localStorage.getItem('sixtio_onboarding_complete') === 'true') {
+          window.location.replace('waiting.html');
+        } else {
+          askNext();
+        }
+      });
     })();
   </script>
 </body>

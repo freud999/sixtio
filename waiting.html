@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Sixtio — пошук пари</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root{
+    --bg: var(--tg-theme-bg-color, #ffffff);
+    --text: var(--tg-theme-text-color, #16151c);
+    --hint: var(--tg-theme-hint-color, #8b8a94);
+    --card: var(--tg-theme-secondary-bg-color, #f4f3f8);
+    --violet: #7F77DD;
+    --violet-deep: #534AB7;
+    --teal: #1D9E75;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; }
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    display:flex; flex-direction:column;
+    min-height:100dvh;
+    padding:env(safe-area-inset-top) 24px env(safe-area-inset-bottom);
+    overflow-y:auto;
+  }
+  .top{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:20px; padding:24px 0; }
+
+  /* signature: two orbiting dots that connect (from index.html) */
+  .orbit{ width:112px; height:112px; position:relative; flex-shrink:0; }
+  .ring{ position:absolute; inset:0; border-radius:50%; border:1px solid var(--card); }
+  .line{ position:absolute; top:50%; left:22px; right:22px; height:2px; transform:translateY(-50%) scaleX(0);
+    background:linear-gradient(90deg,var(--violet),var(--teal)); border-radius:2px;
+    animation:link 4s ease-in-out infinite; transform-origin:center; }
+  .dot{ position:absolute; top:50%; width:19px; height:19px; border-radius:50%; margin-top:-9.5px; }
+  .dot.a{ left:13px; background:var(--violet); animation:driftA 4s ease-in-out infinite; }
+  .dot.b{ right:13px; background:var(--teal); animation:driftB 4s ease-in-out infinite; }
+  @keyframes driftA{ 0%,100%{transform:translateX(-12px)} 45%,70%{transform:translateX(26px)} }
+  @keyframes driftB{ 0%,100%{transform:translateX(12px)} 45%,70%{transform:translateX(-26px)} }
+  @keyframes link{ 0%,25%{transform:translateY(-50%) scaleX(0);opacity:0} 50%,68%{transform:translateY(-50%) scaleX(1);opacity:1} 90%,100%{transform:translateY(-50%) scaleX(0);opacity:0} }
+
+  .title{ font-size:22px; font-weight:600; letter-spacing:-0.3px; }
+  .status{ font-size:15px; line-height:1.55; color:var(--hint); max-width:320px; }
+  .status b{ color:var(--teal); font-weight:600; }
+
+  .profile-card{ width:100%; max-width:420px; padding:20px 18px;
+    border-radius:18px; background:var(--card); text-align:center; }
+  .profile-card .card-title{ font-size:15px; font-weight:600; margin-bottom:12px;
+    background:linear-gradient(90deg,var(--violet-deep),var(--teal));
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  .chips{ display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:14px; }
+  .chip{ font-size:13px; font-weight:500; padding:6px 12px; border-radius:999px;
+    color:#fff; background:var(--violet-deep); }
+  .chip:nth-child(even){ background:var(--teal); }
+  .summary{ font-size:14px; line-height:1.55; color:var(--text); }
+
+  .note{ text-align:center; font-size:12px; color:var(--hint); padding:12px 0 8px; }
+
+  @media (prefers-reduced-motion: reduce){
+    .dot.a,.dot.b,.line{ animation:none; }
+    .line{ transform:translateY(-50%) scaleX(1); opacity:1; }
+    .dot.a{ transform:translateX(26px); } .dot.b{ transform:translateX(-26px); }
+  }
+</style>
+</head>
+<body>
+  <div class="top">
+    <div class="orbit" aria-hidden="true">
+      <div class="ring"></div>
+      <div class="line"></div>
+      <div class="dot a"></div>
+      <div class="dot b"></div>
+    </div>
+    <h1 class="title">Твій профіль готовий</h1>
+    <p class="status" id="status"><b>Sixtio шукає твою пару.</b> Вона вивчає інших людей і зіставляє характери — справжня сумісність потребує трохи часу.</p>
+    <div class="profile-card" id="profileCard" hidden>
+      <div class="card-title">Ось як Sixtio тебе зрозуміла</div>
+      <div class="chips" id="chips"></div>
+      <div class="summary" id="summary"></div>
+    </div>
+  </div>
+  <p class="note">Можна закривати додаток — щойно з'явиться метч, бот напише тобі в Telegram.</p>
+
+  <script>
+    (function(){
+      var tg = window.Telegram && window.Telegram.WebApp;
+      if (tg) {
+        tg.ready();
+        tg.expand();
+        try { tg.setHeaderColor && tg.setHeaderColor('secondary_bg_color'); } catch(e){}
+      }
+
+      function renderProfile(profile){
+        if (!profile || !profile.traits || !profile.traits.length) return;
+        var chips = document.getElementById('chips');
+        chips.innerHTML = '';
+        profile.traits.forEach(function(trait){
+          var chip = document.createElement('span');
+          chip.className = 'chip';
+          chip.textContent = trait;
+          chips.appendChild(chip);
+        });
+        document.getElementById('summary').textContent = profile.summary || '';
+        document.getElementById('profileCard').hidden = false;
+      }
+
+      // Offline-first: show the cached profile immediately, then refresh from API.
+      try {
+        renderProfile(JSON.parse(localStorage.getItem('sixtio_profile') || 'null'));
+      } catch(e){}
+
+      fetch('/api/me', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ initData: (tg && tg.initData) || '' })
+      }).then(function(r){
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      }).then(function(me){
+        if (me.profile) {
+          localStorage.setItem('sixtio_profile', JSON.stringify(me.profile));
+          renderProfile(me.profile);
+        } else if (!me.registered) {
+          // Not onboarded on this account — send back to the start.
+          window.location.replace('onboarding.html');
+        }
+      }).catch(function(){ /* offline — cached card is already shown */ });
+    })();
+  </script>
+</body>
+</html>

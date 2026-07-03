@@ -95,6 +95,17 @@
         if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('medium'); } catch(e){} }
         window.location.href = 'onboarding.html';
       });
+
+      // Returning user with a finished profile goes straight to the waiting screen.
+      fetch('/api/me', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ initData: (tg && tg.initData) || '' })
+      }).then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(me){
+          if (me && me.profile) window.location.replace('waiting.html');
+        })
+        .catch(function(){ /* offline — stay on the welcome screen */ });
     })();
   </script>
 </body>
