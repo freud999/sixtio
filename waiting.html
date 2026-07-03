@@ -68,12 +68,65 @@
     -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
 
   .note{ text-align:center; font-size:12px; color:var(--hint); padding-top:4px; }
+
+  /* match card */
+  .match-card{ width:100%; max-width:440px; border-radius:20px; overflow:hidden; flex-shrink:0;
+    border:2px solid transparent; background:
+      linear-gradient(var(--card),var(--card)) padding-box,
+      linear-gradient(120deg,var(--violet-deep),var(--teal)) border-box;
+    animation:rise .5s ease; }
+  @keyframes rise{ from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:translateY(0); } }
+  .match-hero{ text-align:center; padding:16px 18px 4px; }
+  .match-hero .spark{ font-size:26px; }
+  .match-hero .headline{ font-size:18px; font-weight:700; margin-top:2px;
+    background:linear-gradient(90deg,var(--violet-deep),var(--teal));
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  .match-photo{ width:100%; aspect-ratio:1/1; object-fit:cover; display:block; margin-top:12px; }
+  .match-photo-ph{ width:100%; aspect-ratio:1/1; display:flex; align-items:center; justify-content:center;
+    font-size:64px; background:var(--bg); color:var(--hint); margin-top:12px; }
+  .match-body{ padding:16px 18px; }
+  .match-name{ font-size:20px; font-weight:600; }
+  .match-meta{ font-size:14px; color:var(--hint); margin-top:2px; }
+  .match-reason{ font-size:14px; line-height:1.55; margin:14px 0; padding:12px 14px;
+    border-radius:12px; background:var(--bg); }
+  .match-reason .lbl{ display:block; font-size:11px; font-weight:600; text-transform:uppercase;
+    letter-spacing:.6px; color:var(--teal); margin-bottom:6px; }
+  .match-sub{ font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.6px;
+    color:var(--hint); margin:14px 0 8px; }
+  .write-btn{ width:100%; border:none; border-radius:14px; padding:15px; font-size:16px;
+    font-weight:600; color:#fff; background:var(--violet-deep); cursor:pointer; margin-top:16px;
+    transition:transform .12s ease, opacity .12s ease; }
+  .write-btn:active{ transform:scale(0.98); opacity:.92; }
 </style>
 </head>
 <body>
-  <div class="search-banner">
+  <div class="search-banner" id="searchBanner">
     <div class="pulse" aria-hidden="true"></div>
     <div class="txt"><b>Sixtio шукає твою пару.</b> Можна закривати додаток — щойно буде метч, бот напише тобі.</div>
+  </div>
+
+  <div class="match-card" id="matchCard" hidden>
+    <div class="match-hero">
+      <div class="spark">✨</div>
+      <div class="headline">Sixtio знайшла тобі пару!</div>
+    </div>
+    <img class="match-photo" id="matchPhoto" alt="Фото пари" hidden />
+    <div class="match-photo-ph" id="matchPhotoPh">🙂</div>
+    <div class="match-body">
+      <div class="match-name" id="matchName"></div>
+      <div class="match-meta" id="matchMeta"></div>
+      <div class="match-reason">
+        <span class="lbl">Чому ви пасуєте</span>
+        <span id="matchReason"></span>
+      </div>
+      <div class="match-sub" id="matchTraitsLbl" hidden>Характер</div>
+      <div class="chips" id="matchTraits"></div>
+      <div class="match-sub" id="matchInterestsLbl" hidden>Інтереси</div>
+      <div class="chips" id="matchInterests"></div>
+      <div class="match-sub" id="matchBioLbl" hidden>Про людину</div>
+      <div class="sec-body" id="matchBio"></div>
+      <button class="write-btn" id="writeBtn">Написати повідомлення</button>
+    </div>
   </div>
 
   <div class="profile-head">
@@ -165,6 +218,42 @@
         }
       }
 
+      function renderMatch(match){
+        if (!match || !match.partner) return;
+        var pt = match.partner;
+        document.getElementById('searchBanner').hidden = true;
+
+        if (pt.photoUrl) {
+          var ph = document.getElementById('matchPhoto');
+          ph.src = pt.photoUrl;
+          ph.hidden = false;
+          document.getElementById('matchPhotoPh').hidden = true;
+        }
+        document.getElementById('matchName').textContent =
+          pt.name + (pt.age ? ', ' + pt.age : '');
+        document.getElementById('matchMeta').textContent = pt.city ? '📍 ' + pt.city : '';
+        document.getElementById('matchReason').textContent = match.reason || '';
+
+        if (fillChips('matchTraits', pt.traits, false)) {
+          document.getElementById('matchTraitsLbl').hidden = false;
+        }
+        if (fillChips('matchInterests', pt.interests, true)) {
+          document.getElementById('matchInterestsLbl').hidden = false;
+        }
+        if (pt.bio) {
+          document.getElementById('matchBio').textContent = pt.bio;
+          document.getElementById('matchBioLbl').hidden = false;
+        }
+
+        document.getElementById('matchCard').hidden = false;
+        if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.notificationOccurred('success'); } catch(e){} }
+      }
+
+      document.getElementById('writeBtn').addEventListener('click', function(){
+        if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('medium'); } catch(e){} }
+        window.location.href = 'chat.html';
+      });
+
       // Offline-first: cached psych profile shows even before the API answers.
       try {
         var cached = JSON.parse(localStorage.getItem('sixtio_profile') || 'null');
@@ -185,6 +274,7 @@
         }
         if (me.profile) localStorage.setItem('sixtio_profile', JSON.stringify(me.profile));
         render(me);
+        renderMatch(me.match);
       }).catch(function(){ /* offline — cached data is already shown */ });
     })();
   </script>

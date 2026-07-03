@@ -13,6 +13,23 @@ export function getSupabase() {
   return client;
 }
 
+/** Returns the user's most recent match as { matchId, partnerId } or null. */
+export async function getActiveMatch(userId) {
+  const { data, error } = await getSupabase()
+    .from('matches')
+    .select('id, user_a, user_b')
+    .or(`user_a.eq.${userId},user_b.eq.${userId}`)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return {
+    matchId: data.id,
+    partnerId: data.user_a === userId ? data.user_b : data.user_a,
+  };
+}
+
 /** Upserts the Telegram user into public.users and returns the row id. */
 export async function upsertUser(tgUser) {
   const name = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ') || null;

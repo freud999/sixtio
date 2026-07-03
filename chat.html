@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Sixtio — чат</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root{
+    --bg: var(--tg-theme-bg-color, #ffffff);
+    --text: var(--tg-theme-text-color, #16151c);
+    --hint: var(--tg-theme-hint-color, #8b8a94);
+    --card: var(--tg-theme-secondary-bg-color, #f4f3f8);
+    --violet: #7F77DD;
+    --violet-deep: #534AB7;
+    --teal: #1D9E75;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  [hidden]{ display:none !important; }
+  html,body{ height:100%; }
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    display:flex; flex-direction:column;
+    min-height:100dvh;
+    overflow:hidden;
+  }
+
+  /* header */
+  .chat-header{ display:flex; align-items:center; gap:12px;
+    padding:calc(env(safe-area-inset-top) + 12px) 16px 12px; border-bottom:1px solid var(--card); }
+  .back{ font-size:22px; color:var(--violet-deep); background:none; border:none; cursor:pointer;
+    padding:0 4px 0 0; line-height:1; }
+  .peer-avatar{ width:40px; height:40px; border-radius:50%; object-fit:cover; flex-shrink:0; }
+  .peer-avatar-ph{ width:40px; height:40px; border-radius:50%; display:flex; align-items:center;
+    justify-content:center; font-size:20px; background:var(--card); color:var(--hint); flex-shrink:0; }
+  .peer-name{ font-size:16px; font-weight:600; }
+  .peer-status{ font-size:12px; color:var(--teal); }
+
+  /* messages */
+  .messages{ flex:1; overflow-y:auto; padding:14px 16px; display:flex; flex-direction:column; gap:8px;
+    -webkit-overflow-scrolling:touch; }
+  .intro{ align-self:center; text-align:center; max-width:80%; margin:auto 0; padding:20px;
+    font-size:13px; line-height:1.55; color:var(--hint); }
+  .intro .spark{ font-size:24px; display:block; margin-bottom:8px; }
+  .msg{ max-width:80%; padding:10px 13px; border-radius:16px; font-size:15px; line-height:1.4;
+    word-wrap:break-word; animation:pop .2s ease; }
+  @keyframes pop{ from{ opacity:0; transform:translateY(4px); } to{ opacity:1; transform:translateY(0); } }
+  .msg.them{ align-self:flex-start; background:var(--card); color:var(--text); border-bottom-left-radius:4px; }
+  .msg.me{ align-self:flex-end; background:var(--violet-deep); color:#fff; border-bottom-right-radius:4px; }
+
+  /* composer */
+  .composer{ display:flex; gap:8px; align-items:flex-end;
+    padding:10px 16px calc(env(safe-area-inset-bottom) + 10px); border-top:1px solid var(--card); }
+  .composer textarea{ flex:1; resize:none; max-height:110px; min-height:44px;
+    border:1px solid var(--card); border-radius:14px; padding:12px 14px; font-size:15px;
+    font-family:inherit; color:var(--text); background:var(--card); outline:none; line-height:1.4; }
+  .composer textarea::placeholder{ color:var(--hint); }
+  .composer button{ flex-shrink:0; width:44px; height:44px; border:none; border-radius:50%;
+    background:var(--violet-deep); color:#fff; font-size:18px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    transition:transform .12s ease, opacity .12s ease; }
+  .composer button:active{ transform:scale(0.94); opacity:.9; }
+  .composer button:disabled{ opacity:.4; }
+</style>
+</head>
+<body>
+  <div class="chat-header">
+    <button class="back" id="back" aria-label="Назад">‹</button>
+    <img class="peer-avatar" id="peerAvatar" alt="" hidden />
+    <div class="peer-avatar-ph" id="peerAvatarPh">🙂</div>
+    <div>
+      <div class="peer-name" id="peerName">Чат</div>
+      <div class="peer-status">ваша пара від Sixtio</div>
+    </div>
+  </div>
+
+  <div class="messages" id="messages">
+    <div class="intro" id="intro" hidden>
+      <span class="spark">💜</span>
+      Sixtio звела вас за справжньою сумісністю. Напиши перше повідомлення — з чогось теплого й щирого.
+    </div>
+  </div>
+
+  <form class="composer" id="composer">
+    <textarea id="msgInput" rows="1" placeholder="Повідомлення..."></textarea>
+    <button type="submit" id="sendBtn" aria-label="Надіслати">➤</button>
+  </form>
+
+  <script>
+    (function(){
+      var tg = window.Telegram && window.Telegram.WebApp;
+      if (tg) {
+        tg.ready();
+        tg.expand();
+        try { tg.setHeaderColor && tg.setHeaderColor('bg_color'); } catch(e){}
+        if (tg.BackButton) {
+          try { tg.BackButton.show(); tg.BackButton.onClick(goBack); } catch(e){}
+        }
+      }
+
+      var messagesEl = document.getElementById('messages');
+      var intro = document.getElementById('intro');
+      var composer = document.getElementById('composer');
+      var input = document.getElementById('msgInput');
+      var sendBtn = document.getElementById('sendBtn');
+
+      var initData = (tg && tg.initData) || '';
+      var seen = {};       // message id -> true (dedupe across polls)
+      var pollTimer = null;
+
+      function goBack(){ window.location.href = 'waiting.html'; }
+      document.getElementById('back').addEventListener('click', goBack);
+
+      function api(path, payload){
+        return fetch(path, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(Object.assign({ initData: initData }, payload))
+        }).then(function(r){
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.json();
+        });
+      }
+
+      function scrollToBottom(){
+        requestAnimationFrame(function(){ messagesEl.scrollTop = messagesEl.scrollHeight; });
+      }
+
+      function addMessage(m){
+        if (seen[m.id]) return;
+        seen[m.id] = true;
+        intro.hidden = true;
+        var el = document.createElement('div');
+        el.className = 'msg ' + (m.mine ? 'me' : 'them');
+        el.textContent = m.text;
+        messagesEl.appendChild(el);
+        scrollToBottom();
+      }
+
+      function renderPartner(partner){
+        if (!partner) return;
+        document.getElementById('peerName').textContent = partner.name || 'Чат';
+        if (partner.photoUrl) {
+          var av = document.getElementById('peerAvatar');
+          av.src = partner.photoUrl;
+          av.hidden = false;
+          document.getElementById('peerAvatarPh').hidden = true;
+        }
+      }
+
+      var partnerLoaded = false;
+      function load(){
+        api('/api/messages', {}).then(function(data){
+          if (!data.hasMatch) { goBack(); return; }
+          if (!partnerLoaded) { renderPartner(data.partner); partnerLoaded = true; }
+          var had = Object.keys(seen).length;
+          data.messages.forEach(addMessage);
+          if (had === 0 && data.messages.length === 0) intro.hidden = false;
+        }).catch(function(){ /* keep last state on transient errors */ });
+      }
+
+      function autosize(){
+        input.style.height = 'auto';
+        input.style.height = Math.min(input.scrollHeight, 110) + 'px';
+      }
+      input.addEventListener('input', autosize);
+
+      composer.addEventListener('submit', function(e){
+        e.preventDefault();
+        var text = input.value.trim();
+        if (!text) return;
+        input.value = '';
+        autosize();
+        sendBtn.disabled = true;
+        if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('light'); } catch(err){} }
+        api('/api/send-message', { text: text }).then(function(resp){
+          if (resp && resp.message) addMessage(resp.message);
+        }).catch(function(){
+          // Restore the text so the user doesn't lose it.
+          input.value = text; autosize();
+        }).then(function(){ sendBtn.disabled = false; input.focus(); });
+      });
+
+      input.addEventListener('keydown', function(e){
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          composer.requestSubmit ? composer.requestSubmit() : composer.dispatchEvent(new Event('submit', { cancelable:true }));
+        }
+      });
+
+      // Initial load + lightweight polling for new messages.
+      load();
+      pollTimer = setInterval(load, 4000);
+      document.addEventListener('visibilitychange', function(){
+        if (document.hidden) { clearInterval(pollTimer); }
+        else { load(); pollTimer = setInterval(load, 4000); }
+      });
+    })();
+  </script>
+</body>
+</html>

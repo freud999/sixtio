@@ -43,7 +43,9 @@ export function resolveUser(initData) {
   const real = validateInitData(initData, process.env.TELEGRAM_BOT_TOKEN);
   if (real) return real;
   if (process.env.ALLOW_FAKE_AUTH === '1') {
-    return { id: 777000, first_name: 'Dev' };
+    // FAKE_TG_ID lets local testing impersonate a specific registered user.
+    const fakeId = parseInt(process.env.FAKE_TG_ID || '', 10);
+    return { id: fakeId || 777000, first_name: 'Dev' };
   }
   return null;
 }

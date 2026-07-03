@@ -46,3 +46,17 @@ export async function notifyMatchBoth(userOne, userTwo, reason) {
   await notifyOne(userOne, userTwo, reason);
   await notifyOne(userTwo, userOne, reason);
 }
+
+/** Pings a user that their match sent them a new in-app message. */
+export async function notifyNewMessage(to, fromName, preview) {
+  const name = (fromName || '').split(' ')[0] || 'Твоя пара';
+  const text = `💬 ${name} написав(-ла) тобі:\n\n"${preview}"`;
+  const reply_markup = {
+    inline_keyboard: [[{ text: 'Відповісти в Sixtio', web_app: { url: `${APP_URL}/chat.html` } }]],
+  };
+  try {
+    await callBot('sendMessage', { chat_id: to.telegram_id, text, reply_markup });
+  } catch (e) {
+    console.error(`new-message ping to ${to.telegram_id} failed:`, e.message);
+  }
+}
