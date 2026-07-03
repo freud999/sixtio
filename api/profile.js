@@ -1,0 +1,51 @@
+import { resolveUser } from './_lib/telegram.js';
+import { getSupabase, upsertUser } from './_lib/supabase.js';
+import { generateProfile } from './_lib/claude.js';
+import { questionLabel } from './_lib/questions.js';
+
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+  try {
+    const { initData } = req.body || {};
+    const tgUser = resolveUser(initData);
+    if (!tgUser) {
+      return res.status(401).json({ error: 'Invalid Telegram initData' });
+    }
+
+    const supabase = getSupabase();
+    const userId = await upsertUser(tgUser);
+
+    const { data: rows, error } = await supabase
+      .from('answers')
+      .select('question_id, answer_text, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    if (!rows || rows.length === 0) {
+      return res.status(400).json({ error: 'No answers to analyze' });
+    }
+
+    const qaLines = rows.map(
+      (r) => `Питання: ${questionLabel(r.question_id)}\nВідповідь: ${r.answer_text}\n`
+    );
+    const profile = await generateProfile(qaLines);
+
+    const { error: upsertError } = await supabase.from('profiles').upsert(
+      {
+        user_id: userId,
+        traits_json: profile.traits,
+        summary_text: profile.summary,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id' }
+    );
+    if (upsertError) throw upsertError;
+
+    return res.status(200).json(profile);
+  } catch (e) {
+    console.error('api/profile failed:', e);
+    return res.status(500).json({ error: 'Internal error' });
+  }
+}

@@ -48,11 +48,24 @@
   .typing-dot:nth-child(3){ animation-delay:.3s; }
   @keyframes blink{ 0%,80%,100%{ opacity:.25; transform:scale(.85); } 40%{ opacity:1; transform:scale(1); } }
 
-  /* completion card */
-  .done-card{ align-self:center; text-align:center; max-width:88%; padding:18px; margin-top:8px; }
+  /* completion / profile card */
+  .done-card{ align-self:center; text-align:center; max-width:92%; padding:18px; margin-top:8px; }
   .done-card .check{ font-size:30px; margin-bottom:6px; }
   .done-card .title{ font-size:17px; font-weight:600; margin-bottom:4px; }
   .done-card .sub{ font-size:13px; color:var(--hint); line-height:1.5; }
+  .profile-card{ align-self:center; width:92%; margin-top:8px; padding:20px 18px;
+    border-radius:18px; background:var(--card); text-align:center;
+    animation:pop .3s ease; opacity:0; animation-fill-mode:forwards; }
+  .profile-card .check{ font-size:28px; margin-bottom:6px; }
+  .profile-card .title{ font-size:17px; font-weight:600; margin-bottom:12px;
+    background:linear-gradient(90deg,var(--violet-deep),var(--teal));
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  .chips{ display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:14px; }
+  .chip{ font-size:13px; font-weight:500; padding:6px 12px; border-radius:999px;
+    color:#fff; background:var(--violet-deep); }
+  .chip:nth-child(even){ background:var(--teal); }
+  .profile-card .summary{ font-size:14px; line-height:1.55; color:var(--text); }
+  .profile-card .next{ font-size:12px; color:var(--hint); margin-top:12px; }
 
   /* composer */
   .composer{ display:flex; gap:8px; align-items:flex-end;
@@ -92,14 +105,15 @@
         try { tg.setHeaderColor && tg.setHeaderColor('secondary_bg_color'); } catch(e){}
       }
 
+      // Keep ids in sync with api/_lib/questions.js
       var questions = [
-        "Опиши свій ідеальний будній вечір — з ким ти і що відбувається?",
-        "Ти більше живеш за чітким планом чи любиш спонтанність? Розкажи на прикладі.",
-        "Що в людях чи в стосунках дратує тебе найбільше?",
-        "Коли виникає конфлікт — ти одразу говориш про це, береш паузу подумати чи мовчиш?",
-        "Що для тебе означає справжня близькість з людиною?",
-        "Згадай момент за останній рік, коли ти відчував(-ла) себе по-справжньому щасливим(-ою). Що тоді відбувалось?",
-        "Що тобі найбільше потрібно від партнера, коли тобі важко?"
+        { id: "q1", text: "Опиши свій ідеальний будній вечір — з ким ти і що відбувається?" },
+        { id: "q2", text: "Ти більше живеш за чітким планом чи любиш спонтанність? Розкажи на прикладі." },
+        { id: "q3", text: "Що в людях чи в стосунках дратує тебе найбільше?" },
+        { id: "q4", text: "Коли виникає конфлікт — ти одразу говориш про це, береш паузу подумати чи мовчиш?" },
+        { id: "q5", text: "Що для тебе означає справжня близькість з людиною?" },
+        { id: "q6", text: "Згадай момент за останній рік, коли ти відчував(-ла) себе по-справжньому щасливим(-ою). Що тоді відбувалось?" },
+        { id: "q7", text: "Що тобі найбільше потрібно від партнера, коли тобі важко?" }
       ];
 
       var chat = document.getElementById('chat');
@@ -112,6 +126,22 @@
       var STORAGE_KEY = 'sixtio_onboarding_answers';
       var index = 0;
       var answers = [];
+      var phase = 'main'; // 'main' — чекаємо відповідь на основне питання, 'followup' — на підпитання
+
+      function api(path, payload){
+        var body = Object.assign({ initData: (tg && tg.initData) || '' }, payload);
+        var controller = ('AbortController' in window) ? new AbortController() : null;
+        if (controller) setTimeout(function(){ controller.abort(); }, 25000);
+        return fetch(path, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+          signal: controller ? controller.signal : undefined
+        }).then(function(r){
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.json();
+        });
+      }
 
       function scrollToBottom(){
         requestAnimationFrame(function(){ chat.scrollTop = chat.scrollHeight; });
@@ -134,13 +164,18 @@
           : 'Готово';
       }
 
-      function showTyping(callback){
+      function startTyping(){
         var el = document.createElement('div');
         el.className = 'bubble typing';
         el.innerHTML = '<span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>';
         el.style.opacity = 1;
         chat.appendChild(el);
         scrollToBottom();
+        return el;
+      }
+
+      function showTyping(callback){
+        var el = startTyping();
         setTimeout(function(){
           el.remove();
           callback();
@@ -156,7 +191,7 @@
         input.disabled = true;
         sendBtn.disabled = true;
         showTyping(function(){
-          addBubble(questions[index], 'bot');
+          addBubble(questions[index].text, 'bot');
           input.disabled = false;
           sendBtn.disabled = false;
           input.focus();
@@ -169,21 +204,61 @@
       }
       input.addEventListener('input', autosize);
 
+      var lastFollowupText = '';
+
       composer.addEventListener('submit', function(e){
         e.preventDefault();
         var value = input.value.trim();
-        if (!value || index >= questions.length) return;
+        if (!value || index >= questions.length || input.disabled) return;
+
+        var q = questions[index];
+        var isFollowup = (phase === 'followup');
+        var questionId = isFollowup ? q.id + '_f' : q.id;
 
         addBubble(value, 'user');
-        answers.push({ question: questions[index], answer: value });
+        answers.push({
+          question_id: questionId,
+          question: isFollowup ? lastFollowupText : q.text,
+          answer: value
+        });
         localStorage.setItem(STORAGE_KEY, JSON.stringify(answers));
 
         input.value = '';
         autosize();
         if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('light'); } catch(err){} }
 
-        index++;
-        askNext();
+        input.disabled = true;
+        sendBtn.disabled = true;
+        var typingEl = startTyping();
+
+        function advance(){
+          phase = 'main';
+          index++;
+          askNext();
+        }
+
+        api('/api/answer', {
+          questionId: questionId,
+          questionText: q.text,
+          answerText: value,
+          isFollowup: isFollowup
+        }).then(function(resp){
+          typingEl.remove();
+          if (!isFollowup && resp && resp.followup) {
+            phase = 'followup';
+            lastFollowupText = resp.followup;
+            addBubble(resp.followup, 'bot');
+            input.disabled = false;
+            sendBtn.disabled = false;
+            input.focus();
+          } else {
+            advance();
+          }
+        }).catch(function(){
+          // Бекенд недоступний — відповіді лишаються в localStorage, діалог не блокуємо.
+          typingEl.remove();
+          advance();
+        });
       });
 
       input.addEventListener('keydown', function(e){
@@ -193,9 +268,45 @@
         }
       });
 
-      function finish(){
-        localStorage.setItem('sixtio_onboarding_complete', 'true');
-        composer.classList.add('hidden');
+      function renderProfileCard(profile){
+        var card = document.createElement('div');
+        card.className = 'profile-card';
+
+        var check = document.createElement('div');
+        check.className = 'check';
+        check.textContent = '✨';
+
+        var title = document.createElement('div');
+        title.className = 'title';
+        title.textContent = 'Ось як Sixtio тебе зрозуміла';
+
+        var chips = document.createElement('div');
+        chips.className = 'chips';
+        (profile.traits || []).forEach(function(trait){
+          var chip = document.createElement('span');
+          chip.className = 'chip';
+          chip.textContent = trait;
+          chips.appendChild(chip);
+        });
+
+        var summary = document.createElement('div');
+        summary.className = 'summary';
+        summary.textContent = profile.summary || '';
+
+        var next = document.createElement('div');
+        next.className = 'next';
+        next.textContent = 'Скоро Sixtio запропонує перше знайомство.';
+
+        card.appendChild(check);
+        card.appendChild(title);
+        card.appendChild(chips);
+        card.appendChild(summary);
+        card.appendChild(next);
+        chat.appendChild(card);
+        scrollToBottom();
+      }
+
+      function renderFallbackCard(){
         var card = document.createElement('div');
         card.className = 'bubble done-card';
         card.style.opacity = 1;
@@ -204,6 +315,24 @@
           '<div class="sub">Sixtio вже аналізує твої відповіді, щоб знайти людину зі справжньою сумісністю. Скоро продовжимо.</div>';
         chat.appendChild(card);
         scrollToBottom();
+      }
+
+      function finish(){
+        localStorage.setItem('sixtio_onboarding_complete', 'true');
+        composer.classList.add('hidden');
+        var typingEl = startTyping();
+        api('/api/profile', {}).then(function(profile){
+          typingEl.remove();
+          if (profile && profile.traits) {
+            localStorage.setItem('sixtio_profile', JSON.stringify(profile));
+            renderProfileCard(profile);
+          } else {
+            renderFallbackCard();
+          }
+        }).catch(function(){
+          typingEl.remove();
+          renderFallbackCard();
+        });
         if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.notificationOccurred('success'); } catch(err){} }
       }
 
