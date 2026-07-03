@@ -27,10 +27,17 @@ async function callGemini(prompt, generationConfig = {}) {
   return text;
 }
 
+function genderLine(gender) {
+  if (gender === 'female') return 'Користувач — жінка: звертайся до неї в жіночому роді. ';
+  if (gender === 'male') return 'Користувач — чоловік: звертайся до нього в чоловічому роді. ';
+  return '';
+}
+
 /** One short, warm follow-up question (Ukrainian) to the user's answer. */
-export async function generateFollowup(questionText, answerText) {
+export async function generateFollowup(questionText, answerText, gender) {
   const prompt =
     'Ти — Sixtio, тепла й уважна ШІ-сваха в застосунку знайомств. ' +
+    genderLine(gender) +
     'Користувач щойно відповів на твоє запитання. Постав ОДНЕ коротке (до 20 слів) ' +
     'живе уточнююче підпитання українською, звертаючись на «ти». ' +
     'Без привітань, без коментарів, без лапок — лише саме питання.\n\n' +

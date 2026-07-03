@@ -8,7 +8,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
   try {
-    const { initData, questionId, questionText, answerText, isFollowup } = req.body || {};
+    const { initData, questionId, questionText, answerText, isFollowup, gender } = req.body || {};
     if (!questionId || !answerText) {
       return res.status(400).json({ error: 'questionId and answerText are required' });
     }
@@ -30,13 +30,14 @@ export default async function handler(req, res) {
     }
 
     // Gemini first (free/cheap tier); Claude as fallback if Gemini is down or unconfigured.
+    const safeGender = ['male', 'female'].includes(gender) ? gender : null;
     let followup = null;
     try {
-      followup = await geminiFollowup(questionText || '', answerText);
+      followup = await geminiFollowup(questionText || '', answerText, safeGender);
     } catch (geminiError) {
       console.error('Gemini followup failed:', geminiError.message);
       try {
-        followup = await claudeFollowup(questionText || '', answerText);
+        followup = await claudeFollowup(questionText || '', answerText, safeGender);
       } catch (claudeError) {
         // AI failure must not block onboarding — the client just moves on.
         console.error('Claude fallback followup failed:', claudeError.message);

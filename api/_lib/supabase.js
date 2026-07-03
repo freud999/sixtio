@@ -18,7 +18,10 @@ export async function upsertUser(tgUser) {
   const name = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ') || null;
   const { data, error } = await getSupabase()
     .from('users')
-    .upsert({ telegram_id: tgUser.id, name }, { onConflict: 'telegram_id' })
+    .upsert(
+      { telegram_id: tgUser.id, name, tg_username: tgUser.username || null },
+      { onConflict: 'telegram_id' }
+    )
     .select('id')
     .single();
   if (error) throw error;

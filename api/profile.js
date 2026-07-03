@@ -2,6 +2,7 @@ import { resolveUser } from './_lib/telegram.js';
 import { getSupabase, upsertUser } from './_lib/supabase.js';
 import { generateProfile } from './_lib/claude.js';
 import { questionLabel } from './_lib/questions.js';
+import { runMatching } from './_lib/matching.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -27,10 +28,16 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'No answers to analyze' });
     }
 
+    const { data: userRow } = await supabase
+      .from('users')
+      .select('gender')
+      .eq('id', userId)
+      .maybeSingle();
+
     const qaLines = rows.map(
       (r) => `Питання: ${questionLabel(r.question_id)}\nВідповідь: ${r.answer_text}\n`
     );
-    const profile = await generateProfile(qaLines);
+    const profile = await generateProfile(qaLines, userRow ? userRow.gender : null);
 
     const { error: upsertError } = await supabase.from('profiles').upsert(
       {
@@ -42,6 +49,14 @@ export default async function handler(req, res) {
       { onConflict: 'user_id' }
     );
     if (upsertError) throw upsertError;
+
+    // Instant matchmaking: try to pair this user right after their profile is ready.
+    // Never let matching (or its bot notifications) fail the profile response.
+    try {
+      await runMatching(userId);
+    } catch (matchError) {
+      console.error('matching failed:', matchError.message);
+    }
 
     return res.status(200).json(profile);
   } catch (e) {

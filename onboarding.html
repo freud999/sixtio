@@ -135,21 +135,29 @@
         { id:'interests', type:'text', optional:true,
           text:'Розкажи про свої інтереси — просто через кому. Наприклад: подорожі, кіно, біг' },
         { id:'bio', type:'text', optional:true,
-          text:'Кілька слів про себе — як би ти представив(-ла) себе людині, яка тобі подобається?' },
+          text:'Кілька слів про себе — як би ти представив себе людині, яка тобі подобається?',
+          textF:'Кілька слів про себе — як би ти представила себе людині, яка тобі подобається?' },
         { id:'photo', type:'photo', optional:true,
           text:'І додай своє фото — його побачить лише людина, з якою у вас метч.' }
       ];
 
-      // Keep ids in sync with api/_lib/questions.js
+      // Keep ids in sync with api/_lib/questions.js.
+      // `text` — masculine/neutral form; `textF` — feminine form, picked once gender is known.
       var questions = [
         { id: "q1", text: "А тепер — найцікавіше. Опиши свій ідеальний будній вечір: з ким ти і що відбувається?" },
         { id: "q2", text: "Ти більше живеш за чітким планом чи любиш спонтанність? Розкажи на прикладі." },
         { id: "q3", text: "Що в людях чи в стосунках дратує тебе найбільше?" },
         { id: "q4", text: "Коли виникає конфлікт — ти одразу говориш про це, береш паузу подумати чи мовчиш?" },
         { id: "q5", text: "Що для тебе означає справжня близькість з людиною?" },
-        { id: "q6", text: "Згадай момент за останній рік, коли ти відчував(-ла) себе по-справжньому щасливим(-ою). Що тоді відбувалось?" },
+        { id: "q6", text: "Згадай момент за останній рік, коли ти відчував себе по-справжньому щасливим. Що тоді відбувалось?",
+          textF: "Згадай момент за останній рік, коли ти відчувала себе по-справжньому щасливою. Що тоді відбувалось?" },
         { id: "q7", text: "Що тобі найбільше потрібно від партнера, коли тобі важко?" }
       ];
+
+      // Picks the feminine variant when the user said they're a woman.
+      function stepText(step){
+        return (profileData.gender === 'female' && step.textF) ? step.textF : step.text;
+      }
 
       var TOTAL = profileSteps.length + questions.length;
 
@@ -170,6 +178,12 @@
       var profileData = { interests: [] };
       var answers = [];
       var lastFollowupText = '';
+      var detectedCity = null;
+
+      // City-by-IP suggestion (Vercel geo). Best-effort — never blocks onboarding.
+      fetch('/api/geo').then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(g){ if (g && g.city) detectedCity = g.city; })
+        .catch(function(){});
 
       function api(path, payload){
         var body = Object.assign({ initData: (tg && tg.initData) || '' }, payload);
@@ -277,7 +291,7 @@
         var step = profileSteps[pIndex];
         setComposer(false);
         showTyping(function(){
-          addBubble(step.text, 'bot');
+          addBubble(stepText(step), 'bot');
           if (step.type === 'options') {
             showOptions(step.options.map(function(o){
               return { label: o.label, onSelect: function(){ answerProfile(step, o.v, o.label); } };
@@ -289,9 +303,14 @@
             ]);
           } else {
             setComposer(true, step.type === 'number' ? 'Вкажи вік числом...' : 'Напишіть відповідь...');
-            if (step.optional) {
-              showOptions([{ label: 'Пропустити', secondary: true, onSelect: function(){ skipProfile(step); } }]);
+            var extraOptions = [];
+            if (step.id === 'city' && detectedCity) {
+              extraOptions.push({ label: '📍 ' + detectedCity, onSelect: function(){ answerProfile(step, detectedCity, detectedCity); } });
             }
+            if (step.optional) {
+              extraOptions.push({ label: 'Пропустити', secondary: true, onSelect: function(){ skipProfile(step); } });
+            }
+            if (extraOptions.length) showOptions(extraOptions);
           }
         });
       }
@@ -408,7 +427,7 @@
         }
         setComposer(false);
         showTyping(function(){
-          addBubble(questions[index].text, 'bot');
+          addBubble(stepText(questions[index]), 'bot');
           setComposer(true);
         });
       }
@@ -442,7 +461,7 @@
         addBubble(value, 'user');
         answers.push({
           question_id: questionId,
-          question: isFollowup ? lastFollowupText : q.text,
+          question: isFollowup ? lastFollowupText : stepText(q),
           answer: value
         });
         localStorage.setItem(STORAGE_KEY, JSON.stringify(answers));
@@ -458,9 +477,10 @@
 
         api('/api/answer', {
           questionId: questionId,
-          questionText: q.text,
+          questionText: stepText(q),
           answerText: value,
-          isFollowup: isFollowup
+          isFollowup: isFollowup,
+          gender: profileData.gender || null
         }).then(function(resp){
           typingEl.remove();
           if (!isFollowup && resp && resp.followup) {
