@@ -13,6 +13,17 @@ export function getSupabase() {
   return client;
 }
 
+/** Looks up an existing user id by Telegram id without writing anything. */
+export async function findUserId(telegramId) {
+  const { data, error } = await getSupabase()
+    .from('users')
+    .select('id')
+    .eq('telegram_id', telegramId)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? data.id : null;
+}
+
 /** Returns the user's most recent match as { matchId, partnerId } or null. */
 export async function getActiveMatch(userId) {
   const { data, error } = await getSupabase()

@@ -5,76 +5,73 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Sixtio</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="theme.js"></script>
+<link rel="stylesheet" href="theme.css" />
 <style>
-  :root{
-    --bg: var(--tg-theme-bg-color, #ffffff);
-    --text: var(--tg-theme-text-color, #16151c);
-    --hint: var(--tg-theme-hint-color, #8b8a94);
-    --card: var(--tg-theme-secondary-bg-color, #f4f3f8);
-    --violet: #7F77DD;
-    --violet-deep: #534AB7;
-    --teal: #1D9E75;
-  }
-  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
-  html,body{ height:100%; }
   body{
-    background:var(--bg);
-    color:var(--text);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     display:flex; flex-direction:column;
-    min-height:100dvh;
     padding:env(safe-area-inset-top) 24px env(safe-area-inset-bottom);
     overflow:hidden;
   }
-  .top{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:22px; }
+  .top{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; gap:20px; position:relative; z-index:1; }
+  .bottom{ padding:16px 0 10px; position:relative; z-index:1; }
 
-  /* signature: two orbiting dots that connect */
-  .orbit{ width:132px; height:132px; position:relative; }
-  .ring{ position:absolute; inset:0; border-radius:50%; border:1px solid var(--card); }
-  .line{ position:absolute; top:50%; left:26px; right:26px; height:2px; transform:translateY(-50%) scaleX(0);
-    background:linear-gradient(90deg,var(--violet),var(--teal)); border-radius:2px;
+  /* hero: aura orb with the two connecting dots inside */
+  .hero{ width:170px; height:170px; border-radius:50%; position:relative;
+    background:radial-gradient(85% 85% at 50% 30%,
+      var(--a1) 0%, var(--a2) 55%,
+      color-mix(in srgb, var(--a2) 25%, var(--aura-deep)) 100%);
+    box-shadow:0 24px 70px -18px var(--glow), inset 0 1px 0 rgba(255,255,255,.35);
+    transition:background .6s ease, box-shadow .6s ease; }
+  .hero::after{ content:''; position:absolute; inset:-22px; border-radius:50%;
+    background:radial-gradient(50% 50% at 50% 50%, var(--glow), transparent 70%);
+    filter:blur(18px); z-index:-1; }
+  .line{ position:absolute; top:50%; left:36px; right:36px; height:3px;
+    transform:translateY(-50%) scaleX(0); background:rgba(255,255,255,.9); border-radius:3px;
     animation:link 4s ease-in-out infinite; transform-origin:center; }
-  .dot{ position:absolute; top:50%; width:22px; height:22px; border-radius:50%; margin-top:-11px; }
-  .dot.a{ left:15px; background:var(--violet); animation:driftA 4s ease-in-out infinite; }
-  .dot.b{ right:15px; background:var(--teal); animation:driftB 4s ease-in-out infinite; }
-  @keyframes driftA{ 0%,100%{transform:translateX(-14px)} 45%,70%{transform:translateX(30px)} }
-  @keyframes driftB{ 0%,100%{transform:translateX(14px)} 45%,70%{transform:translateX(-30px)} }
+  .dot{ position:absolute; top:50%; width:22px; height:22px; border-radius:50%; margin-top:-11px;
+    background:#fff; box-shadow:0 4px 14px rgba(0,0,0,.25); }
+  .dot.a{ left:26px; animation:driftA 4s ease-in-out infinite; }
+  .dot.b{ right:26px; animation:driftB 4s ease-in-out infinite; }
+  @keyframes driftA{ 0%,100%{transform:translateX(-10px)} 45%,70%{transform:translateX(34px)} }
+  @keyframes driftB{ 0%,100%{transform:translateX(10px)} 45%,70%{transform:translateX(-34px)} }
   @keyframes link{ 0%,25%{transform:translateY(-50%) scaleX(0);opacity:0} 50%,68%{transform:translateY(-50%) scaleX(1);opacity:1} 90%,100%{transform:translateY(-50%) scaleX(0);opacity:0} }
 
-  .wordmark{ font-size:34px; font-weight:600; letter-spacing:-0.5px; }
-  .wordmark span{ background:linear-gradient(90deg,var(--violet-deep),var(--teal)); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
-  .thesis{ font-size:20px; font-weight:500; line-height:1.35; max-width:300px; }
-  .sub{ font-size:15px; line-height:1.55; color:var(--hint); max-width:300px; }
+  .wordmark{ font-size:46px; line-height:1; }
+  .thesis{ font-size:21px; font-weight:600; line-height:1.32; max-width:310px; letter-spacing:-0.3px; }
 
-  .bottom{ padding:16px 0 8px; }
-  .cta{ width:100%; border:none; border-radius:14px; padding:16px; font-size:16px; font-weight:600;
-    color:#fff; background:var(--violet-deep); cursor:pointer; transition:transform .12s ease, opacity .12s ease; }
-  .cta:active{ transform:scale(0.98); opacity:.92; }
-  .note{ text-align:center; font-size:12px; color:var(--hint); margin-top:12px; }
-  .note b{ color:var(--teal); font-weight:600; }
+  .sub-card{ max-width:330px; padding:16px 18px; font-size:14px; line-height:1.6; color:var(--hint); }
+
+  .note{ text-align:center; font-size:12px; color:var(--hint); margin-top:14px; }
+  .note b{ color:var(--a1); font-weight:700; }
 
   @media (prefers-reduced-motion: reduce){
-    .dot.a,.dot.b,.line{ animation:none; }
     .line{ transform:translateY(-50%) scaleX(1); opacity:1; }
-    .dot.a{ transform:translateX(30px); } .dot.b{ transform:translateX(-30px); }
+    .dot.a{ transform:translateX(34px); } .dot.b{ transform:translateX(-34px); }
   }
 </style>
 </head>
 <body>
+  <div class="bg-dots" aria-hidden="true"></div>
+  <div class="bg-aura one" aria-hidden="true"></div>
+  <div class="bg-aura two" aria-hidden="true"></div>
+
   <div class="top">
-    <div class="orbit" aria-hidden="true">
-      <div class="ring"></div>
+    <div class="hero" aria-hidden="true">
       <div class="line"></div>
       <div class="dot a"></div>
       <div class="dot b"></div>
     </div>
-    <h1 class="wordmark"><span>Sixtio</span></h1>
+    <h1 class="wordmark led grad-text">Sixtio</h1>
     <p class="thesis" id="thesis">Не свайпи. Знайомства, які справді мають сенс.</p>
-    <p class="sub" id="sub">Sixtio — розумна сваха. Вона ставить кілька щирих запитань, вивчає, хто ви, і знаходить людину, з якою у вас справжня сумісність.</p>
+    <div class="sub-card glass">
+      <span id="sub">Sixtio — розумна сваха. Вона ставить кілька щирих запитань, вивчає, хто ви, і знаходить людину, з якою у вас справжня сумісність.</span>
+    </div>
   </div>
 
   <div class="bottom">
-    <button class="cta" id="start">Познайомитись із Sixtio</button>
+    <button class="btn-primary" id="start" style="width:100%;">Познайомитись із Sixtio</button>
     <p class="note"><b>Приватно.</b>&nbsp; Вашого профілю Telegram ніхто не бачить.</p>
   </div>
 
@@ -84,7 +81,7 @@
       if (tg) {
         tg.ready();
         tg.expand();
-        try { tg.setHeaderColor && tg.setHeaderColor('secondary_bg_color'); } catch(e){}
+        try { tg.setHeaderColor && tg.setHeaderColor('bg_color'); } catch(e){}
         // personal greeting if Telegram shares a first name
         var name = tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.first_name;
         if (name) {
@@ -103,6 +100,9 @@
         body: JSON.stringify({ initData: (tg && tg.initData) || '' })
       }).then(function(r){ return r.ok ? r.json() : null; })
         .then(function(me){
+          if (me && me.user && window.SixtioTheme && me.user.gender) {
+            window.SixtioTheme.setGender(me.user.gender);
+          }
           if (me && me.profile) window.location.replace('waiting.html');
         })
         .catch(function(){ /* offline — stay on the welcome screen */ });

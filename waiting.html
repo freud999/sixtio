@@ -5,102 +5,102 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Sixtio — мій профіль</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="theme.js"></script>
+<link rel="stylesheet" href="theme.css" />
 <style>
-  :root{
-    --bg: var(--tg-theme-bg-color, #ffffff);
-    --text: var(--tg-theme-text-color, #16151c);
-    --hint: var(--tg-theme-hint-color, #8b8a94);
-    --card: var(--tg-theme-secondary-bg-color, #f4f3f8);
-    --violet: #7F77DD;
-    --violet-deep: #534AB7;
-    --teal: #1D9E75;
-  }
-  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
-  [hidden]{ display:none !important; }
-  html,body{ height:100%; }
   body{
-    background:var(--bg);
-    color:var(--text);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     display:flex; flex-direction:column; align-items:center;
-    min-height:100dvh;
     padding:calc(env(safe-area-inset-top) + 20px) 20px calc(env(safe-area-inset-bottom) + 12px);
     overflow-y:auto; gap:16px;
   }
+  body > *{ position:relative; z-index:1; }
+  .bg-dots, .bg-aura{ z-index:0; }
 
   /* searching banner */
   .search-banner{ display:flex; align-items:center; gap:12px; width:100%; max-width:440px;
-    padding:12px 16px; border-radius:14px; background:var(--card); }
+    padding:13px 16px; flex-shrink:0; }
   .pulse{ position:relative; width:14px; height:14px; flex-shrink:0; }
   .pulse::before, .pulse::after{ content:''; position:absolute; inset:0; border-radius:50%;
-    background:linear-gradient(90deg,var(--violet),var(--teal)); }
+    background:linear-gradient(120deg, var(--a2), var(--a1)); }
   .pulse::after{ animation:pulse 1.8s ease-out infinite; }
   @keyframes pulse{ from{ transform:scale(1); opacity:.7; } to{ transform:scale(2.6); opacity:0; } }
   .search-banner .txt{ font-size:13px; line-height:1.45; color:var(--hint); }
   .search-banner .txt b{ color:var(--text); font-weight:600; }
 
   /* profile head */
-  .profile-head{ display:flex; flex-direction:column; align-items:center; gap:10px; text-align:center; }
-  .avatar{ width:120px; height:120px; border-radius:50%; object-fit:cover;
+  .profile-head{ display:flex; flex-direction:column; align-items:center; gap:10px; text-align:center; flex-shrink:0; }
+  .avatar{ width:124px; height:124px; border-radius:50%; object-fit:cover;
     border:3px solid transparent; background:
       linear-gradient(var(--bg),var(--bg)) padding-box,
-      linear-gradient(120deg,var(--violet-deep),var(--teal)) border-box; }
-  .avatar-placeholder{ width:120px; height:120px; border-radius:50%; display:flex; align-items:center;
-    justify-content:center; font-size:42px; background:var(--card); color:var(--hint); }
-  .name-age{ font-size:21px; font-weight:600; letter-spacing:-0.3px; }
+      linear-gradient(120deg, var(--a2), var(--a1)) border-box;
+    box-shadow:0 16px 40px -14px var(--glow); }
+  .avatar-placeholder{ width:124px; height:124px; border-radius:50%; display:flex; align-items:center;
+    justify-content:center; font-size:42px; background:var(--faux-glass);
+    border:1px solid var(--glass-border); color:var(--hint); }
+  .name-age{ font-size:22px; font-weight:700; letter-spacing:-0.3px; }
   .meta{ font-size:14px; color:var(--hint); }
-  .goal-badge{ display:inline-block; font-size:13px; font-weight:500; padding:6px 14px;
-    border-radius:999px; color:#fff; background:linear-gradient(90deg,var(--violet-deep),var(--teal)); }
+  .goal-badge{ display:inline-block; font-size:13px; font-weight:600; padding:7px 15px;
+    border-radius:999px; color:#fff; background:linear-gradient(120deg, var(--a2), var(--a1));
+    box-shadow:0 8px 22px -10px var(--glow); }
 
-  /* sections */
-  .section{ width:100%; max-width:440px; padding:16px 18px; border-radius:16px; background:var(--card); }
-  .section .sec-title{ font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.6px;
+  /* glass sections */
+  .section{ width:100%; max-width:440px; padding:16px 18px; flex-shrink:0; }
+  .section .sec-title{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.09em;
     color:var(--hint); margin-bottom:10px; }
-  .section .sec-body{ font-size:14px; line-height:1.55; }
+  .section .sec-body{ font-size:14px; line-height:1.6; }
   .chips{ display:flex; flex-wrap:wrap; gap:8px; }
-  .chip{ font-size:13px; font-weight:500; padding:6px 12px; border-radius:999px;
-    color:#fff; background:var(--violet-deep); }
-  .chip:nth-child(even){ background:var(--teal); }
-  .chip.outline{ background:transparent; border:1.5px solid var(--violet-deep); color:var(--violet-deep); }
-  .chip.outline:nth-child(even){ border-color:var(--teal); color:var(--teal); }
+  .chip{ font-size:13px; font-weight:600; padding:7px 13px; border-radius:999px;
+    color:#fff; background:linear-gradient(120deg, var(--a2), var(--a1)); }
+  .chip.outline{ background:var(--faux-glass); border:1px solid var(--glass-border); color:var(--a1); }
   .sec-title.grad{
-    background:linear-gradient(90deg,var(--violet-deep),var(--teal));
+    background:linear-gradient(100deg, var(--a1), var(--a2));
     -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
 
   .note{ text-align:center; font-size:12px; color:var(--hint); padding-top:4px; }
 
-  /* match card */
-  .match-card{ width:100%; max-width:440px; border-radius:20px; overflow:hidden; flex-shrink:0;
-    border:2px solid transparent; background:
-      linear-gradient(var(--card),var(--card)) padding-box,
-      linear-gradient(120deg,var(--violet-deep),var(--teal)) border-box;
+  /* match card — aura tile */
+  .match-card{ width:100%; max-width:440px; border-radius:28px; overflow:hidden; flex-shrink:0;
+    color:#fff;
+    background:var(--a2);
+    background:radial-gradient(140% 110% at 50% -15%,
+      var(--a1) 0%, var(--a2) 52%,
+      color-mix(in srgb, var(--a2) 30%, var(--aura-deep)) 100%);
+    box-shadow:0 20px 52px -16px var(--glow);
     animation:rise .5s ease; }
   @keyframes rise{ from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:translateY(0); } }
-  .match-hero{ text-align:center; padding:16px 18px 4px; }
-  .match-hero .spark{ font-size:26px; }
-  .match-hero .headline{ font-size:18px; font-weight:700; margin-top:2px;
-    background:linear-gradient(90deg,var(--violet-deep),var(--teal));
-    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
-  .match-photo{ width:100%; aspect-ratio:1/1; object-fit:cover; display:block; margin-top:12px; }
+  .match-hero{ text-align:center; padding:18px 18px 4px; }
+  .match-hero .spark{ font-size:24px; }
+  .match-hero .headline{ font-size:17px; font-weight:800; margin-top:4px; letter-spacing:.03em; }
+  .match-media{ padding:14px 14px 0; }
+  .match-photo{ width:100%; aspect-ratio:1/1; object-fit:cover; display:block; border-radius:20px; }
   .match-photo-ph{ width:100%; aspect-ratio:1/1; display:flex; align-items:center; justify-content:center;
-    font-size:64px; background:var(--bg); color:var(--hint); margin-top:12px; }
-  .match-body{ padding:16px 18px; }
-  .match-name{ font-size:20px; font-weight:600; }
-  .match-meta{ font-size:14px; color:var(--hint); margin-top:2px; }
-  .match-reason{ font-size:14px; line-height:1.55; margin:14px 0; padding:12px 14px;
-    border-radius:12px; background:var(--bg); }
-  .match-reason .lbl{ display:block; font-size:11px; font-weight:600; text-transform:uppercase;
-    letter-spacing:.6px; color:var(--teal); margin-bottom:6px; }
-  .match-sub{ font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.6px;
-    color:var(--hint); margin:14px 0 8px; }
-  .write-btn{ width:100%; border:none; border-radius:14px; padding:15px; font-size:16px;
-    font-weight:600; color:#fff; background:var(--violet-deep); cursor:pointer; margin-top:16px;
+    font-size:64px; background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.25);
+    border-radius:20px; }
+  .match-body{ padding:16px 18px 18px; }
+  .match-name{ font-size:21px; font-weight:700; }
+  .match-meta{ font-size:14px; color:rgba(255,255,255,.75); margin-top:2px; }
+  .match-reason{ font-size:14px; line-height:1.6; margin:14px 0; padding:13px 15px;
+    border-radius:16px; background:rgba(255,255,255,.13); border:1px solid rgba(255,255,255,.22); }
+  .match-reason .lbl{ display:block; font-size:10px; font-weight:800; text-transform:uppercase;
+    letter-spacing:.12em; color:rgba(255,255,255,.8); margin-bottom:6px; }
+  .match-sub{ font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.12em;
+    color:rgba(255,255,255,.65); margin:14px 0 8px; }
+  .match-card .chip{ background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.3); }
+  .match-card .chip.outline{ background:transparent; border:1px solid rgba(255,255,255,.35); color:#fff; }
+  .match-card .sec-body{ color:rgba(255,255,255,.92); }
+  .write-btn{ width:100%; border:none; border-radius:999px; padding:16px; font-size:16px;
+    font-weight:700; color:var(--a2); background:#fff; cursor:pointer; margin-top:16px;
+    font-family:inherit; box-shadow:0 10px 26px -10px rgba(0,0,0,.35);
     transition:transform .12s ease, opacity .12s ease; }
   .write-btn:active{ transform:scale(0.98); opacity:.92; }
 </style>
 </head>
 <body>
-  <div class="search-banner" id="searchBanner">
+  <div class="bg-dots" aria-hidden="true"></div>
+  <div class="bg-aura one" aria-hidden="true"></div>
+  <div class="bg-aura two" aria-hidden="true"></div>
+
+  <div class="search-banner glass" id="searchBanner">
     <div class="pulse" aria-hidden="true"></div>
     <div class="txt"><b>Sixtio шукає твою пару.</b> Можна закривати додаток — щойно буде метч, бот напише тобі.</div>
   </div>
@@ -108,10 +108,12 @@
   <div class="match-card" id="matchCard" hidden>
     <div class="match-hero">
       <div class="spark">✨</div>
-      <div class="headline">Sixtio знайшла тобі пару!</div>
+      <div class="headline led">Sixtio знайшла тобі пару!</div>
     </div>
-    <img class="match-photo" id="matchPhoto" alt="Фото пари" hidden />
-    <div class="match-photo-ph" id="matchPhotoPh">🙂</div>
+    <div class="match-media">
+      <img class="match-photo" id="matchPhoto" alt="Фото пари" hidden />
+      <div class="match-photo-ph" id="matchPhotoPh">🙂</div>
+    </div>
     <div class="match-body">
       <div class="match-name" id="matchName"></div>
       <div class="match-meta" id="matchMeta"></div>
@@ -137,17 +139,17 @@
     <span class="goal-badge" id="goalBadge" hidden></span>
   </div>
 
-  <div class="section" id="bioSection" hidden>
+  <div class="section glass" id="bioSection" hidden>
     <div class="sec-title">Про мене</div>
     <div class="sec-body" id="bio"></div>
   </div>
 
-  <div class="section" id="interestsSection" hidden>
+  <div class="section glass" id="interestsSection" hidden>
     <div class="sec-title">Інтереси</div>
     <div class="chips" id="interests"></div>
   </div>
 
-  <div class="section" id="traitsSection" hidden>
+  <div class="section glass" id="traitsSection" hidden>
     <div class="sec-title grad">Як Sixtio тебе зрозуміла</div>
     <div class="chips" id="traits" style="margin-bottom:12px;"></div>
     <div class="sec-body" id="summary"></div>
@@ -161,7 +163,7 @@
       if (tg) {
         tg.ready();
         tg.expand();
-        try { tg.setHeaderColor && tg.setHeaderColor('secondary_bg_color'); } catch(e){}
+        try { tg.setHeaderColor && tg.setHeaderColor('bg_color'); } catch(e){}
       }
 
       var GOALS = {
@@ -185,6 +187,8 @@
       function render(me){
         var u = me.user || {};
         var p = me.profile;
+
+        if (u.gender && window.SixtioTheme) window.SixtioTheme.setGender(u.gender);
 
         if (u.photoUrl) {
           var avatar = document.getElementById('avatar');

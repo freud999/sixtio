@@ -1,5 +1,5 @@
 import { resolveUser } from './_lib/telegram.js';
-import { getSupabase, upsertUser, getActiveMatch } from './_lib/supabase.js';
+import { getSupabase, findUserId, getActiveMatch } from './_lib/supabase.js';
 import { notifyNewMessage } from './_lib/bot.js';
 
 const MAX_LEN = 2000;
@@ -20,8 +20,8 @@ export default async function handler(req, res) {
     if (body.length > MAX_LEN) return res.status(413).json({ error: 'Message too long' });
 
     const supabase = getSupabase();
-    const userId = await upsertUser(tgUser);
-    const match = await getActiveMatch(userId);
+    const userId = await findUserId(tgUser.id);
+    const match = userId ? await getActiveMatch(userId) : null;
     if (!match) return res.status(409).json({ error: 'No match yet' });
 
     const { data: inserted, error } = await supabase

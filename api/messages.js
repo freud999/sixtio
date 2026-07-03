@@ -1,5 +1,5 @@
 import { resolveUser } from './_lib/telegram.js';
-import { getSupabase, upsertUser, getActiveMatch } from './_lib/supabase.js';
+import { getSupabase, findUserId, getActiveMatch } from './_lib/supabase.js';
 
 // Returns the conversation for the current user's match: the partner's public
 // card + the message history. Each message is tagged as 'me' or 'them'.
@@ -15,8 +15,8 @@ export default async function handler(req, res) {
     }
 
     const supabase = getSupabase();
-    const userId = await upsertUser(tgUser);
-    const match = await getActiveMatch(userId);
+    const userId = await findUserId(tgUser.id);
+    const match = userId ? await getActiveMatch(userId) : null;
     if (!match) {
       return res.status(200).json({ hasMatch: false, partner: null, messages: [] });
     }
