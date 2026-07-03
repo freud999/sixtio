@@ -17,12 +17,12 @@ export default async function handler(req, res) {
     const supabase = getSupabase();
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, name')
+      .select('id, name, gender, seeking_gender, goal, age, city, interests, bio, photo_url')
       .eq('telegram_id', tgUser.id)
       .maybeSingle();
     if (error) throw error;
     if (!user) {
-      return res.status(200).json({ registered: false, profile: null });
+      return res.status(200).json({ registered: false, user: null, profile: null });
     }
 
     const { data: profile, error: profileError } = await supabase
@@ -34,6 +34,17 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       registered: true,
+      user: {
+        name: user.name,
+        gender: user.gender,
+        seekingGender: user.seeking_gender,
+        goal: user.goal,
+        age: user.age,
+        city: user.city,
+        interests: user.interests || [],
+        bio: user.bio,
+        photoUrl: user.photo_url,
+      },
       profile: profile
         ? { traits: profile.traits_json || [], summary: profile.summary_text || '' }
         : null,

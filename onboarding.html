@@ -42,11 +42,22 @@
   @keyframes pop{ from{ opacity:0; transform:translateY(6px) scale(.98); } to{ opacity:1; transform:translateY(0) scale(1); } }
   .bubble.bot{ align-self:flex-start; background:var(--card); color:var(--text); border-bottom-left-radius:4px; }
   .bubble.user{ align-self:flex-end; background:var(--violet-deep); color:#fff; border-bottom-right-radius:4px; }
+  .bubble.photo{ align-self:flex-end; padding:6px; background:var(--violet-deep); }
+  .bubble.photo img{ display:block; width:160px; height:160px; object-fit:cover; border-radius:12px; }
   .bubble.typing{ align-self:flex-start; background:var(--card); display:flex; gap:4px; align-items:center; padding:14px 16px; }
   .typing-dot{ width:6px; height:6px; border-radius:50%; background:var(--hint); animation:blink 1.2s infinite ease-in-out; }
   .typing-dot:nth-child(2){ animation-delay:.15s; }
   .typing-dot:nth-child(3){ animation-delay:.3s; }
   @keyframes blink{ 0%,80%,100%{ opacity:.25; transform:scale(.85); } 40%{ opacity:1; transform:scale(1); } }
+
+  /* option buttons */
+  .options{ display:flex; flex-wrap:wrap; gap:8px; align-self:flex-start; max-width:90%;
+    animation:pop .25s ease; opacity:0; animation-fill-mode:forwards; }
+  .option-btn{ border:1.5px solid var(--violet-deep); border-radius:999px; background:transparent;
+    color:var(--violet-deep); font-size:14px; font-weight:500; padding:10px 16px; cursor:pointer;
+    font-family:inherit; transition:transform .12s ease, opacity .12s ease; }
+  .option-btn:active{ transform:scale(0.96); opacity:.85; }
+  .option-btn.secondary{ border-color:var(--hint); color:var(--hint); }
 
   /* completion / profile card */
   .done-card{ align-self:center; text-align:center; max-width:92%; padding:18px; margin-top:8px; }
@@ -91,7 +102,7 @@
 <body>
   <div class="header">
     <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
-    <div class="step-label" id="stepLabel">Питання 1 з 7</div>
+    <div class="step-label" id="stepLabel">&nbsp;</div>
   </div>
 
   <div class="chat" id="chat"></div>
@@ -100,6 +111,7 @@
     <textarea id="answerInput" rows="1" placeholder="Напишіть відповідь..."></textarea>
     <button type="submit" id="sendBtn" aria-label="Надіслати">➤</button>
   </form>
+  <input type="file" id="photoInput" accept="image/*" hidden />
 
   <script>
     (function(){
@@ -110,9 +122,27 @@
         try { tg.setHeaderColor && tg.setHeaderColor('secondary_bg_color'); } catch(e){}
       }
 
+      // ---- steps -------------------------------------------------------
+      var profileSteps = [
+        { id:'gender', type:'options', text:'Привіт! Я Sixtio 💜 Спершу трохи про тебе. Хто ти?',
+          options:[{v:'male',label:'Чоловік'},{v:'female',label:'Жінка'}] },
+        { id:'seekingGender', type:'options', text:'Кого ти хочеш зустріти?',
+          options:[{v:'male',label:'Чоловіка'},{v:'female',label:'Жінку'},{v:'any',label:'Неважливо'}] },
+        { id:'goal', type:'options', text:'Що ти шукаєш у Sixtio?',
+          options:[{v:'longterm',label:'Довготривалі стосунки'},{v:'fun',label:'Розважитись'},{v:'situational',label:'По ситуації'}] },
+        { id:'age', type:'number', text:'Скільки тобі років?' },
+        { id:'city', type:'text', optional:true, text:'З якого ти міста?' },
+        { id:'interests', type:'text', optional:true,
+          text:'Розкажи про свої інтереси — просто через кому. Наприклад: подорожі, кіно, біг' },
+        { id:'bio', type:'text', optional:true,
+          text:'Кілька слів про себе — як би ти представив(-ла) себе людині, яка тобі подобається?' },
+        { id:'photo', type:'photo', optional:true,
+          text:'І додай своє фото — його побачить лише людина, з якою у вас метч.' }
+      ];
+
       // Keep ids in sync with api/_lib/questions.js
       var questions = [
-        { id: "q1", text: "Опиши свій ідеальний будній вечір — з ким ти і що відбувається?" },
+        { id: "q1", text: "А тепер — найцікавіше. Опиши свій ідеальний будній вечір: з ким ти і що відбувається?" },
         { id: "q2", text: "Ти більше живеш за чітким планом чи любиш спонтанність? Розкажи на прикладі." },
         { id: "q3", text: "Що в людях чи в стосунках дратує тебе найбільше?" },
         { id: "q4", text: "Коли виникає конфлікт — ти одразу говориш про це, береш паузу подумати чи мовчиш?" },
@@ -121,17 +151,25 @@
         { id: "q7", text: "Що тобі найбільше потрібно від партнера, коли тобі важко?" }
       ];
 
+      var TOTAL = profileSteps.length + questions.length;
+
+      // ---- elements & state --------------------------------------------
       var chat = document.getElementById('chat');
       var composer = document.getElementById('composer');
       var input = document.getElementById('answerInput');
       var sendBtn = document.getElementById('sendBtn');
+      var photoInput = document.getElementById('photoInput');
       var progressFill = document.getElementById('progressFill');
       var stepLabel = document.getElementById('stepLabel');
 
       var STORAGE_KEY = 'sixtio_onboarding_answers';
-      var index = 0;
+      var stage = 'profile';        // 'profile' | 'psych'
+      var pIndex = 0;               // profile step index
+      var index = 0;                // psych question index
+      var phase = 'main';           // 'main' | 'followup' (psych only)
+      var profileData = { interests: [] };
       var answers = [];
-      var phase = 'main'; // 'main' — чекаємо відповідь на основне питання, 'followup' — на підпитання
+      var lastFollowupText = '';
 
       function api(path, payload){
         var body = Object.assign({ initData: (tg && tg.initData) || '' }, payload);
@@ -148,6 +186,7 @@
         });
       }
 
+      // ---- chat helpers -------------------------------------------------
       function scrollToBottom(){
         requestAnimationFrame(function(){ chat.scrollTop = chat.scrollHeight; });
       }
@@ -161,12 +200,15 @@
         return el;
       }
 
-      function updateProgress(){
-        var pct = Math.min(index, questions.length) / questions.length * 100;
-        progressFill.style.width = pct + '%';
-        stepLabel.textContent = index < questions.length
-          ? 'Питання ' + (index + 1) + ' з ' + questions.length
-          : 'Готово';
+      function addPhotoBubble(dataUrl){
+        var el = document.createElement('div');
+        el.className = 'bubble photo';
+        var img = document.createElement('img');
+        img.src = dataUrl;
+        img.alt = 'Твоє фото';
+        el.appendChild(img);
+        chat.appendChild(el);
+        scrollToBottom();
       }
 
       function startTyping(){
@@ -187,19 +229,187 @@
         }, 550 + Math.random() * 350);
       }
 
+      function updateProgress(){
+        var done = (stage === 'profile') ? pIndex : profileSteps.length + index;
+        var pct = Math.min(done, TOTAL) / TOTAL * 100;
+        progressFill.style.width = pct + '%';
+        stepLabel.textContent = done < TOTAL ? 'Крок ' + (done + 1) + ' з ' + TOTAL : 'Готово';
+      }
+
+      function setComposer(enabled, placeholder){
+        input.disabled = !enabled;
+        sendBtn.disabled = !enabled;
+        input.placeholder = placeholder || 'Напишіть відповідь...';
+        if (enabled) input.focus();
+      }
+
+      var currentOptions = null;
+      function showOptions(list){
+        removeOptions();
+        var wrap = document.createElement('div');
+        wrap.className = 'options';
+        list.forEach(function(opt){
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'option-btn' + (opt.secondary ? ' secondary' : '');
+          btn.textContent = opt.label;
+          btn.addEventListener('click', function(){
+            if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('light'); } catch(e){} }
+            opt.onSelect();
+          });
+          wrap.appendChild(btn);
+        });
+        chat.appendChild(wrap);
+        currentOptions = wrap;
+        scrollToBottom();
+      }
+      function removeOptions(){
+        if (currentOptions) { currentOptions.remove(); currentOptions = null; }
+      }
+
+      // ---- profile stage -------------------------------------------------
+      function askNextProfile(){
+        updateProgress();
+        if (pIndex >= profileSteps.length) {
+          submitProfileInfo();
+          return;
+        }
+        var step = profileSteps[pIndex];
+        setComposer(false);
+        showTyping(function(){
+          addBubble(step.text, 'bot');
+          if (step.type === 'options') {
+            showOptions(step.options.map(function(o){
+              return { label: o.label, onSelect: function(){ answerProfile(step, o.v, o.label); } };
+            }));
+          } else if (step.type === 'photo') {
+            showOptions([
+              { label: '📷 Обрати фото', onSelect: function(){ photoInput.click(); } },
+              { label: 'Пропустити', secondary: true, onSelect: function(){ skipProfile(step); } }
+            ]);
+          } else {
+            setComposer(true, step.type === 'number' ? 'Вкажи вік числом...' : 'Напишіть відповідь...');
+            if (step.optional) {
+              showOptions([{ label: 'Пропустити', secondary: true, onSelect: function(){ skipProfile(step); } }]);
+            }
+          }
+        });
+      }
+
+      function answerProfile(step, value, displayText){
+        removeOptions();
+        addBubble(displayText, 'user');
+        profileData[step.id] = value;
+        pIndex++;
+        askNextProfile();
+      }
+
+      function skipProfile(step){
+        removeOptions();
+        addBubble('Пропустити', 'user');
+        pIndex++;
+        askNextProfile();
+      }
+
+      function handleProfileText(value){
+        var step = profileSteps[pIndex];
+        if (step.type === 'number') {
+          var age = parseInt(value, 10);
+          if (!/^\d{2,3}$/.test(value.trim()) || age < 18 || age > 100) {
+            addBubble(value, 'user');
+            showTyping(function(){
+              addBubble(age < 18 ? 'Sixtio знайомить лише повнолітніх — вкажи вік від 18 🙂' : 'Вкажи, будь ласка, вік числом — наприклад, 25', 'bot');
+              setComposer(true, 'Вкажи вік числом...');
+            });
+            return;
+          }
+          answerProfile(step, age, value.trim());
+          return;
+        }
+        if (step.id === 'interests') {
+          var list = value.split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+          answerProfile(step, list, value);
+          return;
+        }
+        answerProfile(step, value, value);
+      }
+
+      function submitProfileInfo(){
+        setComposer(false);
+        var typingEl = startTyping();
+        api('/api/profile-info', {
+          gender: profileData.gender,
+          seekingGender: profileData.seekingGender,
+          goal: profileData.goal,
+          age: profileData.age,
+          city: profileData.city || '',
+          interests: profileData.interests || [],
+          bio: profileData.bio || ''
+        }).catch(function(e){
+          console.error('profile-info save failed', e);
+        }).then(function(){
+          typingEl.remove();
+          startPsych();
+        });
+      }
+
+      function startPsych(){
+        stage = 'psych';
+        index = 0;
+        askNext();
+      }
+
+      // ---- photo upload ---------------------------------------------------
+      photoInput.addEventListener('change', function(){
+        var file = photoInput.files && photoInput.files[0];
+        photoInput.value = '';
+        if (!file) return;
+        removeOptions();
+        var reader = new FileReader();
+        reader.onload = function(){
+          var img = new Image();
+          img.onload = function(){
+            var MAX = 1024;
+            var scale = Math.min(1, MAX / Math.max(img.width, img.height));
+            var canvas = document.createElement('canvas');
+            canvas.width = Math.round(img.width * scale);
+            canvas.height = Math.round(img.height * scale);
+            canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+            var dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+            addPhotoBubble(dataUrl);
+            var typingEl = startTyping();
+            api('/api/photo', { imageBase64: dataUrl }).then(function(){
+              typingEl.remove();
+              addBubble('Чудове фото! 📸', 'bot');
+              pIndex++;
+              askNextProfile();
+            }).catch(function(){
+              typingEl.remove();
+              addBubble('Не вдалося завантажити фото — спробуємо пізніше, це не завадить знайомству.', 'bot');
+              pIndex++;
+              askNextProfile();
+            });
+          };
+          img.onerror = function(){
+            addBubble('Не вдалося прочитати це фото. Спробуй інше.', 'bot');
+            askNextProfile();
+          };
+          img.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+      });
+
+      // ---- psych stage (main questions + AI follow-ups) -------------------
       function askNext(){
         updateProgress();
         if (index >= questions.length) {
           finish();
           return;
         }
-        input.disabled = true;
-        sendBtn.disabled = true;
+        setComposer(false);
         showTyping(function(){
           addBubble(questions[index].text, 'bot');
-          input.disabled = false;
-          sendBtn.disabled = false;
-          input.focus();
+          setComposer(true);
         });
       }
 
@@ -209,13 +419,22 @@
       }
       input.addEventListener('input', autosize);
 
-      var lastFollowupText = '';
-
       composer.addEventListener('submit', function(e){
         e.preventDefault();
         var value = input.value.trim();
-        if (!value || index >= questions.length || input.disabled) return;
+        if (!value || input.disabled) return;
 
+        input.value = '';
+        autosize();
+        if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('light'); } catch(err){} }
+
+        if (stage === 'profile') {
+          removeOptions();
+          handleProfileText(value);
+          return;
+        }
+
+        if (index >= questions.length) return;
         var q = questions[index];
         var isFollowup = (phase === 'followup');
         var questionId = isFollowup ? q.id + '_f' : q.id;
@@ -228,12 +447,7 @@
         });
         localStorage.setItem(STORAGE_KEY, JSON.stringify(answers));
 
-        input.value = '';
-        autosize();
-        if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('light'); } catch(err){} }
-
-        input.disabled = true;
-        sendBtn.disabled = true;
+        setComposer(false);
         var typingEl = startTyping();
 
         function advance(){
@@ -253,9 +467,7 @@
             phase = 'followup';
             lastFollowupText = resp.followup;
             addBubble(resp.followup, 'bot');
-            input.disabled = false;
-            sendBtn.disabled = false;
-            input.focus();
+            setComposer(true);
           } else {
             advance();
           }
@@ -273,6 +485,7 @@
         }
       });
 
+      // ---- finish ----------------------------------------------------------
       function renderProfileCard(profile){
         var card = document.createElement('div');
         card.className = 'profile-card';
@@ -355,19 +568,20 @@
         if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.notificationOccurred('success'); } catch(err){} }
       }
 
-      // If this account already finished onboarding, skip straight to the waiting screen.
+      // ---- init -------------------------------------------------------------
+      // If this account already finished onboarding, skip straight to the profile screen.
       api('/api/me', {}).then(function(me){
         if (me && me.profile) {
           localStorage.setItem('sixtio_profile', JSON.stringify(me.profile));
           window.location.replace('waiting.html');
         } else {
-          askNext();
+          askNextProfile();
         }
       }).catch(function(){
         if (localStorage.getItem('sixtio_onboarding_complete') === 'true') {
           window.location.replace('waiting.html');
         } else {
-          askNext();
+          askNextProfile();
         }
       });
     })();

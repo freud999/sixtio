@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>Sixtio — пошук пари</title>
+<title>Sixtio — мій профіль</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
   :root{
@@ -16,72 +16,91 @@
     --teal: #1D9E75;
   }
   *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  [hidden]{ display:none !important; }
   html,body{ height:100%; }
   body{
     background:var(--bg);
     color:var(--text);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    display:flex; flex-direction:column;
+    display:flex; flex-direction:column; align-items:center;
     min-height:100dvh;
-    padding:env(safe-area-inset-top) 24px env(safe-area-inset-bottom);
-    overflow-y:auto;
+    padding:calc(env(safe-area-inset-top) + 20px) 20px calc(env(safe-area-inset-bottom) + 12px);
+    overflow-y:auto; gap:16px;
   }
-  .top{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:20px; padding:24px 0; }
 
-  /* signature: two orbiting dots that connect (from index.html) */
-  .orbit{ width:112px; height:112px; position:relative; flex-shrink:0; }
-  .ring{ position:absolute; inset:0; border-radius:50%; border:1px solid var(--card); }
-  .line{ position:absolute; top:50%; left:22px; right:22px; height:2px; transform:translateY(-50%) scaleX(0);
-    background:linear-gradient(90deg,var(--violet),var(--teal)); border-radius:2px;
-    animation:link 4s ease-in-out infinite; transform-origin:center; }
-  .dot{ position:absolute; top:50%; width:19px; height:19px; border-radius:50%; margin-top:-9.5px; }
-  .dot.a{ left:13px; background:var(--violet); animation:driftA 4s ease-in-out infinite; }
-  .dot.b{ right:13px; background:var(--teal); animation:driftB 4s ease-in-out infinite; }
-  @keyframes driftA{ 0%,100%{transform:translateX(-12px)} 45%,70%{transform:translateX(26px)} }
-  @keyframes driftB{ 0%,100%{transform:translateX(12px)} 45%,70%{transform:translateX(-26px)} }
-  @keyframes link{ 0%,25%{transform:translateY(-50%) scaleX(0);opacity:0} 50%,68%{transform:translateY(-50%) scaleX(1);opacity:1} 90%,100%{transform:translateY(-50%) scaleX(0);opacity:0} }
+  /* searching banner */
+  .search-banner{ display:flex; align-items:center; gap:12px; width:100%; max-width:440px;
+    padding:12px 16px; border-radius:14px; background:var(--card); }
+  .pulse{ position:relative; width:14px; height:14px; flex-shrink:0; }
+  .pulse::before, .pulse::after{ content:''; position:absolute; inset:0; border-radius:50%;
+    background:linear-gradient(90deg,var(--violet),var(--teal)); }
+  .pulse::after{ animation:pulse 1.8s ease-out infinite; }
+  @keyframes pulse{ from{ transform:scale(1); opacity:.7; } to{ transform:scale(2.6); opacity:0; } }
+  .search-banner .txt{ font-size:13px; line-height:1.45; color:var(--hint); }
+  .search-banner .txt b{ color:var(--text); font-weight:600; }
 
-  .title{ font-size:22px; font-weight:600; letter-spacing:-0.3px; }
-  .status{ font-size:15px; line-height:1.55; color:var(--hint); max-width:320px; }
-  .status b{ color:var(--teal); font-weight:600; }
+  /* profile head */
+  .profile-head{ display:flex; flex-direction:column; align-items:center; gap:10px; text-align:center; }
+  .avatar{ width:120px; height:120px; border-radius:50%; object-fit:cover;
+    border:3px solid transparent; background:
+      linear-gradient(var(--bg),var(--bg)) padding-box,
+      linear-gradient(120deg,var(--violet-deep),var(--teal)) border-box; }
+  .avatar-placeholder{ width:120px; height:120px; border-radius:50%; display:flex; align-items:center;
+    justify-content:center; font-size:42px; background:var(--card); color:var(--hint); }
+  .name-age{ font-size:21px; font-weight:600; letter-spacing:-0.3px; }
+  .meta{ font-size:14px; color:var(--hint); }
+  .goal-badge{ display:inline-block; font-size:13px; font-weight:500; padding:6px 14px;
+    border-radius:999px; color:#fff; background:linear-gradient(90deg,var(--violet-deep),var(--teal)); }
 
-  .profile-card{ width:100%; max-width:420px; padding:20px 18px;
-    border-radius:18px; background:var(--card); text-align:center; }
-  .profile-card .card-title{ font-size:15px; font-weight:600; margin-bottom:12px;
-    background:linear-gradient(90deg,var(--violet-deep),var(--teal));
-    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
-  .chips{ display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:14px; }
+  /* sections */
+  .section{ width:100%; max-width:440px; padding:16px 18px; border-radius:16px; background:var(--card); }
+  .section .sec-title{ font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.6px;
+    color:var(--hint); margin-bottom:10px; }
+  .section .sec-body{ font-size:14px; line-height:1.55; }
+  .chips{ display:flex; flex-wrap:wrap; gap:8px; }
   .chip{ font-size:13px; font-weight:500; padding:6px 12px; border-radius:999px;
     color:#fff; background:var(--violet-deep); }
   .chip:nth-child(even){ background:var(--teal); }
-  .summary{ font-size:14px; line-height:1.55; color:var(--text); }
+  .chip.outline{ background:transparent; border:1.5px solid var(--violet-deep); color:var(--violet-deep); }
+  .chip.outline:nth-child(even){ border-color:var(--teal); color:var(--teal); }
+  .sec-title.grad{
+    background:linear-gradient(90deg,var(--violet-deep),var(--teal));
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
 
-  .note{ text-align:center; font-size:12px; color:var(--hint); padding:12px 0 8px; }
-
-  @media (prefers-reduced-motion: reduce){
-    .dot.a,.dot.b,.line{ animation:none; }
-    .line{ transform:translateY(-50%) scaleX(1); opacity:1; }
-    .dot.a{ transform:translateX(26px); } .dot.b{ transform:translateX(-26px); }
-  }
+  .note{ text-align:center; font-size:12px; color:var(--hint); padding-top:4px; }
 </style>
 </head>
 <body>
-  <div class="top">
-    <div class="orbit" aria-hidden="true">
-      <div class="ring"></div>
-      <div class="line"></div>
-      <div class="dot a"></div>
-      <div class="dot b"></div>
-    </div>
-    <h1 class="title">Твій профіль готовий</h1>
-    <p class="status" id="status"><b>Sixtio шукає твою пару.</b> Вона вивчає інших людей і зіставляє характери — справжня сумісність потребує трохи часу.</p>
-    <div class="profile-card" id="profileCard" hidden>
-      <div class="card-title">Ось як Sixtio тебе зрозуміла</div>
-      <div class="chips" id="chips"></div>
-      <div class="summary" id="summary"></div>
-    </div>
+  <div class="search-banner">
+    <div class="pulse" aria-hidden="true"></div>
+    <div class="txt"><b>Sixtio шукає твою пару.</b> Можна закривати додаток — щойно буде метч, бот напише тобі.</div>
   </div>
-  <p class="note">Можна закривати додаток — щойно з'явиться метч, бот напише тобі в Telegram.</p>
+
+  <div class="profile-head">
+    <img class="avatar" id="avatar" alt="Фото профілю" hidden />
+    <div class="avatar-placeholder" id="avatarPlaceholder">🙂</div>
+    <div class="name-age" id="nameAge"></div>
+    <div class="meta" id="meta"></div>
+    <span class="goal-badge" id="goalBadge" hidden></span>
+  </div>
+
+  <div class="section" id="bioSection" hidden>
+    <div class="sec-title">Про мене</div>
+    <div class="sec-body" id="bio"></div>
+  </div>
+
+  <div class="section" id="interestsSection" hidden>
+    <div class="sec-title">Інтереси</div>
+    <div class="chips" id="interests"></div>
+  </div>
+
+  <div class="section" id="traitsSection" hidden>
+    <div class="sec-title grad">Як Sixtio тебе зрозуміла</div>
+    <div class="chips" id="traits" style="margin-bottom:12px;"></div>
+    <div class="sec-body" id="summary"></div>
+  </div>
+
+  <p class="note">Що щиріші відповіді — то точніший метч 💜</p>
 
   <script>
     (function(){
@@ -92,23 +111,64 @@
         try { tg.setHeaderColor && tg.setHeaderColor('secondary_bg_color'); } catch(e){}
       }
 
-      function renderProfile(profile){
-        if (!profile || !profile.traits || !profile.traits.length) return;
-        var chips = document.getElementById('chips');
-        chips.innerHTML = '';
-        profile.traits.forEach(function(trait){
+      var GOALS = {
+        longterm: 'Шукаю довготривалі стосунки',
+        fun: 'Хочу розважитись',
+        situational: 'Відкритий(-а) — по ситуації'
+      };
+
+      function fillChips(containerId, items, outline){
+        var wrap = document.getElementById(containerId);
+        wrap.innerHTML = '';
+        (items || []).forEach(function(item){
           var chip = document.createElement('span');
-          chip.className = 'chip';
-          chip.textContent = trait;
-          chips.appendChild(chip);
+          chip.className = 'chip' + (outline ? ' outline' : '');
+          chip.textContent = item;
+          wrap.appendChild(chip);
         });
-        document.getElementById('summary').textContent = profile.summary || '';
-        document.getElementById('profileCard').hidden = false;
+        return (items || []).length > 0;
       }
 
-      // Offline-first: show the cached profile immediately, then refresh from API.
+      function render(me){
+        var u = me.user || {};
+        var p = me.profile;
+
+        if (u.photoUrl) {
+          var avatar = document.getElementById('avatar');
+          avatar.src = u.photoUrl;
+          avatar.hidden = false;
+          document.getElementById('avatarPlaceholder').hidden = true;
+        }
+
+        var tgName = tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.first_name;
+        var name = tgName || (u.name || '').split(' ')[0] || '';
+        document.getElementById('nameAge').textContent = name + (u.age ? (name ? ', ' : '') + u.age : '');
+        document.getElementById('meta').textContent = u.city ? '📍 ' + u.city : '';
+
+        if (u.goal && GOALS[u.goal]) {
+          var badge = document.getElementById('goalBadge');
+          badge.textContent = GOALS[u.goal];
+          badge.hidden = false;
+        }
+
+        if (u.bio) {
+          document.getElementById('bio').textContent = u.bio;
+          document.getElementById('bioSection').hidden = false;
+        }
+        if (fillChips('interests', u.interests, true)) {
+          document.getElementById('interestsSection').hidden = false;
+        }
+        if (p && p.traits && p.traits.length) {
+          fillChips('traits', p.traits, false);
+          document.getElementById('summary').textContent = p.summary || '';
+          document.getElementById('traitsSection').hidden = false;
+        }
+      }
+
+      // Offline-first: cached psych profile shows even before the API answers.
       try {
-        renderProfile(JSON.parse(localStorage.getItem('sixtio_profile') || 'null'));
+        var cached = JSON.parse(localStorage.getItem('sixtio_profile') || 'null');
+        if (cached) render({ user: {}, profile: cached });
       } catch(e){}
 
       fetch('/api/me', {
@@ -119,14 +179,13 @@
         if (!r.ok) throw new Error('HTTP ' + r.status);
         return r.json();
       }).then(function(me){
-        if (me.profile) {
-          localStorage.setItem('sixtio_profile', JSON.stringify(me.profile));
-          renderProfile(me.profile);
-        } else if (!me.registered) {
-          // Not onboarded on this account — send back to the start.
+        if (!me.registered) {
           window.location.replace('onboarding.html');
+          return;
         }
-      }).catch(function(){ /* offline — cached card is already shown */ });
+        if (me.profile) localStorage.setItem('sixtio_profile', JSON.stringify(me.profile));
+        render(me);
+      }).catch(function(){ /* offline — cached data is already shown */ });
     })();
   </script>
 </body>
