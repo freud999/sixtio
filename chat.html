@@ -111,15 +111,19 @@
       var initData = (tg && tg.initData) || '';
       var seen = {};       // message id -> true (dedupe across polls)
       var pollTimer = null;
+      // Which conversation (multi-match). Empty → server picks the most recent.
+      var matchId = new URLSearchParams(window.location.search).get('match') || null;
 
       function goBack(){ window.location.href = 'matches.html'; }
       document.getElementById('back').addEventListener('click', goBack);
 
       function api(path, payload){
+        var body = Object.assign({ initData: initData }, payload);
+        if (matchId) body.matchId = matchId;
         return fetch(path, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(Object.assign({ initData: initData }, payload))
+          body: JSON.stringify(body)
         }).then(function(r){
           if (!r.ok) throw new Error('HTTP ' + r.status);
           return r.json();
@@ -156,6 +160,8 @@
       function load(){
         api('/api/messages', {}).then(function(data){
           if (!data.hasMatch) { goBack(); return; }
+          // Pin the conversation so polling/sending stays on this match.
+          if (data.matchId) matchId = data.matchId;
           if (!partnerLoaded) { renderPartner(data.partner); partnerLoaded = true; }
           var had = Object.keys(seen).length;
           data.messages.forEach(addMessage);

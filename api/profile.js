@@ -43,7 +43,9 @@ export default async function handler(req, res) {
       {
         user_id: userId,
         traits_json: profile.traits,
+        vibe: profile.vibe || null,
         summary_text: profile.summary,
+        portrait_json: profile.portrait || null,
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'user_id' }

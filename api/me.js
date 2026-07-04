@@ -1,8 +1,8 @@
 import { resolveUser } from './_lib/telegram.js';
-import { getSupabase } from './_lib/supabase.js';
+import { getSupabase, getMatchesFor } from './_lib/supabase.js';
 
-// Returns the current user's onboarding state: whether they exist in the DB
-// and their generated profile (if onboarding is complete).
+// Returns the current user's onboarding state, their profile, and the list of
+// their matches (each as a public partner card — no Telegram identity exposed).
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -22,56 +22,47 @@ export default async function handler(req, res) {
       .maybeSingle();
     if (error) throw error;
     if (!user) {
-      return res.status(200).json({ registered: false, user: null, profile: null });
+      return res.status(200).json({ registered: false, user: null, profile: null, matches: [] });
     }
 
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('traits_json, summary_text')
+      .select('traits_json, vibe, summary_text')
       .eq('user_id', user.id)
       .maybeSingle();
     if (profileError) throw profileError;
 
-    // Most recent match for this user, with the partner's public card.
-    let match = null;
-    const { data: matchRow, error: matchError } = await supabase
-      .from('matches')
-      .select('user_a, user_b, score, reason, created_at')
-      .or(`user_a.eq.${user.id},user_b.eq.${user.id}`)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (matchError) throw matchError;
-
-    if (matchRow) {
-      const partnerId = matchRow.user_a === user.id ? matchRow.user_b : matchRow.user_a;
+    // Build a public card for every match this user holds.
+    const rows = await getMatchesFor(user.id);
+    const matches = [];
+    for (const m of rows) {
       const { data: partner } = await supabase
         .from('users')
         .select('name, age, city, goal, interests, bio, photo_url')
-        .eq('id', partnerId)
+        .eq('id', m.partnerId)
         .maybeSingle();
+      if (!partner) continue;
       const { data: partnerProfile } = await supabase
         .from('profiles')
-        .select('traits_json')
-        .eq('user_id', partnerId)
+        .select('traits_json, vibe')
+        .eq('user_id', m.partnerId)
         .maybeSingle();
-      if (partner) {
-        // Public card only — no Telegram identity is exposed here (Sixtio's privacy promise).
-        match = {
-          reason: matchRow.reason,
-          score: matchRow.score,
-          partner: {
-            name: (partner.name || '').split(' ')[0] || 'Хтось особливий',
-            age: partner.age,
-            city: partner.city,
-            goal: partner.goal,
-            interests: partner.interests || [],
-            bio: partner.bio,
-            photoUrl: partner.photo_url,
-            traits: (partnerProfile && partnerProfile.traits_json) || [],
-          },
-        };
-      }
+      matches.push({
+        matchId: m.matchId,
+        reason: m.reason,
+        score: m.score,
+        partner: {
+          name: (partner.name || '').split(' ')[0] || 'Хтось особливий',
+          age: partner.age,
+          city: partner.city,
+          goal: partner.goal,
+          interests: partner.interests || [],
+          bio: partner.bio,
+          photoUrl: partner.photo_url,
+          traits: (partnerProfile && partnerProfile.traits_json) || [],
+          vibe: (partnerProfile && partnerProfile.vibe) || '',
+        },
+      });
     }
 
     return res.status(200).json({
@@ -88,9 +79,11 @@ export default async function handler(req, res) {
         photoUrl: user.photo_url,
       },
       profile: profile
-        ? { traits: profile.traits_json || [], summary: profile.summary_text || '' }
+        ? { traits: profile.traits_json || [], vibe: profile.vibe || '', summary: profile.summary_text || '' }
         : null,
-      match,
+      matches,
+      // Back-compat: the first match, same shape older clients expected.
+      match: matches[0] || null,
     });
   } catch (e) {
     console.error('api/me failed:', e);

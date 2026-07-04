@@ -4,23 +4,24 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Sixtio — метчі</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="theme.js"></script>
 <link rel="stylesheet" href="theme.css" />
 <style>
   body{
     display:flex; flex-direction:column; align-items:center;
-    padding:calc(env(safe-area-inset-top) + 18px) 20px 12px;
-    overflow-y:auto; gap:16px;
+    padding:calc(env(safe-area-inset-top) + 16px) 16px 12px;
+    overflow-y:auto; gap:12px;
   }
   body > *{ position:relative; z-index:1; }
   .bg-dots, .bg-aura{ z-index:0; }
 
   .page-title{ font-size:15px; letter-spacing:.12em; }
 
-  /* searching banner */
-  .search-banner{ display:flex; align-items:center; gap:12px; width:100%; max-width:440px;
-    padding:13px 16px; flex-shrink:0; }
+  /* empty / searching state */
+  .search-banner{ display:flex; align-items:center; gap:12px; width:100%; max-width:460px;
+    padding:14px 16px; }
   .pulse{ position:relative; width:14px; height:14px; flex-shrink:0; }
   .pulse::before, .pulse::after{ content:''; position:absolute; inset:0; border-radius:50%;
     background:linear-gradient(120deg, var(--a2), var(--a1)); }
@@ -28,47 +29,38 @@
   @keyframes pulse{ from{ transform:scale(1); opacity:.7; } to{ transform:scale(2.6); opacity:0; } }
   .search-banner .txt{ font-size:13px; line-height:1.45; color:var(--hint); }
   .search-banner .txt b{ color:var(--text); font-weight:600; }
+  .find-btn{ width:100%; max-width:460px; }
 
-  /* match card — aura tile with a story-style circle avatar */
-  .match-card{ width:100%; max-width:440px; border-radius:28px; flex-shrink:0;
-    color:#fff; padding:22px 18px 18px; text-align:center;
-    background:var(--a2);
-    background:radial-gradient(140% 110% at 50% -15%,
-      var(--a1) 0%, var(--a2) 52%,
-      color-mix(in srgb, var(--a2) 30%, var(--aura-deep)) 100%);
-    box-shadow:0 20px 52px -16px var(--glow);
-    animation:rise .5s ease; }
-  @keyframes rise{ from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:translateY(0); } }
-  .match-hero .spark{ font-size:22px; }
-  .match-hero .headline{ font-size:16px; font-weight:800; margin:4px 0 16px; letter-spacing:.04em; }
-  .match-ava-wrap{ display:flex; justify-content:center; }
-  .match-ava{ width:108px; height:108px; border-radius:50%; object-fit:cover;
-    border:3px solid rgba(255,255,255,.9); box-shadow:0 10px 28px rgba(0,0,0,.25); }
-  .match-ava-ph{ width:108px; height:108px; border-radius:50%; display:flex; align-items:center;
-    justify-content:center; font-size:44px; background:rgba(255,255,255,.14);
-    border:3px solid rgba(255,255,255,.55); }
-  .match-name{ font-size:21px; font-weight:700; margin-top:12px; }
-  .match-meta{ font-size:14px; color:rgba(255,255,255,.75); margin-top:2px; }
-  .match-reason{ font-size:14px; line-height:1.6; margin:14px 0 4px; padding:13px 15px;
-    text-align:left; border-radius:16px;
-    background:rgba(255,255,255,.13); border:1px solid rgba(255,255,255,.22); }
-  .match-reason .lbl{ display:block; font-size:10px; font-weight:800; text-transform:uppercase;
-    letter-spacing:.12em; color:rgba(255,255,255,.8); margin-bottom:6px; }
-  .match-sub{ font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.12em;
-    color:rgba(255,255,255,.65); margin:14px 0 8px; text-align:left; }
-  .chips{ display:flex; flex-wrap:wrap; gap:8px; }
-  .chip{ font-size:13px; font-weight:600; padding:7px 13px; border-radius:999px;
-    color:#fff; background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.3); }
-  .chip.outline{ background:transparent; border:1px solid rgba(255,255,255,.35); }
-  .match-bio{ font-size:14px; line-height:1.6; color:rgba(255,255,255,.92); text-align:left; }
-  .write-btn{ width:100%; border:none; border-radius:999px; padding:16px; font-size:16px;
-    font-weight:700; color:var(--a2); background:#fff; cursor:pointer; margin-top:18px;
-    font-family:inherit; box-shadow:0 10px 26px -10px rgba(0,0,0,.35);
-    transition:transform .12s ease, opacity .12s ease; }
-  .write-btn:active{ transform:scale(0.98); opacity:.92; }
+  /* compact match list */
+  .match-list{ width:100%; max-width:460px; display:flex; flex-direction:column; gap:10px; }
+  .match-row{ display:flex; align-items:center; gap:12px; width:100%; text-align:left;
+    padding:11px 12px; border-radius:20px; cursor:pointer; font-family:inherit; color:var(--text);
+    transition:transform .12s ease; }
+  .match-row:active{ transform:scale(.985); }
+  .row-ava{ width:56px; height:56px; border-radius:50%; object-fit:cover; flex-shrink:0;
+    border:2px solid transparent; background:
+      linear-gradient(var(--bg),var(--bg)) padding-box,
+      linear-gradient(120deg, var(--a2), var(--a1)) border-box; }
+  .row-ava-ph{ width:56px; height:56px; border-radius:50%; flex-shrink:0; display:flex;
+    align-items:center; justify-content:center; font-size:26px;
+    background:var(--faux-glass); border:1px solid var(--glass-border); color:var(--hint); }
+  .row-main{ flex:1; min-width:0; }
+  .row-top{ display:flex; align-items:baseline; gap:8px; }
+  .row-name{ font-size:16px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .row-score{ flex-shrink:0; font-size:11px; font-weight:800; letter-spacing:.04em;
+    color:var(--a1); }
+  .row-meta{ font-size:12px; color:var(--hint); margin-top:1px; white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis; }
+  .row-vibe{ font-size:12.5px; color:var(--text); opacity:.85; margin-top:3px; font-style:italic;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .row-chev{ flex-shrink:0; font-size:22px; color:var(--a1); opacity:.7; }
 
-  .hint-empty{ max-width:320px; text-align:center; font-size:13px; line-height:1.6;
-    color:var(--hint); padding:18px; }
+  .hint-empty{ max-width:340px; text-align:center; font-size:13px; line-height:1.6;
+    color:var(--hint); padding:16px; }
+  .spin{ display:inline-block; width:15px; height:15px; border-radius:50%;
+    border:2px solid rgba(255,255,255,.4); border-top-color:#fff; animation:spin .7s linear infinite;
+    vertical-align:-2px; margin-right:6px; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
 </style>
 </head>
 <body class="has-tab-bar">
@@ -80,36 +72,14 @@
 
   <div class="search-banner glass" id="searchBanner">
     <div class="pulse" aria-hidden="true"></div>
-    <div class="txt"><b>Sixtio шукає твою пару.</b> Можна закривати додаток — щойно буде метч, бот напише тобі.</div>
+    <div class="txt"><b>Sixtio шукає твою пару.</b> Тисни «Знайти пару», щойно захочеш — або чекай, поки зʼявиться хтось особливий.</div>
   </div>
-
+  <button class="btn-primary find-btn" id="findBtn" hidden>🔍 Знайти пару зараз</button>
   <div class="hint-empty glass" id="emptyHint" hidden>
-    Тим часом можеш зазирнути у свій профіль — що повніша анкета, то точніший метч 💜
+    Поки що вільних кандидатів немає. Що повніша твоя анкета — то точніший метч 💜
   </div>
 
-  <div class="match-card" id="matchCard" hidden>
-    <div class="match-hero">
-      <div class="spark">✨</div>
-      <div class="headline led">Sixtio знайшла тобі пару!</div>
-    </div>
-    <div class="match-ava-wrap">
-      <img class="match-ava" id="matchPhoto" alt="Фото пари" hidden />
-      <div class="match-ava-ph" id="matchPhotoPh">🙂</div>
-    </div>
-    <div class="match-name" id="matchName"></div>
-    <div class="match-meta" id="matchMeta"></div>
-    <div class="match-reason">
-      <span class="lbl">Чому ви пасуєте</span>
-      <span id="matchReason"></span>
-    </div>
-    <div class="match-sub" id="matchTraitsLbl" hidden>Характер</div>
-    <div class="chips" id="matchTraits"></div>
-    <div class="match-sub" id="matchInterestsLbl" hidden>Інтереси</div>
-    <div class="chips" id="matchInterests"></div>
-    <div class="match-sub" id="matchBioLbl" hidden>Про людину</div>
-    <div class="match-bio" id="matchBio"></div>
-    <button class="write-btn" id="writeBtn">Написати повідомлення 💬</button>
-  </div>
+  <div class="match-list" id="matchList"></div>
 
   <nav class="tab-bar">
     <a class="tab-item active" href="matches.html"><span class="ico">💜</span>Метчі</a>
@@ -125,74 +95,114 @@
         tg.expand();
         try { tg.setHeaderColor && tg.setHeaderColor('bg_color'); } catch(e){}
       }
+      var initData = (tg && tg.initData) || '';
 
-      function fillChips(containerId, items, outline){
-        var wrap = document.getElementById(containerId);
-        wrap.innerHTML = '';
-        (items || []).forEach(function(item){
-          var chip = document.createElement('span');
-          chip.className = 'chip' + (outline ? ' outline' : '');
-          chip.textContent = item;
-          wrap.appendChild(chip);
-        });
-        return (items || []).length > 0;
+      var listEl = document.getElementById('matchList');
+      var banner = document.getElementById('searchBanner');
+      var findBtn = document.getElementById('findBtn');
+      var emptyHint = document.getElementById('emptyHint');
+
+      function api(path, payload){
+        return fetch(path, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(Object.assign({ initData: initData }, payload))
+        }).then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
       }
 
-      function renderMatch(match){
-        if (!match || !match.partner) {
-          document.getElementById('emptyHint').hidden = false;
-          return;
+      function row(m){
+        var pt = m.partner || {};
+        var a = document.createElement('a');
+        a.className = 'match-row faux-glass';
+        a.href = 'chat.html?match=' + encodeURIComponent(m.matchId);
+        if (tg && tg.HapticFeedback) {
+          a.addEventListener('click', function(){ try { tg.HapticFeedback.impactOccurred('light'); } catch(e){} });
         }
-        var pt = match.partner;
-        document.getElementById('searchBanner').hidden = true;
 
         if (pt.photoUrl) {
-          var ph = document.getElementById('matchPhoto');
-          ph.src = pt.photoUrl;
-          ph.hidden = false;
-          document.getElementById('matchPhotoPh').hidden = true;
-        }
-        document.getElementById('matchName').textContent =
-          pt.name + (pt.age ? ', ' + pt.age : '');
-        document.getElementById('matchMeta').textContent = pt.city ? '📍 ' + pt.city : '';
-        document.getElementById('matchReason').textContent = match.reason || '';
-
-        if (fillChips('matchTraits', pt.traits, false)) {
-          document.getElementById('matchTraitsLbl').hidden = false;
-        }
-        if (fillChips('matchInterests', pt.interests, true)) {
-          document.getElementById('matchInterestsLbl').hidden = false;
-        }
-        if (pt.bio) {
-          document.getElementById('matchBio').textContent = pt.bio;
-          document.getElementById('matchBioLbl').hidden = false;
+          var img = document.createElement('img');
+          img.className = 'row-ava'; img.src = pt.photoUrl; img.alt = '';
+          a.appendChild(img);
+        } else {
+          var ph = document.createElement('div');
+          ph.className = 'row-ava-ph'; ph.textContent = '🙂';
+          a.appendChild(ph);
         }
 
-        document.getElementById('matchCard').hidden = false;
+        var main = document.createElement('div');
+        main.className = 'row-main';
+        var top = document.createElement('div'); top.className = 'row-top';
+        var nm = document.createElement('div'); nm.className = 'row-name';
+        nm.textContent = pt.name + (pt.age ? ', ' + pt.age : '');
+        top.appendChild(nm);
+        if (m.score) {
+          var sc = document.createElement('div'); sc.className = 'row-score';
+          sc.textContent = m.score + '/10';
+          top.appendChild(sc);
+        }
+        main.appendChild(top);
+        var meta = document.createElement('div'); meta.className = 'row-meta';
+        meta.textContent = (pt.city ? '📍 ' + pt.city : '') || 'ваша пара від Sixtio';
+        main.appendChild(meta);
+        var vibe = pt.vibe || m.reason || '';
+        if (vibe) {
+          var vb = document.createElement('div'); vb.className = 'row-vibe';
+          vb.textContent = vibe;
+          main.appendChild(vb);
+        }
+        a.appendChild(main);
+
+        var chev = document.createElement('div'); chev.className = 'row-chev'; chev.textContent = '›';
+        a.appendChild(chev);
+        return a;
       }
 
-      document.getElementById('writeBtn').addEventListener('click', function(){
-        if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('medium'); } catch(e){} }
-        window.location.href = 'chat.html';
-      });
-
-      fetch('/api/me', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ initData: (tg && tg.initData) || '' })
-      }).then(function(r){
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        return r.json();
-      }).then(function(me){
-        if (!me.registered) {
-          window.location.replace('onboarding.html');
-          return;
-        }
+      function render(me){
         if (me.user && me.user.gender && window.SixtioTheme) {
           window.SixtioTheme.setGender(me.user.gender);
         }
-        renderMatch(me.match);
-      }).catch(function(){ /* offline — banner stays */ });
+        var matches = me.matches || [];
+        listEl.innerHTML = '';
+        if (matches.length) {
+          banner.hidden = true; findBtn.hidden = true; emptyHint.hidden = true;
+          matches.forEach(function(m){ listEl.appendChild(row(m)); });
+        } else {
+          banner.hidden = false; findBtn.hidden = false;
+        }
+      }
+
+      // Cache-first: paint instantly from the last response, then refresh.
+      try {
+        var cached = JSON.parse(localStorage.getItem('sixtio_me') || 'null');
+        if (cached && cached.registered) render(cached);
+      } catch(e){}
+
+      function load(){
+        return api('/api/me', {}).then(function(me){
+          if (!me.registered) { window.location.replace('onboarding.html'); return; }
+          localStorage.setItem('sixtio_me', JSON.stringify(me));
+          render(me);
+        });
+      }
+
+      findBtn.addEventListener('click', function(){
+        if (findBtn.disabled) return;
+        findBtn.disabled = true;
+        findBtn.innerHTML = '<span class="spin"></span>Шукаю…';
+        if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('medium'); } catch(e){} }
+        api('/api/rematch', {}).then(function(res){
+          return load().then(function(){
+            if (res && res.matched) {
+              if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.notificationOccurred('success'); } catch(e){} }
+            } else {
+              emptyHint.hidden = false;
+            }
+          });
+        }).catch(function(){ emptyHint.hidden = false; })
+          .then(function(){ findBtn.disabled = false; findBtn.textContent = '🔍 Знайти пару зараз'; });
+      });
+
+      load().catch(function(){ /* offline — cache already shown */ });
     })();
   </script>
 </body>

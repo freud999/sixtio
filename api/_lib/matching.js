@@ -1,4 +1,4 @@
-import { getSupabase } from './supabase.js';
+import { getSupabase, pairExists } from './supabase.js';
 import { scoreCandidates } from './claude.js';
 import { notifyMatchBoth } from './bot.js';
 
@@ -11,6 +11,7 @@ const COMPATIBLE_GOALS = {
 const MAX_AGE_GAP = 10;
 const MIN_SCORE = 6;
 const MAX_CANDIDATES_FOR_AI = 5;
+// No cap on matches — everyone can accumulate as many as Sixtio finds.
 
 function describe(user, profile) {
   return {
@@ -21,25 +22,20 @@ function describe(user, profile) {
     interests: user.interests,
     bio: user.bio,
     traits: profile.traits_json,
+    vibe: profile.vibe,
     summary: profile.summary_text,
+    portrait: profile.portrait_json,
   };
 }
 
-async function hasMatch(supabase, userId) {
-  const { data, error } = await supabase
-    .from('matches')
-    .select('id')
-    .or(`user_a.eq.${userId},user_b.eq.${userId}`)
-    .limit(1);
-  if (error) throw error;
-  return data && data.length > 0;
-}
+const PROFILE_COLS = 'traits_json, vibe, summary_text, portrait_json';
 
 /**
- * Instant matchmaking for a user who just finished onboarding.
- * Filters candidates (mutual gender preference, compatible goal, age gap),
- * lets Claude pick the most psychologically compatible one, records the
- * match, and notifies both people via the Telegram bot.
+ * Matchmaking for one user (on onboarding completion or a manual "find match").
+ * Filters candidates by mutual gender preference, compatible goal and age gap,
+ * excludes anyone already paired with this user or already at their match cap,
+ * lets Claude pick the most compatible one, records it and notifies both.
+ * People may hold several matches — this can be called repeatedly over time.
  */
 export async function runMatching(userId) {
   const supabase = getSupabase();
@@ -54,13 +50,10 @@ export async function runMatching(userId) {
 
   const { data: myProfile } = await supabase
     .from('profiles')
-    .select('traits_json, summary_text')
+    .select(PROFILE_COLS)
     .eq('user_id', userId)
     .maybeSingle();
   if (!myProfile) return null;
-
-  // MVP: one active match per person.
-  if (await hasMatch(supabase, userId)) return null;
 
   const { data: candidates, error: candError } = await supabase
     .from('users')
@@ -75,10 +68,10 @@ export async function runMatching(userId) {
     if (c.seeking_gender !== 'any' && me.gender !== c.seeking_gender) continue;
     if (!(COMPATIBLE_GOALS[me.goal] || []).includes(c.goal)) continue;
     if (Math.abs(me.age - c.age) > MAX_AGE_GAP) continue;
-    if (await hasMatch(supabase, c.id)) continue;
+    if (await pairExists(userId, c.id)) continue;          // not the same pair twice
     const { data: cp } = await supabase
       .from('profiles')
-      .select('traits_json, summary_text')
+      .select(PROFILE_COLS)
       .eq('user_id', c.id)
       .maybeSingle();
     if (!cp) continue; // onboarding not finished

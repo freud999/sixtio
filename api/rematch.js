@@ -1,0 +1,26 @@
+import { resolveUser } from './_lib/telegram.js';
+import { findUserId } from './_lib/supabase.js';
+import { runMatching } from './_lib/matching.js';
+
+// User-triggered "find me a match" (the button on the matches page).
+// Explicit, so it never spends AI budget or pings people without intent.
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+  try {
+    const { initData } = req.body || {};
+    const tgUser = resolveUser(initData);
+    if (!tgUser) {
+      return res.status(401).json({ error: 'Invalid Telegram initData' });
+    }
+    const userId = await findUserId(tgUser.id);
+    if (!userId) return res.status(200).json({ matched: false });
+
+    const result = await runMatching(userId);
+    return res.status(200).json({ matched: !!result });
+  } catch (e) {
+    console.error('api/rematch failed:', e);
+    return res.status(500).json({ error: 'Internal error' });
+  }
+}

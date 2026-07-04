@@ -1,14 +1,14 @@
 import { resolveUser } from './_lib/telegram.js';
-import { getSupabase, findUserId, getActiveMatch } from './_lib/supabase.js';
+import { getSupabase, findUserId, resolveMatchForUser } from './_lib/supabase.js';
 
-// Returns the conversation for the current user's match: the partner's public
-// card + the message history. Each message is tagged as 'me' or 'them'.
+// Returns one conversation: the partner's public card + the message history.
+// Accepts an optional matchId (multi-match); defaults to the most recent match.
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
   try {
-    const { initData } = req.body || {};
+    const { initData, matchId } = req.body || {};
     const tgUser = resolveUser(initData);
     if (!tgUser) {
       return res.status(401).json({ error: 'Invalid Telegram initData' });
@@ -16,7 +16,7 @@ export default async function handler(req, res) {
 
     const supabase = getSupabase();
     const userId = await findUserId(tgUser.id);
-    const match = userId ? await getActiveMatch(userId) : null;
+    const match = userId ? await resolveMatchForUser(userId, matchId) : null;
     if (!match) {
       return res.status(200).json({ hasMatch: false, partner: null, messages: [] });
     }
@@ -44,6 +44,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       hasMatch: true,
+      matchId: match.matchId,
       partner: {
         name: (partner && (partner.name || '').split(' ')[0]) || 'Твоя пара',
         photoUrl: partner ? partner.photo_url : null,

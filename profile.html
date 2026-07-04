@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Sixtio — мій профіль</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="theme.js"></script>
 <link rel="stylesheet" href="theme.css" />
@@ -237,12 +238,19 @@
         }
       }
 
+      // Cache-first: paint instantly from the last response, then refresh.
+      try {
+        var cachedMe = JSON.parse(localStorage.getItem('sixtio_me') || 'null');
+        if (cachedMe && cachedMe.registered) render(cachedMe);
+      } catch(e){}
+
       function load(){
         return api('/api/me', {}).then(function(me){
           if (!me.registered) {
             window.location.replace('onboarding.html');
             return;
           }
+          localStorage.setItem('sixtio_me', JSON.stringify(me));
           if (me.profile) localStorage.setItem('sixtio_profile', JSON.stringify(me.profile));
           render(me);
         });

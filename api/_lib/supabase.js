@@ -24,21 +24,61 @@ export async function findUserId(telegramId) {
   return data ? data.id : null;
 }
 
-/** Returns the user's most recent match as { matchId, partnerId } or null. */
-export async function getActiveMatch(userId) {
+/** All of the user's matches (newest first) as [{ matchId, partnerId, score, reason }]. */
+export async function getMatchesFor(userId) {
   const { data, error } = await getSupabase()
     .from('matches')
-    .select('id, user_a, user_b')
+    .select('id, user_a, user_b, score, reason, created_at')
     .or(`user_a.eq.${userId},user_b.eq.${userId}`)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .order('created_at', { ascending: false });
   if (error) throw error;
-  if (!data) return null;
-  return {
-    matchId: data.id,
-    partnerId: data.user_a === userId ? data.user_b : data.user_a,
-  };
+  return (data || []).map((m) => ({
+    matchId: m.id,
+    partnerId: m.user_a === userId ? m.user_b : m.user_a,
+    score: m.score,
+    reason: m.reason,
+    createdAt: m.created_at,
+  }));
+}
+
+/** The user's most recent match as { matchId, partnerId } or null. */
+export async function getActiveMatch(userId) {
+  const all = await getMatchesFor(userId);
+  return all.length ? { matchId: all[0].matchId, partnerId: all[0].partnerId } : null;
+}
+
+/** How many matches a user currently has. */
+export async function countMatches(userId) {
+  const { count, error } = await getSupabase()
+    .from('matches')
+    .select('id', { count: 'exact', head: true })
+    .or(`user_a.eq.${userId},user_b.eq.${userId}`);
+  if (error) throw error;
+  return count || 0;
+}
+
+/** True if these two users are already matched together. */
+export async function pairExists(userId, otherId) {
+  const [a, b] = userId < otherId ? [userId, otherId] : [otherId, userId];
+  const { data, error } = await getSupabase()
+    .from('matches')
+    .select('id')
+    .eq('user_a', a)
+    .eq('user_b', b)
+    .limit(1);
+  if (error) throw error;
+  return data && data.length > 0;
+}
+
+/** Resolves a matchId the caller belongs to; falls back to the most recent. */
+export async function resolveMatchForUser(userId, matchId) {
+  const all = await getMatchesFor(userId);
+  if (!all.length) return null;
+  if (matchId) {
+    const found = all.find((m) => m.matchId === matchId);
+    return found || null;
+  }
+  return all[0];
 }
 
 /** Upserts the Telegram user into public.users and returns the row id. */

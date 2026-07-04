@@ -29,17 +29,24 @@ function genderLine(gender) {
   return '';
 }
 
-/** One short, warm follow-up question (Ukrainian) to the user's answer. */
+// The premium Sixtio persona — shared voice across every AI touch.
+const PERSONA =
+  'Ти — Sixtio: ультимативно розумний психолог, коуч і архітектор людських взаємин. ' +
+  'Ти проводиш делікатне глибинне інтерв\'ю, щоб створити «Digital Twin» — ' +
+  'психологічний двійник людини. Твій тон — вишуканий, дорогий, преміальний, зі смаком, ' +
+  'але теплий і невимушений. Ти читаєш психолінгвістику: не лише що людина каже, а як. ';
+
+/** One short, refined follow-up question (Ukrainian) to the user's answer. */
 export async function generateFollowup(questionText, answerText, gender) {
   const response = await getClient().messages.create({
     model: MODEL,
     max_tokens: 300,
     system:
-      'Ти — Sixtio, тепла й уважна ШІ-сваха в застосунку знайомств. ' +
+      PERSONA +
       genderLine(gender) +
-      'Користувач щойно відповів на твоє запитання. Постав ОДНЕ коротке (до 20 слів) ' +
-      'живе уточнююче підпитання українською, звертаючись на «ти». ' +
-      'Без привітань, без коментарів, без лапок — лише саме питання.',
+      'Користувач щойно відповів. Постав ОДНЕ коротке (до 18 слів) вишукане уточнююче ' +
+      'підпитання українською, звертаючись на «ти», яке йде вглиб — до мотиву, почуття чи ' +
+      'сенсу за відповіддю. Без привітань, без коментарів, без лапок — лише саме питання.',
     messages: [
       {
         role: 'user',
@@ -55,18 +62,27 @@ export async function generateFollowup(questionText, answerText, gender) {
   return text.replace(/^["«]|["»]$/g, '').trim();
 }
 
-/** Analyzes all answers → { traits: string[4-6], summary: "2 sentences" }. */
+/**
+ * Builds the Digital Twin from the interview.
+ * Returns { traits[4-6], vibe, summary, portrait{values,pace,attachment,conflict,closeness} }.
+ * `portrait` holds the comparable psychological axes used for matching.
+ */
 export async function generateProfile(qaLines, gender) {
   const response = await getClient().messages.create({
     model: MODEL,
-    max_tokens: 2000,
+    max_tokens: 2500,
     system:
-      'Ти — Sixtio, тепла й прониклива ШІ-сваха. ' +
+      PERSONA +
       genderLine(gender) +
-      'Проаналізуй відповіді користувача ' +
-      'на психологічні запитання. Поверни traits — 4–6 коротких (1–3 слова) тегів рис ' +
-      'характеру українською (у правильному роді), та summary — рівно 2 теплих речення ' +
-      'українською від імені Sixtio, звертання на «ти», про те, як ти зрозуміла цю людину.',
+      'Проаналізуй інтерв\'ю й сформуй зашифрований профіль «Digital Twin». Поверни JSON:\n' +
+      '- traits: 4–6 коротких (1–3 слова) тегів стилю та характеру українською, у правильному роді;\n' +
+      '- vibe: одна вишукана фраза (3–6 слів), що передає загальний вайб людини;\n' +
+      '- summary: рівно 2 преміальних, теплих речення українською від імені Sixtio, звертання на «ти», ' +
+      'про те, ким ти побачила цю людину;\n' +
+      '- portrait: обʼєкт із 5 стислих (1 речення кожне) психологічних осей для зіставлення сумісності: ' +
+      'values (що для неї найважливіше), pace (темп і ритм життя), attachment (як любить і прив\'язується), ' +
+      'conflict (як поводиться в конфлікті), closeness (що для неї справжня близькість і чого потребує). ' +
+      'Осі пиши нейтрально й точно — вони порівнюватимуться з іншими людьми.',
     messages: [{ role: 'user', content: qaLines.join('\n') }],
     output_config: {
       format: {
@@ -75,9 +91,22 @@ export async function generateProfile(qaLines, gender) {
           type: 'object',
           properties: {
             traits: { type: 'array', items: { type: 'string' } },
+            vibe: { type: 'string' },
             summary: { type: 'string' },
+            portrait: {
+              type: 'object',
+              properties: {
+                values: { type: 'string' },
+                pace: { type: 'string' },
+                attachment: { type: 'string' },
+                conflict: { type: 'string' },
+                closeness: { type: 'string' },
+              },
+              required: ['values', 'pace', 'attachment', 'conflict', 'closeness'],
+              additionalProperties: false,
+            },
           },
-          required: ['traits', 'summary'],
+          required: ['traits', 'vibe', 'summary', 'portrait'],
           additionalProperties: false,
         },
       },
@@ -90,7 +119,12 @@ export async function generateProfile(qaLines, gender) {
   if (!Array.isArray(parsed.traits) || typeof parsed.summary !== 'string') {
     throw new Error('Claude profile JSON has unexpected shape');
   }
-  return { traits: parsed.traits.slice(0, 6), summary: parsed.summary };
+  return {
+    traits: parsed.traits.slice(0, 6),
+    vibe: typeof parsed.vibe === 'string' ? parsed.vibe : '',
+    summary: parsed.summary,
+    portrait: parsed.portrait || null,
+  };
 }
 
 /**
@@ -104,13 +138,15 @@ export async function scoreCandidates(person, candidates) {
     // this budget with the JSON output — too low truncates the response.
     max_tokens: 4000,
     system:
-      'Ти — Sixtio, досвідчена сваха. Тобі дають психологічний портрет людини та ' +
-      'список кандидатів. Обери ОДНОГО найсумiснiшого кандидата (глибинна психологічна ' +
-      'сумісність: цінності, темп життя, стиль вирішення конфліктів, потреби в близькості; ' +
-      'спільне місто та інтереси — плюс, але не головне). Поверни JSON: best — index ' +
-      'найкращого кандидата, або -1 якщо ніхто не пасує щиро; score — сумісність 1–10 ' +
-      '(чесно, не завищуй); reason — 2 теплих речення українською, чому ці двоє пасують ' +
-      'одне одному (звертання «ви», без імен).',
+      PERSONA +
+      'Тобі дають Digital Twin людини та список кандидатів (кожен зі своїм portrait — ' +
+      'осями values / pace / attachment / conflict / closeness). Зістав портрети й обери ' +
+      'ОДНОГО найсумiснiшого кандидата за глибинною психологічною сумісністю: збіг цінностей, ' +
+      'сумісність темпу життя, взаємодоповнення стилів конфлікту та потреб у близькості. ' +
+      'Спільне місто та інтереси — приємний бонус, але не головне. Поверни JSON: best — index ' +
+      'найкращого кандидата, або -1 якщо ніхто не пасує по-справжньому; score — сумісність 1–10 ' +
+      '(чесно й вимогливо, не завищуй); reason — рівно 2 вишуканих теплих речення українською, ' +
+      'чому саме ці двоє резонують (звертання «ви», без імен).',
     messages: [
       {
         role: 'user',
