@@ -70,6 +70,52 @@ export async function pairExists(userId, otherId) {
   return data && data.length > 0;
 }
 
+/**
+ * Telegram-exchange state for one match from `userId`'s side.
+ * Returns { matchId, side, shareMine, shareBoth, partnerId, partnerUsername }.
+ * partnerUsername is revealed only once both sides consented.
+ */
+export async function getShareState(userId, matchId) {
+  const { data: row, error } = await getSupabase()
+    .from('matches')
+    .select('id, user_a, user_b, share_a, share_b')
+    .eq('id', matchId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!row || (row.user_a !== userId && row.user_b !== userId)) return null;
+
+  const side = row.user_a === userId ? 'a' : 'b';
+  const shareMine = side === 'a' ? row.share_a : row.share_b;
+  const shareBoth = row.share_a && row.share_b;
+  const partnerId = side === 'a' ? row.user_b : row.user_a;
+
+  let partnerUsername = null;
+  if (shareBoth) {
+    const { data: partner } = await getSupabase()
+      .from('users')
+      .select('tg_username')
+      .eq('id', partnerId)
+      .maybeSingle();
+    partnerUsername = (partner && partner.tg_username) || null;
+  }
+  return { matchId: row.id, side, shareMine, shareBoth, partnerId, partnerUsername };
+}
+
+/** Records this user's consent to reveal Telegram on a match, returns new state. */
+export async function setShareConsent(userId, matchId) {
+  const state = await getShareState(userId, matchId);
+  if (!state) return null;
+  if (!state.shareMine) {
+    const col = state.side === 'a' ? 'share_a' : 'share_b';
+    const { error } = await getSupabase()
+      .from('matches')
+      .update({ [col]: true })
+      .eq('id', matchId);
+    if (error) throw error;
+  }
+  return getShareState(userId, matchId);
+}
+
 /** Resolves a matchId the caller belongs to; falls back to the most recent. */
 export async function resolveMatchForUser(userId, matchId) {
   const all = await getMatchesFor(userId);
