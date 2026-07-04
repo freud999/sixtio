@@ -1,0 +1,66 @@
+# .claudeignore — files Claude should skip when scanning the project.
+# Keeps token/context usage low by excluding generated, bulky, or noisy files.
+
+# ── Dependencies ─────────────────────────────────────────────
+node_modules/
+.pnp/
+.yarn/
+vendor/
+
+# ── Build & output artifacts ─────────────────────────────────
+dist/
+build/
+out/
+.next/
+.vercel/
+.cache/
+coverage/
+
+# ── Version control ──────────────────────────────────────────
+.git/
+
+# ── Lock files (large, rarely need reading) ──────────────────
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+poetry.lock
+
+# ── Logs ─────────────────────────────────────────────────────
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ── Temporary & OS files ─────────────────────────────────────
+tmp/
+temp/
+*.tmp
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# ── Environment & secrets (never read these) ─────────────────
+.env
+.env.*
+!.env.example
+
+# ── Large media & binaries ───────────────────────────────────
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.mp4
+*.mov
+*.mp3
+*.wav
+*.pdf
+*.zip
+*.tar
+*.gz
+*.woff
+*.woff2
+*.ttf
+*.otf
