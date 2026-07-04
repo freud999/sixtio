@@ -1,8 +1,9 @@
-import { resolveUser } from './_lib/telegram.js';
+import { resolveUser, getStartParam } from './_lib/telegram.js';
 import { getSupabase, upsertUser } from './_lib/supabase.js';
 import { generateProfile } from './_lib/claude.js';
 import { questionLabel } from './_lib/questions.js';
 import { runMatching } from './_lib/matching.js';
+import { captureReferral, rewardReferrerOnOnboarding } from './_lib/referrals.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -51,6 +52,16 @@ export default async function handler(req, res) {
       { onConflict: 'user_id' }
     );
     if (upsertError) throw upsertError;
+
+    // Onboarding is complete once the Digital Twin exists — credit the referrer
+    // (+15 stars, once) now. captureReferral covers the rare case the referral
+    // wasn't attributed earlier. Neither may fail the profile response.
+    try {
+      await captureReferral(userId, getStartParam(initData));
+      await rewardReferrerOnOnboarding(userId);
+    } catch (refError) {
+      console.error('referral reward failed:', refError.message);
+    }
 
     // Instant matchmaking: try to pair this user right after their profile is ready.
     // Never let matching (or its bot notifications) fail the profile response.

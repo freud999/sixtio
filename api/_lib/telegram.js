@@ -35,6 +35,17 @@ export function validateInitData(initData, botToken) {
 }
 
 /**
+ * Returns the signed start_param from initData (e.g. "ref_123456" for referral
+ * links opened via t.me/Bot?startapp=ref_123456), or null if absent/invalid.
+ * start_param is part of the HMAC-signed payload, so this is trustworthy.
+ */
+export function getStartParam(initData) {
+  if (!validateInitData(initData, process.env.TELEGRAM_BOT_TOKEN)) return null;
+  const param = new URLSearchParams(initData).get('start_param');
+  return param || null;
+}
+
+/**
  * Resolves the Telegram user from initData.
  * ALLOW_FAKE_AUTH=1 is a local-dev escape hatch (never set it on Vercel):
  * real initData is still preferred, but a stub user is returned without it.

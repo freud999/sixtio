@@ -45,6 +45,15 @@
     color:#fff; background:linear-gradient(120deg, var(--a2), var(--a1)); }
   .chip.outline{ background:var(--faux-glass); border:1px solid var(--glass-border); color:var(--a1); }
 
+  /* stars wallet + referral */
+  .stars-card{ display:flex; flex-direction:column; gap:12px; }
+  .stars-row{ display:flex; align-items:center; gap:12px; }
+  .stars-ico{ font-size:30px; line-height:1; flex-shrink:0; }
+  .stars-info{ flex:1; min-width:0; }
+  .stars-bal{ font-size:16px; font-weight:600; }
+  .stars-bal b{ color:var(--a1); font-size:19px; font-weight:800; }
+  .stars-sub{ font-size:12.5px; color:var(--hint); margin-top:2px; line-height:1.4; }
+
   /* action buttons */
   .actions{ width:100%; max-width:440px; display:flex; flex-direction:column; gap:10px; flex-shrink:0; }
   .btn-glass{ width:100%; border-radius:999px; padding:15px; font-size:15px; font-weight:600;
@@ -94,6 +103,17 @@
     <div class="name-age" id="nameAge"></div>
     <div class="meta" id="meta"></div>
     <span class="goal-badge" id="goalBadge" hidden></span>
+  </div>
+
+  <div class="section glass stars-card" id="starsSection">
+    <div class="stars-row">
+      <span class="stars-ico" aria-hidden="true">⭐</span>
+      <div class="stars-info">
+        <div class="stars-bal"><b id="starsBalance">0</b> зірок</div>
+        <div class="stars-sub">Запрошуй друзів — і отримуй +15 ⭐ за кожного, хто пройде інтерв'ю.</div>
+      </div>
+    </div>
+    <button class="btn-primary" id="inviteBtn" style="width:100%;">🎁 Запросити друга</button>
   </div>
 
   <div class="section glass" id="bioSection" hidden>
@@ -189,6 +209,7 @@
       };
       var initData = (tg && tg.initData) || '';
       var current = null; // last known user fields
+      var referralLink = ''; // this user's shareable invite link
 
       function api(path, payload){
         return fetch(path, {
@@ -242,6 +263,9 @@
 
         document.getElementById('bioSection').hidden = !u.bio;
         if (u.bio) document.getElementById('bio').textContent = u.bio;
+
+        document.getElementById('starsBalance').textContent = u.starsBalance || 0;
+        referralLink = u.referralLink || '';
 
         document.getElementById('interestsSection').hidden =
           !fillChips('interests', u.interests, true);
@@ -352,6 +376,28 @@
           img.src = reader.result;
         };
         reader.readAsDataURL(file);
+      });
+
+      // ---- invite a friend (referral) --------------------------------------
+      document.getElementById('inviteBtn').addEventListener('click', function(){
+        if (!referralLink) return;
+        if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('medium'); } catch(e){} }
+        var text = 'Приєднуйся до Sixtio — AI знайде тобі справжню пару 💜';
+        // Native Telegram share sheet when inside the app…
+        if (tg && tg.openTelegramLink) {
+          tg.openTelegramLink(
+            'https://t.me/share/url?url=' + encodeURIComponent(referralLink) +
+            '&text=' + encodeURIComponent(text)
+          );
+          return;
+        }
+        // …otherwise copy the link to the clipboard.
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(referralLink).then(function(){
+            if (tg && tg.showAlert) tg.showAlert('Посилання скопійовано!');
+            else window.alert('Посилання скопійовано!');
+          });
+        }
       });
 
       // ---- deepen ----------------------------------------------------------

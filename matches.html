@@ -49,6 +49,11 @@
   .row-name{ font-size:16px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .row-score{ flex-shrink:0; font-size:11px; font-weight:800; letter-spacing:.04em;
     color:var(--a1); }
+  /* Big Five compatibility pill */
+  .row-pct{ flex-shrink:0; font-size:11px; font-weight:800; letter-spacing:.02em;
+    color:#fff; padding:2px 8px; border-radius:999px;
+    background:linear-gradient(120deg, var(--a2), var(--a1));
+    box-shadow:0 2px 8px -2px var(--glow); }
   .row-meta{ font-size:12px; color:var(--hint); margin-top:1px; white-space:nowrap;
     overflow:hidden; text-overflow:ellipsis; }
   .row-vibe{ font-size:12.5px; color:var(--text); opacity:.85; margin-top:3px; font-style:italic;
@@ -136,7 +141,12 @@
         var nm = document.createElement('div'); nm.className = 'row-name';
         nm.textContent = pt.name + (pt.age ? ', ' + pt.age : '');
         top.appendChild(nm);
-        if (m.score) {
+        // Prefer the Big Five math compatibility %; fall back to the AI score.
+        if (typeof m.compatibility === 'number') {
+          var pct = document.createElement('div'); pct.className = 'row-pct';
+          pct.textContent = m.compatibility + '% сумісність';
+          top.appendChild(pct);
+        } else if (m.score) {
           var sc = document.createElement('div'); sc.className = 'row-score';
           sc.textContent = m.score + '/10';
           top.appendChild(sc);

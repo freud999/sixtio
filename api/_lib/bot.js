@@ -47,6 +47,20 @@ export async function notifyMatchBoth(userOne, userTwo, reason) {
   await notifyOne(userTwo, userOne, reason);
 }
 
+/** Tells a referrer their invited friend finished onboarding and stars were credited. */
+export async function notifyReferralBonus(telegramId) {
+  const text = "🎉 Твій друг пройшов інтерв'ю! Тобі нараховано 15 бонусних ⭐";
+  const reply_markup = {
+    inline_keyboard: [[{ text: 'Відкрити Sixtio', web_app: { url: APP_URL } }]],
+  };
+  try {
+    await callBot('sendMessage', { chat_id: telegramId, text, reply_markup });
+  } catch (e) {
+    // A referrer who never pressed Start can't be messaged — don't fail the credit.
+    console.error(`referral bonus ping to ${telegramId} failed:`, e.message);
+  }
+}
+
 /** Pings a user that their match sent them a new in-app message. */
 export async function notifyNewMessage(to, fromName, preview, matchId) {
   const name = (fromName || '').split(' ')[0] || 'Твоя пара';

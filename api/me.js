@@ -1,5 +1,6 @@
 import { resolveUser } from './_lib/telegram.js';
 import { getSupabase, getMatchesFor } from './_lib/supabase.js';
+import { buildReferralLink } from './_lib/referrals.js';
 
 // Returns the current user's onboarding state, their profile, and the list of
 // their matches (each as a public partner card — no Telegram identity exposed).
@@ -17,7 +18,7 @@ export default async function handler(req, res) {
     const supabase = getSupabase();
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, name, gender, seeking_gender, goal, age, city, interests, bio, photo_url')
+      .select('id, name, gender, seeking_gender, goal, age, city, interests, bio, photo_url, stars_balance')
       .eq('telegram_id', tgUser.id)
       .maybeSingle();
     if (error) throw error;
@@ -31,6 +32,21 @@ export default async function handler(req, res) {
       .eq('user_id', user.id)
       .maybeSingle();
     if (profileError) throw profileError;
+
+    // Big Five compatibility %: one RPC call ranks every scored profile against
+    // this user. We map partnerId -> score and enrich each match card below.
+    // Isolated: if the migration/RPC isn't live yet, the feed still works.
+    const compatByUser = {};
+    try {
+      const { data: compat, error: compatError } = await supabase.rpc(
+        'calculate_compatibility',
+        { current_user_id: user.id }
+      );
+      if (compatError) throw compatError;
+      for (const c of compat || []) compatByUser[c.user_id] = c.compatibility_score;
+    } catch (compatError) {
+      console.error('compatibility rpc failed:', compatError.message);
+    }
 
     // Build a public card for every match this user holds.
     const rows = await getMatchesFor(user.id);
@@ -59,6 +75,8 @@ export default async function handler(req, res) {
         matchId: m.matchId,
         reason: m.reason,
         score: m.score,
+        // Big Five (OCEAN) math compatibility 0..100, or null if not scored yet.
+        compatibility: m.partnerId in compatByUser ? compatByUser[m.partnerId] : null,
         lastMessage: lm
           ? { text: lm.text, mine: lm.sender_id === user.id, createdAt: lm.created_at }
           : null,
@@ -88,6 +106,9 @@ export default async function handler(req, res) {
         interests: user.interests || [],
         bio: user.bio,
         photoUrl: user.photo_url,
+        // Telegram Stars wallet + this user's shareable referral link.
+        starsBalance: user.stars_balance || 0,
+        referralLink: buildReferralLink(tgUser.id),
       },
       profile: profile
         ? { traits: profile.traits_json || [], vibe: profile.vibe || '', summary: profile.summary_text || '' }

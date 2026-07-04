@@ -1,5 +1,6 @@
-import { resolveUser } from './_lib/telegram.js';
+import { resolveUser, getStartParam } from './_lib/telegram.js';
 import { getSupabase, upsertUser } from './_lib/supabase.js';
+import { captureReferral } from './_lib/referrals.js';
 import { generateFollowup as geminiFollowup } from './_lib/gemini.js';
 import { generateFollowup as claudeFollowup } from './_lib/claude.js';
 
@@ -19,6 +20,15 @@ export default async function handler(req, res) {
     }
 
     const userId = await upsertUser(tgUser);
+
+    // Attribute the referral on the very first onboarding answer (once only).
+    // Never let a referral hiccup block saving the answer.
+    try {
+      await captureReferral(userId, getStartParam(initData));
+    } catch (refError) {
+      console.error('captureReferral failed:', refError.message);
+    }
+
     const { error } = await getSupabase()
       .from('answers')
       .insert({ user_id: userId, question_id: String(questionId), answer_text: String(answerText) });
