@@ -197,21 +197,11 @@
         });
       }
 
+      // Open the swipe deck (feed.html) — discovery is compatibility-ranked and
+      // AI-free; the match list below stays as the entry to existing matches.
       findBtn.addEventListener('click', function(){
-        if (findBtn.disabled) return;
-        findBtn.disabled = true;
-        findBtn.innerHTML = '<span class="spin"></span>Шукаю…';
         if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('medium'); } catch(e){} }
-        api('/api/rematch', {}).then(function(res){
-          return load().then(function(){
-            if (res && res.matched) {
-              if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.notificationOccurred('success'); } catch(e){} }
-            } else {
-              emptyHint.hidden = false;
-            }
-          });
-        }).catch(function(){ emptyHint.hidden = false; })
-          .then(function(){ findBtn.disabled = false; findBtn.textContent = '🔍 Знайти пару зараз'; });
+        window.location.href = 'feed.html';
       });
 
       load().catch(function(){ /* offline — cache already shown */ });

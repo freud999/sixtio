@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Sixtio — знайти пару</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="theme.js"></script>
+<link rel="stylesheet" href="theme.css" />
+<style>
+  body{
+    display:flex; flex-direction:column; align-items:center;
+    padding:calc(env(safe-area-inset-top) + 14px) 14px 12px;
+    gap:12px; overflow:hidden;
+  }
+  body > *{ position:relative; z-index:1; }
+  .bg-dots, .bg-aura{ z-index:0; }
+
+  .page-title{ font-size:15px; letter-spacing:.12em; }
+
+  /* ---- swipe deck ---- */
+  .deck{ position:relative; width:100%; max-width:420px; flex:1; min-height:0; }
+  .card{
+    position:absolute; inset:0; border-radius:26px; overflow:hidden;
+    background:var(--card); box-shadow:var(--glass-shadow);
+    will-change:transform; touch-action:none; cursor:grab; user-select:none;
+  }
+  .card.is-front{ cursor:grab; }
+  .card-img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  /* Premium gate: non-premium users see candidates through frosted glass. */
+  .card-img.blurred{ filter:blur(8px); transform:scale(1.06); }
+  .card-ph{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size:74px; background:linear-gradient(150deg, var(--a2), var(--a1)); color:#fff; }
+  .scrim{ position:absolute; left:0; right:0; bottom:0; height:62%;
+    background:linear-gradient(to top, rgba(8,6,20,.86) 6%, rgba(8,6,20,.4) 46%, transparent 100%); }
+
+  .lock{ position:absolute; top:14px; left:14px; display:flex; align-items:center; gap:6px;
+    font-size:12px; font-weight:700; color:#fff; padding:6px 11px; border-radius:999px;
+    background:rgba(10,8,24,.5); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+    border:1px solid rgba(255,255,255,.25); }
+
+  .card-info{ position:absolute; left:0; right:0; bottom:0; padding:18px 18px 20px; color:#fff; }
+  .card-head{ display:flex; align-items:center; gap:10px; }
+  .card-name{ font-size:24px; font-weight:800; letter-spacing:.01em;
+    text-shadow:0 2px 12px rgba(0,0,0,.5); }
+  .card-pct{ flex-shrink:0; font-size:13px; font-weight:800; color:#fff;
+    padding:4px 11px; border-radius:999px;
+    background:linear-gradient(120deg, var(--a2), var(--a1));
+    box-shadow:0 4px 14px -4px var(--glow); }
+  .card-city{ font-size:14px; margin-top:5px; opacity:.92; text-shadow:0 1px 8px rgba(0,0,0,.5); }
+  .card-tags{ display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
+  .card-tag{ font-size:12px; font-weight:600; padding:6px 11px; border-radius:999px; color:#fff;
+    background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.28);
+    -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px); }
+
+  /* drag verdict stamps */
+  .badge{ position:absolute; top:26px; font-size:26px; font-weight:900; letter-spacing:.08em;
+    padding:7px 14px; border-radius:12px; opacity:0; pointer-events:none; }
+  .badge.like{ right:20px; color:#1fbf7a; border:3px solid #1fbf7a; transform:rotate(14deg); }
+  .badge.nope{ left:20px; color:#ff4d6d; border:3px solid #ff4d6d; transform:rotate(-14deg); }
+
+  /* ---- action buttons ---- */
+  .actions{ display:flex; align-items:center; justify-content:center; gap:26px;
+    width:100%; max-width:420px; padding:2px 0 2px; }
+  .act{ width:64px; height:64px; border-radius:50%; border:none; cursor:pointer; font-size:26px;
+    display:flex; align-items:center; justify-content:center; font-family:inherit;
+    background:var(--glass-grad); border:1px solid var(--glass-border);
+    box-shadow:var(--glass-shadow), inset 0 1px 0 var(--glass-hi);
+    -webkit-backdrop-filter:blur(20px); backdrop-filter:blur(20px);
+    transition:transform .14s ease; }
+  .act:active{ transform:scale(.9); }
+  .act.nope{ color:#ff4d6d; }
+  .act.like{ width:74px; height:74px; font-size:32px; color:#fff;
+    background:linear-gradient(120deg, var(--a2), var(--a1));
+    box-shadow:0 12px 30px -10px var(--glow), inset 0 1px 0 rgba(255,255,255,.35); }
+
+  /* empty / loading */
+  .state{ display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; gap:10px; height:100%; padding:24px; color:var(--hint); }
+  .state .emo{ font-size:44px; }
+  .state .txt{ font-size:14px; line-height:1.6; max-width:300px; }
+  .state .txt b{ color:var(--text); }
+  .spin{ display:inline-block; width:22px; height:22px; border-radius:50%;
+    border:2.5px solid var(--glass-border); border-top-color:var(--a1); animation:spin .7s linear infinite; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+</style>
+</head>
+<body class="has-tab-bar">
+  <div class="bg-dots" aria-hidden="true"></div>
+  <div class="bg-aura one" aria-hidden="true"></div>
+  <div class="bg-aura two" aria-hidden="true"></div>
+
+  <div class="page-title led grad-text">ЗНАЙТИ ПАРУ</div>
+
+  <div class="deck" id="deck">
+    <div class="state" id="loadingState"><span class="spin"></span></div>
+  </div>
+
+  <div class="actions" id="actions" hidden>
+    <button class="act nope" id="nopeBtn" aria-label="Пропустити">✕</button>
+    <button class="act like" id="likeBtn" aria-label="Подобається">💜</button>
+  </div>
+
+  <nav class="tab-bar">
+    <a class="tab-item active" href="matches.html"><span class="ico">💜</span>Метчі</a>
+    <a class="tab-item" href="chat.html"><span class="ico">💬</span>Чат</a>
+    <a class="tab-item" href="profile.html"><span class="ico">👤</span>Профіль</a>
+  </nav>
+
+  <script>
+    (function(){
+      var tg = window.Telegram && window.Telegram.WebApp;
+      if (tg) {
+        tg.ready();
+        tg.expand();
+        try { tg.setHeaderColor && tg.setHeaderColor('bg_color'); } catch(e){}
+      }
+      var initData = (tg && tg.initData) || '';
+
+      // Gender tint from the cached profile (feed doesn't carry it).
+      try {
+        var cachedMe = JSON.parse(localStorage.getItem('sixtio_me') || 'null');
+        if (cachedMe && cachedMe.user && cachedMe.user.gender && window.SixtioTheme) {
+          window.SixtioTheme.setGender(cachedMe.user.gender);
+        }
+      } catch(e){}
+
+      var deckEl = document.getElementById('deck');
+      var actionsEl = document.getElementById('actions');
+      var loadingState = document.getElementById('loadingState');
+
+      var deck = [];             // candidates fetched, not yet swiped
+      var loadedIds = {};        // dedupe across pages
+      var offset = 0, hasMore = true, loading = false, premium = false, busy = false;
+
+      function haptic(kind){
+        if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred(kind); } catch(e){} }
+      }
+      function api(path, payload){
+        return fetch(path, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(Object.assign({ initData: initData }, payload))
+        }).then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+      }
+
+      function buildCard(c){
+        var el = document.createElement('div');
+        el.className = 'card faux-glass';
+
+        if (c.photoUrl) {
+          var img = document.createElement('img');
+          img.className = 'card-img' + (premium ? '' : ' blurred');
+          img.src = c.photoUrl; img.alt = ''; img.draggable = false;
+          el.appendChild(img);
+        } else {
+          var ph = document.createElement('div');
+          ph.className = 'card-ph'; ph.textContent = '🙂';
+          el.appendChild(ph);
+        }
+
+        var scrim = document.createElement('div'); scrim.className = 'scrim';
+        el.appendChild(scrim);
+
+        if (!premium && c.photoUrl) {
+          var lock = document.createElement('div');
+          lock.className = 'lock'; lock.textContent = '🔒 Premium';
+          el.appendChild(lock);
+        }
+
+        var like = document.createElement('div'); like.className = 'badge like'; like.textContent = 'LIKE';
+        var nope = document.createElement('div'); nope.className = 'badge nope'; nope.textContent = 'NOPE';
+        el.appendChild(like); el.appendChild(nope);
+
+        var info = document.createElement('div'); info.className = 'card-info';
+        var head = document.createElement('div'); head.className = 'card-head';
+        var nm = document.createElement('div'); nm.className = 'card-name';
+        nm.textContent = c.name + (c.age ? ', ' + c.age : '');
+        head.appendChild(nm);
+        var pct = document.createElement('div'); pct.className = 'card-pct';
+        pct.textContent = (c.compatibility || 0) + '%';
+        head.appendChild(pct);
+        info.appendChild(head);
+
+        if (c.city) {
+          var city = document.createElement('div'); city.className = 'card-city';
+          city.textContent = '📍 ' + c.city;
+          info.appendChild(city);
+        }
+        if (c.tags && c.tags.length) {
+          var tags = document.createElement('div'); tags.className = 'card-tags';
+          c.tags.slice(0, 3).forEach(function(t){
+            var chip = document.createElement('div'); chip.className = 'card-tag'; chip.textContent = t;
+            tags.appendChild(chip);
+          });
+          info.appendChild(tags);
+        }
+        el.appendChild(info);
+        return el;
+      }
+
+      function showEmpty(){
+        deckEl.innerHTML =
+          '<div class="state"><div class="emo">💜</div>' +
+          '<div class="txt"><b>Поки що це всі.</b><br>Онови анкету через «Покращити профіль» — і зазирни згодом, зʼявляться нові люди.</div></div>';
+        actionsEl.hidden = true;
+      }
+
+      function render(){
+        if (!deck.length) {
+          if (loading) { return; }        // spinner already up
+          if (!hasMore) { showEmpty(); }
+          return;
+        }
+        deckEl.innerHTML = '';
+        actionsEl.hidden = false;
+        var top2 = deck.slice(0, 2);
+        for (var i = top2.length - 1; i >= 0; i--) {   // back first, front painted last
+          var el = buildCard(top2[i]);
+          el.style.zIndex = String(10 - i);
+          if (i === 0) { el.classList.add('is-front'); attachDrag(el, top2[i]); }
+          else { el.style.transform = 'scale(.955) translateY(10px)'; }
+          deckEl.appendChild(el);
+        }
+      }
+
+      function fly(el, dir){
+        el.style.transition = 'transform .32s ease, opacity .32s ease';
+        el.style.transform = 'translate(' + (dir * 620) + 'px, 46px) rotate(' + (dir * 26) + 'deg)';
+        el.style.opacity = '0';
+      }
+
+      function commit(cand, action){
+        if (cand.__done) return;
+        cand.__done = true;
+        busy = true;
+        haptic('medium');
+        api('/api/swipe', { targetId: cand.userId, action: action }).catch(function(){});
+        setTimeout(function(){
+          deck.shift();
+          busy = false;
+          render();
+          maybeLoadMore();
+        }, 300);
+      }
+
+      function attachDrag(el, cand){
+        var startX = 0, startY = 0, dx = 0, dy = 0, dragging = false;
+        var like = el.querySelector('.badge.like'), nope = el.querySelector('.badge.nope');
+        el.addEventListener('pointerdown', function(e){
+          if (busy) return;
+          dragging = true; startX = e.clientX; startY = e.clientY;
+          el.style.transition = 'none';
+          try { el.setPointerCapture(e.pointerId); } catch(err){}
+        });
+        el.addEventListener('pointermove', function(e){
+          if (!dragging) return;
+          dx = e.clientX - startX; dy = e.clientY - startY;
+          el.style.transform = 'translate(' + dx + 'px,' + dy + 'px) rotate(' + (dx / 18) + 'deg)';
+          if (like) like.style.opacity = dx > 0 ? Math.min(1, dx / 90) : 0;
+          if (nope) nope.style.opacity = dx < 0 ? Math.min(1, -dx / 90) : 0;
+        });
+        function end(){
+          if (!dragging) return; dragging = false;
+          if (dx > 110) { fly(el, 1); commit(cand, 'like'); }
+          else if (dx < -110) { fly(el, -1); commit(cand, 'dislike'); }
+          else {
+            el.style.transition = 'transform .25s ease';
+            el.style.transform = '';
+            if (like) like.style.opacity = 0;
+            if (nope) nope.style.opacity = 0;
+          }
+          dx = 0; dy = 0;
+        }
+        el.addEventListener('pointerup', end);
+        el.addEventListener('pointercancel', end);
+      }
+
+      function swipeTop(action){
+        if (busy || !deck.length) return;
+        var front = deckEl.querySelector('.is-front');
+        if (!front) return;
+        var badge = front.querySelector(action === 'like' ? '.badge.like' : '.badge.nope');
+        if (badge) badge.style.opacity = 1;
+        fly(front, action === 'like' ? 1 : -1);
+        commit(deck[0], action);
+      }
+
+      document.getElementById('likeBtn').addEventListener('click', function(){ swipeTop('like'); });
+      document.getElementById('nopeBtn').addEventListener('click', function(){ swipeTop('dislike'); });
+
+      function maybeLoadMore(){
+        if (deck.length <= 3 && hasMore && !loading) loadMore();
+      }
+
+      function loadMore(){
+        if (loading) return Promise.resolve();
+        loading = true;
+        return api('/api/feed', { offset: offset, limit: 20 }).then(function(res){
+          if (!res.registered) { window.location.replace('onboarding.html'); return; }
+          premium = !!res.premium;
+          var got = res.candidates || [];
+          offset += got.length;
+          got.forEach(function(c){
+            if (loadedIds[c.userId]) return;   // never queue the same person twice
+            loadedIds[c.userId] = true;
+            deck.push(c);
+          });
+          hasMore = !!res.hasMore;
+          loading = false;
+          render();
+        }).catch(function(){
+          loading = false;
+          if (!deck.length) {
+            deckEl.innerHTML =
+              '<div class="state"><div class="emo">📡</div>' +
+              '<div class="txt">Не вдалося завантажити. Перевір зʼєднання і спробуй ще.</div></div>';
+          }
+        });
+      }
+
+      loadMore();
+    })();
+  </script>
+</body>
+</html>
