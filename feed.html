@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="theme.js"></script>
+<script src="paywall.js"></script>
 <link rel="stylesheet" href="theme.css" />
 <style>
   body{
@@ -133,6 +134,9 @@
       var deck = [];             // candidates fetched, not yet swiped
       var loadedIds = {};        // dedupe across pages
       var offset = 0, hasMore = true, loading = false, premium = false, busy = false;
+      // null = unlimited (female / premium male); a number = free male's remaining
+      // right-swipes this rolling 24h. Dislikes never touch it.
+      var likesLeft = null, paywallOpen = false;
 
       function haptic(kind){
         if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred(kind); } catch(e){} }
@@ -231,12 +235,48 @@
         el.style.opacity = '0';
       }
 
+      function starsBalance(){
+        try {
+          var me = JSON.parse(localStorage.getItem('sixtio_me') || 'null');
+          return (me && me.user && me.user.starsBalance) || 0;
+        } catch(e){ return 0; }
+      }
+
+      function openPaywall(){
+        if (paywallOpen || !window.SixtioPaywall) return;
+        paywallOpen = true;
+        window.SixtioPaywall.open({
+          initData: initData,
+          starsBalance: starsBalance(),
+          onSuccess: function(res){
+            paywallOpen = false;
+            premium = !!res.premium;
+            // null after Premium (unlimited); 30 after a top-up pack.
+            likesLeft = (typeof res.likesLeft === 'number') ? res.likesLeft : null;
+            render();   // repaint: Premium drops the blur immediately
+          }
+        });
+        // Re-arm if the user just closes the sheet without buying.
+        setTimeout(function(){ paywallOpen = false; }, 400);
+      }
+
+      // Free males must have a like left; entitled users (null) always pass.
+      function canLike(){
+        if (premium || likesLeft === null) return true;
+        if (likesLeft <= 0){ haptic('rigid'); openPaywall(); return false; }
+        return true;
+      }
+
       function commit(cand, action){
         if (cand.__done) return;
         cand.__done = true;
         busy = true;
         haptic('medium');
-        api('/api/swipe', { targetId: cand.userId, action: action }).catch(function(){});
+        if (action === 'like' && likesLeft !== null && likesLeft > 0) likesLeft--;
+        api('/api/swipe', { targetId: cand.userId, action: action }).then(function(res){
+          // Authoritative backstop: server refused the like (race on the cap).
+          if (res && res.paywall) openPaywall();
+        }).catch(function(){});
         setTimeout(function(){
           deck.shift();
           busy = false;
@@ -263,15 +303,18 @@
         });
         function end(){
           if (!dragging) return; dragging = false;
+          // Right-swipe past threshold, but out of free likes -> snap back + paywall.
+          if (dx > 110 && !canLike()) { dx = 0; dy = 0; snapBack(); return; }
           if (dx > 110) { fly(el, 1); commit(cand, 'like'); }
           else if (dx < -110) { fly(el, -1); commit(cand, 'dislike'); }
-          else {
-            el.style.transition = 'transform .25s ease';
-            el.style.transform = '';
-            if (like) like.style.opacity = 0;
-            if (nope) nope.style.opacity = 0;
-          }
+          else { snapBack(); }
           dx = 0; dy = 0;
+        }
+        function snapBack(){
+          el.style.transition = 'transform .25s ease';
+          el.style.transform = '';
+          if (like) like.style.opacity = 0;
+          if (nope) nope.style.opacity = 0;
         }
         el.addEventListener('pointerup', end);
         el.addEventListener('pointercancel', end);
@@ -279,6 +322,7 @@
 
       function swipeTop(action){
         if (busy || !deck.length) return;
+        if (action === 'like' && !canLike()) return;   // paywall shown by canLike
         var front = deckEl.querySelector('.is-front');
         if (!front) return;
         var badge = front.querySelector(action === 'like' ? '.badge.like' : '.badge.nope');
@@ -300,6 +344,9 @@
         return api('/api/feed', { offset: offset, limit: 20 }).then(function(res){
           if (!res.registered) { window.location.replace('onboarding.html'); return; }
           premium = !!res.premium;
+          likesLeft = (typeof res.likesLeft === 'number') ? res.likesLeft : null;
+          // Male out of likes on load — intercept before they even drag.
+          if (res.rateLimited) openPaywall();
           var got = res.candidates || [];
           offset += got.length;
           got.forEach(function(c){

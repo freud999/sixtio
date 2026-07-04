@@ -1,5 +1,6 @@
 import { resolveUser } from './_lib/telegram.js';
 import { getSupabase } from './_lib/supabase.js';
+import { entitlements, likesLeftForClient } from './_lib/entitlements.js';
 
 // Recommendation feed for the swipe deck (feed.html). Pure Supabase — no AI.
 // Candidates are opposite-gender, within ±10 years, never already swiped, and
@@ -22,11 +23,15 @@ export default async function handler(req, res) {
     const supabase = getSupabase();
     const { data: me, error: meError } = await supabase
       .from('users')
-      .select('id, gender, seeking_gender, age, liked_users, disliked_users, premium')
+      .select('id, gender, seeking_gender, age, liked_users, disliked_users, premium, premium_until, daily_likes_count, last_like_reset')
       .eq('telegram_id', tgUser.id)
       .maybeSingle();
     if (meError) throw meError;
     if (!me) return res.status(200).json({ registered: false, candidates: [], hasMore: false });
+
+    // Gender-biased entitlement: females & premium males see clean photos with
+    // no limit; free males see blurred photos and a 30/24h like allowance.
+    const ent = entitlements(me);
 
     // Everyone this user has already acted on (plus themselves) is off the deck.
     const seen = new Set([me.id, ...(me.liked_users || []), ...(me.disliked_users || [])]);
@@ -88,7 +93,12 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       registered: true,
-      premium: !!me.premium,
+      // Drives the frosted-glass gate on the client (false = clean photos).
+      premium: ent.premiumActive,
+      // null = unlimited (female / premium male); 0 = free male out of likes.
+      likesLeft: likesLeftForClient(ent),
+      // Frontend intercepts this to pop the paywall over the deck.
+      rateLimited: ent.rateLimited,
       candidates: page,
       hasMore: start + size < ranked.length,
     });

@@ -1,6 +1,7 @@
 import { resolveUser } from './_lib/telegram.js';
 import { getSupabase, getMatchesFor } from './_lib/supabase.js';
 import { buildReferralLink } from './_lib/referrals.js';
+import { entitlements, likesLeftForClient } from './_lib/entitlements.js';
 
 // Returns the current user's onboarding state, their profile, and the list of
 // their matches (each as a public partner card — no Telegram identity exposed).
@@ -18,13 +19,17 @@ export default async function handler(req, res) {
     const supabase = getSupabase();
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, name, gender, seeking_gender, goal, age, city, interests, bio, photo_url, stars_balance')
+      .select('id, name, gender, seeking_gender, goal, age, city, interests, bio, photo_url, stars_balance, premium, premium_until, daily_likes_count, last_like_reset')
       .eq('telegram_id', tgUser.id)
       .maybeSingle();
     if (error) throw error;
     if (!user) {
       return res.status(200).json({ registered: false, user: null, profile: null, matches: [] });
     }
+
+    // Paywall entitlement (gender-biased): drives blur, deepen gating, and the
+    // remaining-likes counter on every screen from one cached payload.
+    const ent = entitlements(user);
 
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
@@ -109,6 +114,11 @@ export default async function handler(req, res) {
         // Telegram Stars wallet + this user's shareable referral link.
         starsBalance: user.stars_balance || 0,
         referralLink: buildReferralLink(tgUser.id),
+        // Paywall entitlement — cached client-side to gate blur / likes / deepen.
+        premium: ent.premiumActive,
+        premiumUntil: ent.premiumUntil,
+        likesLeft: likesLeftForClient(ent),   // null = unlimited
+        blur: ent.blur,
       },
       profile: profile
         ? { traits: profile.traits_json || [], vibe: profile.vibe || '', summary: profile.summary_text || '' }

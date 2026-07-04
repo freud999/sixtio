@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="theme.js"></script>
+<script src="paywall.js"></script>
 <link rel="stylesheet" href="theme.css" />
 <style>
   body{
@@ -400,10 +401,25 @@
         }
       });
 
-      // ---- deepen ----------------------------------------------------------
+      // ---- deepen (premium — Digital Twin analytics) -----------------------
+      // Females & premium males (current.premium === true) deepen freely; free
+      // males hit the paywall instead of navigating.
       document.getElementById('deepenBtn').addEventListener('click', function(){
         if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('medium'); } catch(e){} }
-        window.location.href = 'onboarding.html?mode=deepen';
+        if (current && current.premium) {
+          window.location.href = 'onboarding.html?mode=deepen';
+          return;
+        }
+        if (window.SixtioPaywall) {
+          window.SixtioPaywall.open({
+            initData: initData,
+            starsBalance: (current && current.starsBalance) || 0,
+            onSuccess: function(res){
+              if (res.premium) window.location.href = 'onboarding.html?mode=deepen';
+              else load().catch(function(){});   // pack bought, still not premium
+            }
+          });
+        }
       });
 
       // ---- delete account (double confirm) ---------------------------------
