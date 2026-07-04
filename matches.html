@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Sixtio — метчі</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="theme.js"></script>
+<link rel="stylesheet" href="theme.css" />
+<style>
+  body{
+    display:flex; flex-direction:column; align-items:center;
+    padding:calc(env(safe-area-inset-top) + 18px) 20px 12px;
+    overflow-y:auto; gap:16px;
+  }
+  body > *{ position:relative; z-index:1; }
+  .bg-dots, .bg-aura{ z-index:0; }
+
+  .page-title{ font-size:15px; letter-spacing:.12em; }
+
+  /* searching banner */
+  .search-banner{ display:flex; align-items:center; gap:12px; width:100%; max-width:440px;
+    padding:13px 16px; flex-shrink:0; }
+  .pulse{ position:relative; width:14px; height:14px; flex-shrink:0; }
+  .pulse::before, .pulse::after{ content:''; position:absolute; inset:0; border-radius:50%;
+    background:linear-gradient(120deg, var(--a2), var(--a1)); }
+  .pulse::after{ animation:pulse 1.8s ease-out infinite; }
+  @keyframes pulse{ from{ transform:scale(1); opacity:.7; } to{ transform:scale(2.6); opacity:0; } }
+  .search-banner .txt{ font-size:13px; line-height:1.45; color:var(--hint); }
+  .search-banner .txt b{ color:var(--text); font-weight:600; }
+
+  /* match card — aura tile with a story-style circle avatar */
+  .match-card{ width:100%; max-width:440px; border-radius:28px; flex-shrink:0;
+    color:#fff; padding:22px 18px 18px; text-align:center;
+    background:var(--a2);
+    background:radial-gradient(140% 110% at 50% -15%,
+      var(--a1) 0%, var(--a2) 52%,
+      color-mix(in srgb, var(--a2) 30%, var(--aura-deep)) 100%);
+    box-shadow:0 20px 52px -16px var(--glow);
+    animation:rise .5s ease; }
+  @keyframes rise{ from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:translateY(0); } }
+  .match-hero .spark{ font-size:22px; }
+  .match-hero .headline{ font-size:16px; font-weight:800; margin:4px 0 16px; letter-spacing:.04em; }
+  .match-ava-wrap{ display:flex; justify-content:center; }
+  .match-ava{ width:108px; height:108px; border-radius:50%; object-fit:cover;
+    border:3px solid rgba(255,255,255,.9); box-shadow:0 10px 28px rgba(0,0,0,.25); }
+  .match-ava-ph{ width:108px; height:108px; border-radius:50%; display:flex; align-items:center;
+    justify-content:center; font-size:44px; background:rgba(255,255,255,.14);
+    border:3px solid rgba(255,255,255,.55); }
+  .match-name{ font-size:21px; font-weight:700; margin-top:12px; }
+  .match-meta{ font-size:14px; color:rgba(255,255,255,.75); margin-top:2px; }
+  .match-reason{ font-size:14px; line-height:1.6; margin:14px 0 4px; padding:13px 15px;
+    text-align:left; border-radius:16px;
+    background:rgba(255,255,255,.13); border:1px solid rgba(255,255,255,.22); }
+  .match-reason .lbl{ display:block; font-size:10px; font-weight:800; text-transform:uppercase;
+    letter-spacing:.12em; color:rgba(255,255,255,.8); margin-bottom:6px; }
+  .match-sub{ font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.12em;
+    color:rgba(255,255,255,.65); margin:14px 0 8px; text-align:left; }
+  .chips{ display:flex; flex-wrap:wrap; gap:8px; }
+  .chip{ font-size:13px; font-weight:600; padding:7px 13px; border-radius:999px;
+    color:#fff; background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.3); }
+  .chip.outline{ background:transparent; border:1px solid rgba(255,255,255,.35); }
+  .match-bio{ font-size:14px; line-height:1.6; color:rgba(255,255,255,.92); text-align:left; }
+  .write-btn{ width:100%; border:none; border-radius:999px; padding:16px; font-size:16px;
+    font-weight:700; color:var(--a2); background:#fff; cursor:pointer; margin-top:18px;
+    font-family:inherit; box-shadow:0 10px 26px -10px rgba(0,0,0,.35);
+    transition:transform .12s ease, opacity .12s ease; }
+  .write-btn:active{ transform:scale(0.98); opacity:.92; }
+
+  .hint-empty{ max-width:320px; text-align:center; font-size:13px; line-height:1.6;
+    color:var(--hint); padding:18px; }
+</style>
+</head>
+<body class="has-tab-bar">
+  <div class="bg-dots" aria-hidden="true"></div>
+  <div class="bg-aura one" aria-hidden="true"></div>
+  <div class="bg-aura two" aria-hidden="true"></div>
+
+  <div class="page-title led grad-text">МЕТЧІ</div>
+
+  <div class="search-banner glass" id="searchBanner">
+    <div class="pulse" aria-hidden="true"></div>
+    <div class="txt"><b>Sixtio шукає твою пару.</b> Можна закривати додаток — щойно буде метч, бот напише тобі.</div>
+  </div>
+
+  <div class="hint-empty glass" id="emptyHint" hidden>
+    Тим часом можеш зазирнути у свій профіль — що повніша анкета, то точніший метч 💜
+  </div>
+
+  <div class="match-card" id="matchCard" hidden>
+    <div class="match-hero">
+      <div class="spark">✨</div>
+      <div class="headline led">Sixtio знайшла тобі пару!</div>
+    </div>
+    <div class="match-ava-wrap">
+      <img class="match-ava" id="matchPhoto" alt="Фото пари" hidden />
+      <div class="match-ava-ph" id="matchPhotoPh">🙂</div>
+    </div>
+    <div class="match-name" id="matchName"></div>
+    <div class="match-meta" id="matchMeta"></div>
+    <div class="match-reason">
+      <span class="lbl">Чому ви пасуєте</span>
+      <span id="matchReason"></span>
+    </div>
+    <div class="match-sub" id="matchTraitsLbl" hidden>Характер</div>
+    <div class="chips" id="matchTraits"></div>
+    <div class="match-sub" id="matchInterestsLbl" hidden>Інтереси</div>
+    <div class="chips" id="matchInterests"></div>
+    <div class="match-sub" id="matchBioLbl" hidden>Про людину</div>
+    <div class="match-bio" id="matchBio"></div>
+    <button class="write-btn" id="writeBtn">Написати повідомлення 💬</button>
+  </div>
+
+  <nav class="tab-bar">
+    <a class="tab-item active" href="matches.html"><span class="ico">💜</span>Метчі</a>
+    <a class="tab-item" href="chat.html"><span class="ico">💬</span>Чат</a>
+    <a class="tab-item" href="profile.html"><span class="ico">👤</span>Профіль</a>
+  </nav>
+
+  <script>
+    (function(){
+      var tg = window.Telegram && window.Telegram.WebApp;
+      if (tg) {
+        tg.ready();
+        tg.expand();
+        try { tg.setHeaderColor && tg.setHeaderColor('bg_color'); } catch(e){}
+      }
+
+      function fillChips(containerId, items, outline){
+        var wrap = document.getElementById(containerId);
+        wrap.innerHTML = '';
+        (items || []).forEach(function(item){
+          var chip = document.createElement('span');
+          chip.className = 'chip' + (outline ? ' outline' : '');
+          chip.textContent = item;
+          wrap.appendChild(chip);
+        });
+        return (items || []).length > 0;
+      }
+
+      function renderMatch(match){
+        if (!match || !match.partner) {
+          document.getElementById('emptyHint').hidden = false;
+          return;
+        }
+        var pt = match.partner;
+        document.getElementById('searchBanner').hidden = true;
+
+        if (pt.photoUrl) {
+          var ph = document.getElementById('matchPhoto');
+          ph.src = pt.photoUrl;
+          ph.hidden = false;
+          document.getElementById('matchPhotoPh').hidden = true;
+        }
+        document.getElementById('matchName').textContent =
+          pt.name + (pt.age ? ', ' + pt.age : '');
+        document.getElementById('matchMeta').textContent = pt.city ? '📍 ' + pt.city : '';
+        document.getElementById('matchReason').textContent = match.reason || '';
+
+        if (fillChips('matchTraits', pt.traits, false)) {
+          document.getElementById('matchTraitsLbl').hidden = false;
+        }
+        if (fillChips('matchInterests', pt.interests, true)) {
+          document.getElementById('matchInterestsLbl').hidden = false;
+        }
+        if (pt.bio) {
+          document.getElementById('matchBio').textContent = pt.bio;
+          document.getElementById('matchBioLbl').hidden = false;
+        }
+
+        document.getElementById('matchCard').hidden = false;
+      }
+
+      document.getElementById('writeBtn').addEventListener('click', function(){
+        if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('medium'); } catch(e){} }
+        window.location.href = 'chat.html';
+      });
+
+      fetch('/api/me', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ initData: (tg && tg.initData) || '' })
+      }).then(function(r){
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      }).then(function(me){
+        if (!me.registered) {
+          window.location.replace('onboarding.html');
+          return;
+        }
+        if (me.user && me.user.gender && window.SixtioTheme) {
+          window.SixtioTheme.setGender(me.user.gender);
+        }
+        renderMatch(me.match);
+      }).catch(function(){ /* offline — banner stays */ });
+    })();
+  </script>
+</body>
+</html>

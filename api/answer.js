@@ -8,7 +8,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
   try {
-    const { initData, questionId, questionText, answerText, isFollowup, gender } = req.body || {};
+    const { initData, questionId, questionText, answerText, isFollowup, skipFollowup, gender } = req.body || {};
     if (!questionId || !answerText) {
       return res.status(400).json({ error: 'questionId and answerText are required' });
     }
@@ -25,7 +25,8 @@ export default async function handler(req, res) {
     if (error) throw error;
 
     // Follow-up answers don't get their own follow-up — keep the dialog moving.
-    if (isFollowup) {
+    // skipFollowup: deepen mode saves AI budget by not generating follow-ups at all.
+    if (isFollowup || skipFollowup) {
       return res.status(200).json({ ok: true, followup: null });
     }
 

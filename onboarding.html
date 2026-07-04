@@ -127,6 +127,10 @@
         try { tg.setHeaderColor && tg.setHeaderColor('bg_color'); } catch(e){}
       }
 
+      // Deepen mode: a short, limited AI session to enrich an existing profile
+      // (3 extra questions, no Gemini follow-ups — saves AI budget).
+      var DEEPEN = window.location.search.indexOf('mode=deepen') !== -1;
+
       // ---- steps -------------------------------------------------------
       var profileSteps = [
         { id:'gender', type:'options', text:'Привіт! Я Sixtio 💜 Спершу трохи про тебе. Хто ти?',
@@ -159,6 +163,21 @@
         { id: "q7", text: "Що тобі найбільше потрібно від партнера, коли тобі важко?" }
       ];
 
+      // Keep ids in sync with api/_lib/questions.js (d1–d5).
+      var deepenPool = [
+        { id: "d1", text: "Як виглядають твої ідеальні вихідні?" },
+        { id: "d2", text: "Яка риса в людях викликає в тебе найбільше захоплення?" },
+        { id: "d3", text: "Про що ти мрієш на найближчі кілька років?" },
+        { id: "d4", text: "Як ти відновлюєшся після важкого тижня?" },
+        { id: "d5", text: "Що може миттєво зіпсувати тобі побачення?" }
+      ];
+
+      if (DEEPEN) {
+        profileSteps = [];
+        // 3 random extra questions per session
+        questions = deepenPool.sort(function(){ return Math.random() - 0.5; }).slice(0, 3);
+      }
+
       // Picks the feminine variant when the user said they're a woman.
       function stepText(step){
         return (profileData.gender === 'female' && step.textF) ? step.textF : step.text;
@@ -176,7 +195,7 @@
       var stepLabel = document.getElementById('stepLabel');
 
       var STORAGE_KEY = 'sixtio_onboarding_answers';
-      var stage = 'profile';        // 'profile' | 'psych'
+      var stage = DEEPEN ? 'psych' : 'profile';  // 'profile' | 'psych'
       var pIndex = 0;               // profile step index
       var index = 0;                // psych question index
       var phase = 'main';           // 'main' | 'followup' (psych only)
@@ -184,6 +203,11 @@
       var answers = [];
       var lastFollowupText = '';
       var detectedCity = null;
+
+      // In deepen mode gender is already known — reuse it for wording and theme.
+      if (DEEPEN) {
+        try { profileData.gender = localStorage.getItem('sixtio_gender') || null; } catch(e){}
+      }
 
       // City-by-IP suggestion (Vercel geo). Best-effort — never blocks onboarding.
       fetch('/api/geo').then(function(r){ return r.ok ? r.json() : null; })
@@ -489,6 +513,7 @@
           questionText: stepText(q),
           answerText: value,
           isFollowup: isFollowup,
+          skipFollowup: DEEPEN,
           gender: profileData.gender || null
         }).then(function(resp){
           typingEl.remove();
@@ -570,7 +595,7 @@
         btn.textContent = 'Продовжити';
         btn.addEventListener('click', function(){
           if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('medium'); } catch(err){} }
-          window.location.href = 'waiting.html';
+          window.location.href = DEEPEN ? 'profile.html' : 'matches.html';
         });
         chat.appendChild(btn);
         scrollToBottom();
@@ -598,24 +623,32 @@
       }
 
       // ---- init -------------------------------------------------------------
-      // If this account already finished onboarding, skip straight to the profile screen.
-      api('/api/me', {}).then(function(me){
-        if (me && me.user && me.user.gender && window.SixtioTheme) {
-          window.SixtioTheme.setGender(me.user.gender);
-        }
-        if (me && me.profile) {
-          localStorage.setItem('sixtio_profile', JSON.stringify(me.profile));
-          window.location.replace('waiting.html');
-        } else {
-          askNextProfile();
-        }
-      }).catch(function(){
-        if (localStorage.getItem('sixtio_onboarding_complete') === 'true') {
-          window.location.replace('waiting.html');
-        } else {
-          askNextProfile();
-        }
-      });
+      if (DEEPEN) {
+        // Short enrichment session: greet and go straight to the extra questions.
+        showTyping(function(){
+          addBubble('Рада бачити тебе знову! Кілька нових запитань — і я зрозумію тебе ще глибше ✨', 'bot');
+          askNext();
+        });
+      } else {
+        // If this account already finished onboarding, skip straight to matches.
+        api('/api/me', {}).then(function(me){
+          if (me && me.user && me.user.gender && window.SixtioTheme) {
+            window.SixtioTheme.setGender(me.user.gender);
+          }
+          if (me && me.profile) {
+            localStorage.setItem('sixtio_profile', JSON.stringify(me.profile));
+            window.location.replace('matches.html');
+          } else {
+            askNextProfile();
+          }
+        }).catch(function(){
+          if (localStorage.getItem('sixtio_onboarding_complete') === 'true') {
+            window.location.replace('matches.html');
+          } else {
+            askNextProfile();
+          }
+        });
+      }
     })();
   </script>
 </body>

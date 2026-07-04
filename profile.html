@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Sixtio — мій профіль</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="theme.js"></script>
+<link rel="stylesheet" href="theme.css" />
+<style>
+  body{
+    display:flex; flex-direction:column; align-items:center;
+    padding:calc(env(safe-area-inset-top) + 18px) 20px 12px;
+    overflow-y:auto; gap:16px;
+  }
+  body > *{ position:relative; z-index:1; }
+  .bg-dots, .bg-aura{ z-index:0; }
+
+  .page-title{ font-size:15px; letter-spacing:.12em; }
+
+  /* head */
+  .profile-head{ display:flex; flex-direction:column; align-items:center; gap:10px;
+    text-align:center; flex-shrink:0; }
+  .ava-btn{ position:relative; border:none; background:none; padding:0; cursor:pointer; }
+  .ava-badge{ position:absolute; right:2px; bottom:2px; width:32px; height:32px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; font-size:15px;
+    background:linear-gradient(120deg, var(--a2), var(--a1)); color:#fff;
+    border:2px solid var(--bg); box-shadow:0 4px 12px -4px var(--glow); }
+  .name-age{ font-size:22px; font-weight:700; letter-spacing:-0.3px; }
+  .meta{ font-size:14px; color:var(--hint); }
+  .goal-badge{ display:inline-block; font-size:13px; font-weight:600; padding:7px 15px;
+    border-radius:999px; color:#fff; background:linear-gradient(120deg, var(--a2), var(--a1));
+    box-shadow:0 8px 22px -10px var(--glow); }
+
+  /* sections */
+  .section{ width:100%; max-width:440px; padding:16px 18px; flex-shrink:0; }
+  .sec-title{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.09em;
+    color:var(--hint); margin-bottom:10px; }
+  .sec-title.grad{ background:linear-gradient(100deg, var(--a1), var(--a2));
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  .sec-body{ font-size:14px; line-height:1.6; }
+  .chips{ display:flex; flex-wrap:wrap; gap:8px; }
+  .chip{ font-size:13px; font-weight:600; padding:7px 13px; border-radius:999px;
+    color:#fff; background:linear-gradient(120deg, var(--a2), var(--a1)); }
+  .chip.outline{ background:var(--faux-glass); border:1px solid var(--glass-border); color:var(--a1); }
+
+  /* action buttons */
+  .actions{ width:100%; max-width:440px; display:flex; flex-direction:column; gap:10px; flex-shrink:0; }
+  .btn-glass{ width:100%; border-radius:999px; padding:15px; font-size:15px; font-weight:600;
+    color:var(--a1); background:var(--faux-glass); border:1px solid var(--glass-border);
+    cursor:pointer; font-family:inherit; transition:transform .12s ease, opacity .12s ease; }
+  .btn-glass:active{ transform:scale(.98); opacity:.9; }
+
+  /* edit form */
+  .edit-form{ display:flex; flex-direction:column; gap:12px; }
+  .field label{ display:block; font-size:11px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.09em; color:var(--hint); margin-bottom:6px; }
+  .field input, .field select, .field textarea{
+    width:100%; border:1px solid var(--glass-border); border-radius:14px; padding:12px 14px;
+    font-size:15px; font-family:inherit; color:var(--text); background:var(--faux-glass);
+    outline:none; }
+  .field textarea{ resize:none; min-height:84px; line-height:1.5; }
+  .field select{ -webkit-appearance:none; appearance:none; }
+  .save-row{ display:flex; gap:10px; }
+  .save-row .btn-primary{ flex:1; padding:14px; }
+  .save-row .btn-glass{ flex:1; }
+  .save-note{ font-size:12px; color:var(--hint); text-align:center; min-height:16px; }
+</style>
+</head>
+<body class="has-tab-bar">
+  <div class="bg-dots" aria-hidden="true"></div>
+  <div class="bg-aura one" aria-hidden="true"></div>
+  <div class="bg-aura two" aria-hidden="true"></div>
+
+  <div class="page-title led grad-text">МІЙ ПРОФІЛЬ</div>
+
+  <div class="profile-head">
+    <button class="ava-btn" id="avaBtn" aria-label="Змінити фото">
+      <img class="story-avatar" id="avatar" alt="Фото профілю" hidden />
+      <div class="story-avatar-ph" id="avatarPlaceholder">🙂</div>
+      <span class="ava-badge">📷</span>
+    </button>
+    <div class="name-age" id="nameAge"></div>
+    <div class="meta" id="meta"></div>
+    <span class="goal-badge" id="goalBadge" hidden></span>
+  </div>
+
+  <div class="section glass" id="bioSection" hidden>
+    <div class="sec-title">Про мене</div>
+    <div class="sec-body" id="bio"></div>
+  </div>
+
+  <div class="section glass" id="interestsSection" hidden>
+    <div class="sec-title">Інтереси</div>
+    <div class="chips" id="interests"></div>
+  </div>
+
+  <div class="section glass" id="traitsSection" hidden>
+    <div class="sec-title grad">Як Sixtio тебе зрозуміла</div>
+    <div class="chips" id="traits" style="margin-bottom:12px;"></div>
+    <div class="sec-body" id="summary"></div>
+  </div>
+
+  <div class="actions">
+    <button class="btn-glass" id="editBtn">✏️ Редагувати анкету</button>
+    <button class="btn-primary" id="deepenBtn" style="width:100%;">✨ Покращити профіль із Sixtio</button>
+  </div>
+
+  <div class="section glass" id="editSection" hidden>
+    <div class="sec-title">Редагування анкети</div>
+    <form class="edit-form" id="editForm">
+      <div class="field">
+        <label for="fSeeking">Кого шукаю</label>
+        <select id="fSeeking">
+          <option value="male">Чоловіка</option>
+          <option value="female">Жінку</option>
+          <option value="any">Неважливо</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="fGoal">Мета</label>
+        <select id="fGoal">
+          <option value="longterm">Довготривалі стосунки</option>
+          <option value="fun">Розважитись</option>
+          <option value="situational">По ситуації</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="fAge">Вік</label>
+        <input id="fAge" type="number" min="18" max="100" inputmode="numeric" />
+      </div>
+      <div class="field">
+        <label for="fCity">Місто</label>
+        <input id="fCity" type="text" maxlength="100" />
+      </div>
+      <div class="field">
+        <label for="fInterests">Інтереси (через кому)</label>
+        <input id="fInterests" type="text" />
+      </div>
+      <div class="field">
+        <label for="fBio">Про мене</label>
+        <textarea id="fBio" maxlength="600"></textarea>
+      </div>
+      <div class="save-row">
+        <button type="button" class="btn-glass" id="cancelBtn">Скасувати</button>
+        <button type="submit" class="btn-primary">Зберегти</button>
+      </div>
+      <div class="save-note" id="saveNote"></div>
+    </form>
+  </div>
+
+  <input type="file" id="photoInput" accept="image/*" hidden />
+
+  <nav class="tab-bar">
+    <a class="tab-item" href="matches.html"><span class="ico">💜</span>Метчі</a>
+    <a class="tab-item" href="chat.html"><span class="ico">💬</span>Чат</a>
+    <a class="tab-item active" href="profile.html"><span class="ico">👤</span>Профіль</a>
+  </nav>
+
+  <script>
+    (function(){
+      var tg = window.Telegram && window.Telegram.WebApp;
+      if (tg) {
+        tg.ready();
+        tg.expand();
+        try { tg.setHeaderColor && tg.setHeaderColor('bg_color'); } catch(e){}
+      }
+
+      var GOALS = {
+        longterm: 'Шукаю довготривалі стосунки',
+        fun: 'Хочу розважитись',
+        situational: 'Відкритий(-а) — по ситуації'
+      };
+      var initData = (tg && tg.initData) || '';
+      var current = null; // last known user fields
+
+      function api(path, payload){
+        return fetch(path, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(Object.assign({ initData: initData }, payload))
+        }).then(function(r){
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.json();
+        });
+      }
+
+      function fillChips(containerId, items, outline){
+        var wrap = document.getElementById(containerId);
+        wrap.innerHTML = '';
+        (items || []).forEach(function(item){
+          var chip = document.createElement('span');
+          chip.className = 'chip' + (outline ? ' outline' : '');
+          chip.textContent = item;
+          wrap.appendChild(chip);
+        });
+        return (items || []).length > 0;
+      }
+
+      function render(me){
+        var u = me.user || {};
+        var p = me.profile;
+        current = u;
+
+        if (u.gender && window.SixtioTheme) window.SixtioTheme.setGender(u.gender);
+
+        if (u.photoUrl) {
+          var avatar = document.getElementById('avatar');
+          avatar.src = u.photoUrl;
+          avatar.hidden = false;
+          document.getElementById('avatarPlaceholder').hidden = true;
+        }
+
+        var tgName = tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.first_name;
+        var name = tgName || (u.name || '').split(' ')[0] || '';
+        document.getElementById('nameAge').textContent = name + (u.age ? (name ? ', ' : '') + u.age : '');
+        document.getElementById('meta').textContent = u.city ? '📍 ' + u.city : '';
+
+        var badge = document.getElementById('goalBadge');
+        if (u.goal && GOALS[u.goal]) {
+          badge.textContent = GOALS[u.goal];
+          badge.hidden = false;
+        } else {
+          badge.hidden = true;
+        }
+
+        document.getElementById('bioSection').hidden = !u.bio;
+        if (u.bio) document.getElementById('bio').textContent = u.bio;
+
+        document.getElementById('interestsSection').hidden =
+          !fillChips('interests', u.interests, true);
+
+        if (p && p.traits && p.traits.length) {
+          fillChips('traits', p.traits, false);
+          document.getElementById('summary').textContent = p.summary || '';
+          document.getElementById('traitsSection').hidden = false;
+        }
+      }
+
+      function load(){
+        return api('/api/me', {}).then(function(me){
+          if (!me.registered) {
+            window.location.replace('onboarding.html');
+            return;
+          }
+          if (me.profile) localStorage.setItem('sixtio_profile', JSON.stringify(me.profile));
+          render(me);
+        });
+      }
+
+      // ---- edit form -----------------------------------------------------
+      var editSection = document.getElementById('editSection');
+      var saveNote = document.getElementById('saveNote');
+
+      document.getElementById('editBtn').addEventListener('click', function(){
+        if (!current) return;
+        document.getElementById('fSeeking').value = current.seekingGender || 'any';
+        document.getElementById('fGoal').value = current.goal || 'situational';
+        document.getElementById('fAge').value = current.age || '';
+        document.getElementById('fCity').value = current.city || '';
+        document.getElementById('fInterests').value = (current.interests || []).join(', ');
+        document.getElementById('fBio').value = current.bio || '';
+        saveNote.textContent = '';
+        editSection.hidden = false;
+        editSection.scrollIntoView({ behavior: 'smooth' });
+      });
+
+      document.getElementById('cancelBtn').addEventListener('click', function(){
+        editSection.hidden = true;
+      });
+
+      document.getElementById('editForm').addEventListener('submit', function(e){
+        e.preventDefault();
+        var age = parseInt(document.getElementById('fAge').value, 10);
+        if (!(age >= 18 && age <= 100)) {
+          saveNote.textContent = 'Вік має бути від 18 до 100';
+          return;
+        }
+        saveNote.textContent = 'Зберігаю…';
+        api('/api/profile-info', {
+          gender: (current && current.gender) || null,
+          seekingGender: document.getElementById('fSeeking').value,
+          goal: document.getElementById('fGoal').value,
+          age: age,
+          city: document.getElementById('fCity').value.trim(),
+          interests: document.getElementById('fInterests').value
+            .split(',').map(function(s){ return s.trim(); }).filter(Boolean),
+          bio: document.getElementById('fBio').value.trim()
+        }).then(function(){
+          saveNote.textContent = 'Збережено ✓';
+          if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.notificationOccurred('success'); } catch(err){} }
+          return load();
+        }).then(function(){
+          setTimeout(function(){ editSection.hidden = true; }, 600);
+        }).catch(function(){
+          saveNote.textContent = 'Не вдалося зберегти — спробуй ще раз';
+        });
+      });
+
+      // ---- photo change ----------------------------------------------------
+      var photoInput = document.getElementById('photoInput');
+      document.getElementById('avaBtn').addEventListener('click', function(){
+        photoInput.click();
+      });
+      photoInput.addEventListener('change', function(){
+        var file = photoInput.files && photoInput.files[0];
+        photoInput.value = '';
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = function(){
+          var img = new Image();
+          img.onload = function(){
+            var MAX = 1024;
+            var scale = Math.min(1, MAX / Math.max(img.width, img.height));
+            var canvas = document.createElement('canvas');
+            canvas.width = Math.round(img.width * scale);
+            canvas.height = Math.round(img.height * scale);
+            canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+            var dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+            // optimistic preview
+            var avatar = document.getElementById('avatar');
+            avatar.src = dataUrl;
+            avatar.hidden = false;
+            document.getElementById('avatarPlaceholder').hidden = true;
+            api('/api/photo', { imageBase64: dataUrl }).then(function(){
+              if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.notificationOccurred('success'); } catch(err){} }
+            }).catch(function(){ /* keep preview; next load shows truth */ });
+          };
+          img.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+      });
+
+      // ---- deepen ----------------------------------------------------------
+      document.getElementById('deepenBtn').addEventListener('click', function(){
+        if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('medium'); } catch(e){} }
+        window.location.href = 'onboarding.html?mode=deepen';
+      });
+
+      load().catch(function(){ /* offline */ });
+    })();
+  </script>
+</body>
+</html>
