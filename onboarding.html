@@ -615,6 +615,10 @@
         var typingEl = startTyping();
         api('/api/profile', {}).then(function(profile){
           typingEl.remove();
+          // Background Big Five extraction — split into its own request so the
+          // Digital Twin stays under Vercel Hobby's 10s limit. Fire-and-forget:
+          // the UI never waits on it and traits fill in shortly after.
+          api('/api/analyze-traits', {}).catch(function(){ /* fills in later */ });
           if (profile && profile.traits) {
             localStorage.setItem('sixtio_profile', JSON.stringify(profile));
             renderProfileCard(profile);
