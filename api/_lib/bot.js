@@ -48,11 +48,14 @@ export async function notifyMatchBoth(userOne, userTwo, reason) {
 }
 
 /** Pings a user that their match sent them a new in-app message. */
-export async function notifyNewMessage(to, fromName, preview) {
+export async function notifyNewMessage(to, fromName, preview, matchId) {
   const name = (fromName || '').split(' ')[0] || 'Твоя пара';
   const text = `💬 ${name} написав(-ла) тобі:\n\n"${preview}"`;
+  const url = matchId
+    ? `${APP_URL}/conversation.html?match=${encodeURIComponent(matchId)}`
+    : `${APP_URL}/chat.html`;
   const reply_markup = {
-    inline_keyboard: [[{ text: 'Відповісти в Sixtio', web_app: { url: `${APP_URL}/chat.html` } }]],
+    inline_keyboard: [[{ text: 'Відповісти в Sixtio', web_app: { url } }]],
   };
   try {
     await callBot('sendMessage', { chat_id: to.telegram_id, text, reply_markup });

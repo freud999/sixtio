@@ -40,7 +40,7 @@ export default async function handler(req, res) {
         .eq('id', match.partnerId)
         .maybeSingle();
       if (partner) {
-        await notifyNewMessage(partner, me ? me.name : '', body.slice(0, 120));
+        await notifyNewMessage(partner, me ? me.name : '', body.slice(0, 120), match.matchId);
       }
     } catch (notifyError) {
       console.error('new-message notify failed:', notifyError.message);

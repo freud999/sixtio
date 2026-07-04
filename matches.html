@@ -70,13 +70,14 @@
 
   <div class="page-title led grad-text">МЕТЧІ</div>
 
-  <div class="search-banner glass" id="searchBanner">
+  <button class="btn-primary find-btn" id="findBtn">🔍 Знайти пару зараз</button>
+
+  <div class="search-banner glass" id="searchBanner" hidden>
     <div class="pulse" aria-hidden="true"></div>
     <div class="txt"><b>Sixtio шукає твою пару.</b> Тисни «Знайти пару», щойно захочеш — або чекай, поки зʼявиться хтось особливий.</div>
   </div>
-  <button class="btn-primary find-btn" id="findBtn" hidden>🔍 Знайти пару зараз</button>
   <div class="hint-empty glass" id="emptyHint" hidden>
-    Поки що вільних кандидатів немає. Що повніша твоя анкета — то точніший метч 💜
+    Поки що сумісних вільних кандидатів немає. Онови анкету через «Покращити профіль» — і спробуй ще 💜
   </div>
 
   <div class="match-list" id="matchList"></div>
@@ -114,7 +115,7 @@
         var pt = m.partner || {};
         var a = document.createElement('a');
         a.className = 'match-row faux-glass';
-        a.href = 'chat.html?match=' + encodeURIComponent(m.matchId);
+        a.href = 'conversation.html?match=' + encodeURIComponent(m.matchId);
         if (tg && tg.HapticFeedback) {
           a.addEventListener('click', function(){ try { tg.HapticFeedback.impactOccurred('light'); } catch(e){} });
         }
@@ -163,11 +164,12 @@
         }
         var matches = me.matches || [];
         listEl.innerHTML = '';
+        // "Find match" is always available (unlimited matches).
         if (matches.length) {
-          banner.hidden = true; findBtn.hidden = true; emptyHint.hidden = true;
+          banner.hidden = true; emptyHint.hidden = true;
           matches.forEach(function(m){ listEl.appendChild(row(m)); });
         } else {
-          banner.hidden = false; findBtn.hidden = false;
+          banner.hidden = false;
         }
       }
 

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Sixtio — наш метч</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="theme.js"></script>
+<link rel="stylesheet" href="theme.css" />
+<style>
+  body{
+    display:flex; flex-direction:column; align-items:center;
+    padding:calc(env(safe-area-inset-top) + 12px) 16px calc(env(safe-area-inset-bottom) + 16px);
+    overflow-y:auto; gap:14px;
+  }
+  body > *{ position:relative; z-index:1; }
+  .bg-dots, .bg-aura{ z-index:0; }
+
+  .top-bar{ width:100%; max-width:460px; display:flex; align-items:center; }
+  .back{ font-size:24px; color:var(--a1); background:none; border:none; cursor:pointer;
+    font-family:inherit; padding:4px 8px 4px 0; line-height:1; }
+
+  .match-card{ width:100%; max-width:460px; border-radius:28px; color:#fff; padding:22px 18px 20px;
+    text-align:center;
+    background:var(--a2);
+    background:radial-gradient(140% 110% at 50% -15%,
+      var(--a1) 0%, var(--a2) 52%,
+      color-mix(in srgb, var(--a2) 30%, var(--aura-deep)) 100%);
+    box-shadow:0 20px 52px -16px var(--glow); }
+  .headline{ font-size:16px; font-weight:800; letter-spacing:.04em; opacity:.9; }
+  .ava-wrap{ display:flex; justify-content:center; margin:14px 0 4px; }
+  .ava{ width:120px; height:120px; border-radius:50%; object-fit:cover;
+    border:3px solid rgba(255,255,255,.9); box-shadow:0 10px 28px rgba(0,0,0,.25); }
+  .ava-ph{ width:120px; height:120px; border-radius:50%; display:flex; align-items:center;
+    justify-content:center; font-size:48px; background:rgba(255,255,255,.14);
+    border:3px solid rgba(255,255,255,.55); }
+  .name{ font-size:23px; font-weight:700; margin-top:6px; }
+  .meta{ font-size:14px; color:rgba(255,255,255,.78); margin-top:2px; }
+  .vibe{ font-size:14px; font-style:italic; color:rgba(255,255,255,.9); margin-top:8px; }
+  .reason{ font-size:14px; line-height:1.6; margin:16px 0 4px; padding:14px 15px; text-align:left;
+    border-radius:16px; background:rgba(255,255,255,.13); border:1px solid rgba(255,255,255,.22); }
+  .reason .lbl{ display:block; font-size:10px; font-weight:800; text-transform:uppercase;
+    letter-spacing:.12em; color:rgba(255,255,255,.8); margin-bottom:6px; }
+  .sub{ font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.12em;
+    color:rgba(255,255,255,.65); margin:16px 0 8px; text-align:left; }
+  .chips{ display:flex; flex-wrap:wrap; gap:8px; }
+  .chip{ font-size:13px; font-weight:600; padding:7px 13px; border-radius:999px; color:#fff;
+    background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.3); }
+  .chip.outline{ background:transparent; border:1px solid rgba(255,255,255,.35); }
+  .bio{ font-size:14px; line-height:1.6; color:rgba(255,255,255,.92); text-align:left; }
+  .write-btn{ width:100%; max-width:460px; border:none; border-radius:999px; padding:16px;
+    font-size:16px; font-weight:700; color:var(--a2); background:#fff; cursor:pointer;
+    font-family:inherit; box-shadow:0 10px 26px -10px rgba(0,0,0,.3); }
+  .write-btn:active{ transform:scale(.98); opacity:.94; }
+</style>
+</head>
+<body>
+  <div class="bg-dots" aria-hidden="true"></div>
+  <div class="bg-aura one" aria-hidden="true"></div>
+  <div class="bg-aura two" aria-hidden="true"></div>
+
+  <div class="top-bar">
+    <button class="back" id="back" aria-label="Назад">‹ Назад</button>
+  </div>
+
+  <div class="match-card" id="card" hidden>
+    <div class="headline led">✨ ВАШ МЕТЧ</div>
+    <div class="ava-wrap">
+      <img class="ava" id="photo" alt="Фото пари" hidden />
+      <div class="ava-ph" id="photoPh">🙂</div>
+    </div>
+    <div class="name" id="name"></div>
+    <div class="meta" id="meta"></div>
+    <div class="vibe" id="vibe" hidden></div>
+    <div class="reason">
+      <span class="lbl">Чому ви пасуєте</span>
+      <span id="reason"></span>
+    </div>
+    <div class="sub" id="traitsLbl" hidden>Характер</div>
+    <div class="chips" id="traits"></div>
+    <div class="sub" id="interestsLbl" hidden>Інтереси</div>
+    <div class="chips" id="interests"></div>
+    <div class="sub" id="bioLbl" hidden>Про людину</div>
+    <div class="bio" id="bio"></div>
+  </div>
+
+  <button class="write-btn" id="writeBtn" hidden>Написати повідомлення 💬</button>
+
+  <script>
+    (function(){
+      var tg = window.Telegram && window.Telegram.WebApp;
+      if (tg) {
+        tg.ready();
+        tg.expand();
+        try { tg.setHeaderColor && tg.setHeaderColor('bg_color'); } catch(e){}
+        if (tg.BackButton) { try { tg.BackButton.show(); tg.BackButton.onClick(goBack); } catch(e){} }
+      }
+      var initData = (tg && tg.initData) || '';
+      var matchId = new URLSearchParams(window.location.search).get('match') || null;
+
+      function goBack(){ history.length > 1 ? history.back() : (window.location.href = 'chat.html'); }
+      document.getElementById('back').addEventListener('click', goBack);
+
+      function fillChips(id, items, outline){
+        var wrap = document.getElementById(id); wrap.innerHTML = '';
+        (items || []).forEach(function(it){
+          var c = document.createElement('span'); c.className = 'chip' + (outline ? ' outline' : '');
+          c.textContent = it; wrap.appendChild(c);
+        });
+        return (items || []).length > 0;
+      }
+
+      function render(m){
+        var pt = m.partner || {};
+        if (pt.photoUrl) {
+          var ph = document.getElementById('photo');
+          ph.src = pt.photoUrl; ph.hidden = false;
+          document.getElementById('photoPh').hidden = true;
+        }
+        document.getElementById('name').textContent = pt.name + (pt.age ? ', ' + pt.age : '');
+        document.getElementById('meta').textContent = pt.city ? '📍 ' + pt.city : '';
+        if (pt.vibe) { var v = document.getElementById('vibe'); v.textContent = '«' + pt.vibe + '»'; v.hidden = false; }
+        document.getElementById('reason').textContent = m.reason || '';
+        if (fillChips('traits', pt.traits, false)) document.getElementById('traitsLbl').hidden = false;
+        if (fillChips('interests', pt.interests, true)) document.getElementById('interestsLbl').hidden = false;
+        if (pt.bio) { document.getElementById('bio').textContent = pt.bio; document.getElementById('bioLbl').hidden = false; }
+        document.getElementById('card').hidden = false;
+
+        var w = document.getElementById('writeBtn');
+        w.hidden = false;
+        w.addEventListener('click', function(){
+          if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('medium'); } catch(e){} }
+          window.location.href = 'conversation.html' + (m.matchId ? '?match=' + encodeURIComponent(m.matchId) : '');
+        });
+      }
+
+      function pick(me){
+        var matches = me.matches || [];
+        if (!matches.length) { window.location.replace('matches.html'); return; }
+        var m = matchId ? matches.filter(function(x){ return x.matchId === matchId; })[0] : matches[0];
+        render(m || matches[0]);
+      }
+
+      try {
+        var cached = JSON.parse(localStorage.getItem('sixtio_me') || 'null');
+        if (cached && cached.matches && cached.matches.length) { pick(cached); }
+      } catch(e){}
+
+      fetch('/api/me', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ initData: initData })
+      }).then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(me){
+          if (!me) return;
+          if (!me.registered) { window.location.replace('onboarding.html'); return; }
+          if (me.user && me.user.gender && window.SixtioTheme) window.SixtioTheme.setGender(me.user.gender);
+          localStorage.setItem('sixtio_me', JSON.stringify(me));
+          pick(me);
+        }).catch(function(){ /* offline — cached shown */ });
+    })();
+  </script>
+</body>
+</html>

@@ -4,91 +4,65 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Sixtio — чат</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="theme.js"></script>
 <link rel="stylesheet" href="theme.css" />
 <style>
-  body{ display:flex; flex-direction:column; overflow:hidden; }
-  .chat-header, .messages, .composer{ position:relative; z-index:1; }
+  body{
+    display:flex; flex-direction:column; align-items:center;
+    padding:calc(env(safe-area-inset-top) + 16px) 16px 12px;
+    overflow-y:auto; gap:12px;
+  }
+  body > *{ position:relative; z-index:1; }
+  .bg-dots, .bg-aura{ z-index:0; }
 
-  /* header — glass bar */
-  .chat-header{ display:flex; align-items:center; gap:12px;
-    padding:calc(env(safe-area-inset-top) + 12px) 16px 12px;
-    background:var(--glass-bg);
-    -webkit-backdrop-filter:blur(24px) saturate(1.5); backdrop-filter:blur(24px) saturate(1.5);
-    border-bottom:1px solid var(--glass-border); }
-  .back{ font-size:24px; color:var(--a1); background:none; border:none; cursor:pointer;
-    padding:0 4px 0 0; line-height:1; font-family:inherit; }
-  .peer-avatar{ width:42px; height:42px; border-radius:50%; object-fit:cover; flex-shrink:0;
+  .page-title{ font-size:15px; letter-spacing:.12em; }
+
+  .list{ width:100%; max-width:460px; display:flex; flex-direction:column; gap:10px; }
+  .conv{ display:flex; align-items:center; gap:12px; width:100%; text-align:left;
+    padding:11px 12px; border-radius:20px; cursor:pointer; font-family:inherit; color:var(--text);
+    transition:transform .12s ease; }
+  .conv:active{ transform:scale(.985); }
+  .c-ava{ width:56px; height:56px; border-radius:50%; object-fit:cover; flex-shrink:0;
     border:2px solid transparent; background:
       linear-gradient(var(--bg),var(--bg)) padding-box,
       linear-gradient(120deg, var(--a2), var(--a1)) border-box; }
-  .peer-avatar-ph{ width:42px; height:42px; border-radius:50%; display:flex; align-items:center;
-    justify-content:center; font-size:20px; background:var(--faux-glass);
-    border:1px solid var(--glass-border); color:var(--hint); flex-shrink:0; }
-  .peer-name{ font-size:16px; font-weight:700; }
-  .peer-status{ font-size:11px; letter-spacing:.06em; color:var(--a1); }
+  .c-ava-ph{ width:56px; height:56px; border-radius:50%; flex-shrink:0; display:flex;
+    align-items:center; justify-content:center; font-size:26px;
+    background:var(--faux-glass); border:1px solid var(--glass-border); color:var(--hint); }
+  .c-main{ flex:1; min-width:0; }
+  .c-name{ font-size:16px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .c-last{ font-size:13px; color:var(--hint); margin-top:2px; white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis; }
+  .c-last.unseen{ color:var(--text); font-weight:600; }
+  .c-chev{ flex-shrink:0; font-size:22px; color:var(--a1); opacity:.7; }
 
-  /* messages */
-  .messages{ flex:1; overflow-y:auto; padding:14px 16px; display:flex; flex-direction:column; gap:8px;
-    -webkit-overflow-scrolling:touch; }
-  .intro{ align-self:center; text-align:center; max-width:82%; margin:auto 0; padding:22px;
-    font-size:13px; line-height:1.6; color:var(--hint); }
-  .intro .spark{ font-size:26px; display:block; margin-bottom:8px; }
-  .msg{ max-width:80%; padding:11px 14px; border-radius:18px; font-size:15px; line-height:1.4;
-    word-wrap:break-word; animation:pop .2s ease; }
-  @keyframes pop{ from{ opacity:0; transform:translateY(4px); } to{ opacity:1; transform:translateY(0); } }
-  .msg.them{ align-self:flex-start; background:var(--faux-glass);
-    border:1px solid var(--glass-border); color:var(--text); border-bottom-left-radius:5px; }
-  .msg.me{ align-self:flex-end; color:#fff; border-bottom-right-radius:5px;
-    background:linear-gradient(120deg, var(--a2), var(--a1));
-    box-shadow:0 8px 22px -10px var(--glow); }
-
-  /* composer — glass bar */
-  .composer{ display:flex; gap:8px; align-items:flex-end;
-    padding:10px 16px calc(env(safe-area-inset-bottom) + 10px);
-    background:var(--glass-bg);
-    -webkit-backdrop-filter:blur(24px) saturate(1.5); backdrop-filter:blur(24px) saturate(1.5);
-    border-top:1px solid var(--glass-border); }
-  .composer textarea{ flex:1; resize:none; max-height:110px; min-height:46px;
-    border:1px solid var(--glass-border); border-radius:16px; padding:13px 15px; font-size:15px;
-    font-family:inherit; color:var(--text); background:var(--faux-glass); outline:none; line-height:1.4; }
-  .composer textarea::placeholder{ color:var(--hint); }
-  .composer button{ flex-shrink:0; width:46px; height:46px; border:none; border-radius:50%;
-    background:linear-gradient(120deg, var(--a2), var(--a1)); color:#fff; font-size:18px; cursor:pointer;
-    box-shadow:0 8px 22px -8px var(--glow);
-    display:flex; align-items:center; justify-content:center;
-    transition:transform .12s ease, opacity .12s ease; }
-  .composer button:active{ transform:scale(0.94); opacity:.9; }
-  .composer button:disabled{ opacity:.4; }
+  .empty{ max-width:340px; text-align:center; font-size:13px; line-height:1.6;
+    color:var(--hint); padding:18px; margin-top:12px; }
+  .empty .spark{ font-size:26px; display:block; margin-bottom:8px; }
+  .empty a{ color:var(--a1); font-weight:600; text-decoration:none; }
 </style>
 </head>
-<body>
+<body class="has-tab-bar">
   <div class="bg-dots" aria-hidden="true"></div>
   <div class="bg-aura one" aria-hidden="true"></div>
   <div class="bg-aura two" aria-hidden="true"></div>
 
-  <div class="chat-header">
-    <button class="back" id="back" aria-label="Назад">‹</button>
-    <img class="peer-avatar" id="peerAvatar" alt="" hidden />
-    <div class="peer-avatar-ph" id="peerAvatarPh">🙂</div>
-    <div>
-      <div class="peer-name" id="peerName">Чат</div>
-      <div class="peer-status led">ваша пара від Sixtio</div>
-    </div>
+  <div class="page-title led grad-text">ЧАТ</div>
+
+  <div class="list" id="list"></div>
+
+  <div class="empty glass" id="empty" hidden>
+    <span class="spark">💬</span>
+    Тут зʼявляться розмови з твоїми парами. Поки метчів немає — зазирни у <a href="matches.html">Метчі</a> й натисни «Знайти пару».
   </div>
 
-  <div class="messages" id="messages">
-    <div class="intro glass" id="intro" hidden>
-      <span class="spark">💜</span>
-      Sixtio звела вас за справжньою сумісністю. Напиши перше повідомлення — з чогось теплого й щирого.
-    </div>
-  </div>
-
-  <form class="composer" id="composer">
-    <textarea id="msgInput" rows="1" placeholder="Повідомлення..."></textarea>
-    <button type="submit" id="sendBtn" aria-label="Надіслати">➤</button>
-  </form>
+  <nav class="tab-bar">
+    <a class="tab-item" href="matches.html"><span class="ico">💜</span>Метчі</a>
+    <a class="tab-item active" href="chat.html"><span class="ico">💬</span>Чат</a>
+    <a class="tab-item" href="profile.html"><span class="ico">👤</span>Профіль</a>
+  </nav>
 
   <script>
     (function(){
@@ -97,114 +71,83 @@
         tg.ready();
         tg.expand();
         try { tg.setHeaderColor && tg.setHeaderColor('bg_color'); } catch(e){}
-        if (tg.BackButton) {
-          try { tg.BackButton.show(); tg.BackButton.onClick(goBack); } catch(e){}
-        }
       }
-
-      var messagesEl = document.getElementById('messages');
-      var intro = document.getElementById('intro');
-      var composer = document.getElementById('composer');
-      var input = document.getElementById('msgInput');
-      var sendBtn = document.getElementById('sendBtn');
-
       var initData = (tg && tg.initData) || '';
-      var seen = {};       // message id -> true (dedupe across polls)
-      var pollTimer = null;
-      // Which conversation (multi-match). Empty → server picks the most recent.
-      var matchId = new URLSearchParams(window.location.search).get('match') || null;
-
-      function goBack(){ window.location.href = 'matches.html'; }
-      document.getElementById('back').addEventListener('click', goBack);
+      var listEl = document.getElementById('list');
+      var emptyEl = document.getElementById('empty');
 
       function api(path, payload){
-        var body = Object.assign({ initData: initData }, payload);
-        if (matchId) body.matchId = matchId;
         return fetch(path, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
-        }).then(function(r){
-          if (!r.ok) throw new Error('HTTP ' + r.status);
-          return r.json();
-        });
+          body: JSON.stringify(Object.assign({ initData: initData }, payload))
+        }).then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
       }
 
-      function scrollToBottom(){
-        requestAnimationFrame(function(){ messagesEl.scrollTop = messagesEl.scrollHeight; });
+      function conv(m){
+        var pt = m.partner || {};
+        var a = document.createElement('a');
+        a.className = 'conv faux-glass';
+        a.href = 'conversation.html?match=' + encodeURIComponent(m.matchId);
+        if (tg && tg.HapticFeedback) {
+          a.addEventListener('click', function(){ try { tg.HapticFeedback.impactOccurred('light'); } catch(e){} });
+        }
+
+        if (pt.photoUrl) {
+          var img = document.createElement('img');
+          img.className = 'c-ava'; img.src = pt.photoUrl; img.alt = '';
+          a.appendChild(img);
+        } else {
+          var ph = document.createElement('div');
+          ph.className = 'c-ava-ph'; ph.textContent = '🙂';
+          a.appendChild(ph);
+        }
+
+        var main = document.createElement('div'); main.className = 'c-main';
+        var nm = document.createElement('div'); nm.className = 'c-name';
+        nm.textContent = pt.name + (pt.age ? ', ' + pt.age : '');
+        main.appendChild(nm);
+
+        var last = document.createElement('div'); last.className = 'c-last';
+        if (m.lastMessage && m.lastMessage.text) {
+          last.textContent = (m.lastMessage.mine ? 'Ти: ' : '') + m.lastMessage.text;
+          if (!m.lastMessage.mine) last.classList.add('unseen');
+        } else {
+          last.textContent = 'Почніть розмову ✨';
+        }
+        main.appendChild(last);
+        a.appendChild(main);
+
+        var chev = document.createElement('div'); chev.className = 'c-chev'; chev.textContent = '›';
+        a.appendChild(chev);
+        return a;
       }
 
-      function addMessage(m){
-        if (seen[m.id]) return;
-        seen[m.id] = true;
-        intro.hidden = true;
-        var el = document.createElement('div');
-        el.className = 'msg ' + (m.mine ? 'me' : 'them');
-        el.textContent = m.text;
-        messagesEl.appendChild(el);
-        scrollToBottom();
-      }
-
-      function renderPartner(partner){
-        if (!partner) return;
-        document.getElementById('peerName').textContent = partner.name || 'Чат';
-        if (partner.photoUrl) {
-          var av = document.getElementById('peerAvatar');
-          av.src = partner.photoUrl;
-          av.hidden = false;
-          document.getElementById('peerAvatarPh').hidden = true;
+      function render(me){
+        if (me.user && me.user.gender && window.SixtioTheme) {
+          window.SixtioTheme.setGender(me.user.gender);
+        }
+        var matches = me.matches || [];
+        listEl.innerHTML = '';
+        if (matches.length) {
+          emptyEl.hidden = true;
+          matches.forEach(function(m){ listEl.appendChild(conv(m)); });
+        } else {
+          emptyEl.hidden = false;
         }
       }
 
-      var partnerLoaded = false;
-      function load(){
-        api('/api/messages', {}).then(function(data){
-          if (!data.hasMatch) { goBack(); return; }
-          // Pin the conversation so polling/sending stays on this match.
-          if (data.matchId) matchId = data.matchId;
-          if (!partnerLoaded) { renderPartner(data.partner); partnerLoaded = true; }
-          var had = Object.keys(seen).length;
-          data.messages.forEach(addMessage);
-          if (had === 0 && data.messages.length === 0) intro.hidden = false;
-        }).catch(function(){ /* keep last state on transient errors */ });
-      }
+      // Cache-first paint, then refresh.
+      try {
+        var cached = JSON.parse(localStorage.getItem('sixtio_me') || 'null');
+        if (cached && cached.registered) render(cached);
+      } catch(e){}
 
-      function autosize(){
-        input.style.height = 'auto';
-        input.style.height = Math.min(input.scrollHeight, 110) + 'px';
-      }
-      input.addEventListener('input', autosize);
-
-      composer.addEventListener('submit', function(e){
-        e.preventDefault();
-        var text = input.value.trim();
-        if (!text) return;
-        input.value = '';
-        autosize();
-        sendBtn.disabled = true;
-        if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('light'); } catch(err){} }
-        api('/api/send-message', { text: text }).then(function(resp){
-          if (resp && resp.message) addMessage(resp.message);
-        }).catch(function(){
-          // Restore the text so the user doesn't lose it.
-          input.value = text; autosize();
-        }).then(function(){ sendBtn.disabled = false; input.focus(); });
-      });
-
-      input.addEventListener('keydown', function(e){
-        if (e.key === 'Enter' && !e.shiftKey) {
-          e.preventDefault();
-          composer.requestSubmit ? composer.requestSubmit() : composer.dispatchEvent(new Event('submit', { cancelable:true }));
-        }
-      });
-
-      // Initial load + lightweight polling for new messages.
-      load();
-      pollTimer = setInterval(load, 4000);
-      document.addEventListener('visibilitychange', function(){
-        if (document.hidden) { clearInterval(pollTimer); }
-        else { load(); pollTimer = setInterval(load, 4000); }
-      });
+      api('/api/me', {}).then(function(me){
+        if (!me.registered) { window.location.replace('onboarding.html'); return; }
+        localStorage.setItem('sixtio_me', JSON.stringify(me));
+        render(me);
+      }).catch(function(){ /* offline — cache shown */ });
     })();
   </script>
 </body>

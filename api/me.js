@@ -47,10 +47,21 @@ export default async function handler(req, res) {
         .select('traits_json, vibe')
         .eq('user_id', m.partnerId)
         .maybeSingle();
+      // Last message for the chat-list preview.
+      const { data: lastRows } = await supabase
+        .from('messages')
+        .select('text, sender_id, created_at')
+        .eq('match_id', m.matchId)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      const lm = lastRows && lastRows[0];
       matches.push({
         matchId: m.matchId,
         reason: m.reason,
         score: m.score,
+        lastMessage: lm
+          ? { text: lm.text, mine: lm.sender_id === user.id, createdAt: lm.created_at }
+          : null,
         partner: {
           name: (partner.name || '').split(' ')[0] || 'Хтось особливий',
           age: partner.age,
