@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Sixtio — Політика конфіденційності</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="theme.js"></script>
+<link rel="stylesheet" href="theme.css" />
+<style>
+  body{
+    display:flex; flex-direction:column; align-items:center;
+    padding:calc(env(safe-area-inset-top) + 12px) 18px calc(env(safe-area-inset-bottom) + 20px);
+    overflow-y:auto; gap:14px;
+  }
+  body > *{ position:relative; z-index:1; }
+  .bg-dots, .bg-aura{ z-index:0; }
+
+  .top-bar{ width:100%; max-width:520px; display:flex; align-items:center; }
+  .back{ font-size:24px; color:var(--a1); background:none; border:none; cursor:pointer;
+    font-family:inherit; padding:4px 8px 4px 0; line-height:1; }
+
+  .doc{ width:100%; max-width:520px; padding:22px 20px; }
+  .doc h1{ font-size:22px; font-weight:800; letter-spacing:-0.3px; margin-bottom:4px; }
+  .doc .upd{ font-size:12px; color:var(--hint); margin-bottom:16px; }
+  .doc h2{ font-size:15px; font-weight:700; margin:18px 0 7px;
+    background:linear-gradient(100deg, var(--a1), var(--a2));
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  .doc p, .doc li{ font-size:14px; line-height:1.6; color:var(--text); }
+  .doc ul{ margin:6px 0 0 18px; display:flex; flex-direction:column; gap:5px; }
+  .doc b{ font-weight:700; }
+  .doc .muted{ color:var(--hint); }
+</style>
+</head>
+<body>
+  <div class="bg-dots" aria-hidden="true"></div>
+  <div class="bg-aura one" aria-hidden="true"></div>
+  <div class="bg-aura two" aria-hidden="true"></div>
+
+  <div class="top-bar">
+    <button class="back" id="back" aria-label="Назад">‹ Назад</button>
+  </div>
+
+  <div class="doc glass">
+    <h1>Політика конфіденційності Sixtio</h1>
+    <div class="upd">Оновлено: липень 2026</div>
+
+    <p>Sixtio — це Telegram Mini App, розумна сваха, яка знайомить людей на основі психологічної сумісності. Ми серйозно ставимося до твоєї приватності й збираємо лише те, що потрібно для роботи сервісу.</p>
+
+    <h2>Які дані ми збираємо</h2>
+    <ul>
+      <li><b>З Telegram:</b> твій Telegram ID, ім'я та (за наявності) юзернейм — через захищені дані Telegram (initData).</li>
+      <li><b>Твоя анкета:</b> стать, кого шукаєш, мета знайомства, вік, місто, інтереси, опис про себе та фото, які ти додаєш.</li>
+      <li><b>Відповіді на запитання</b> Sixtio та згенерований на їх основі психологічний портрет.</li>
+      <li><b>Повідомлення</b> у внутрішньому чаті з твоєю парою.</li>
+      <li><b>Місто за IP</b> — визначається автоматично лише як підказка на кроці міста; ти завжди підтверджуєш або вводиш своє.</li>
+    </ul>
+
+    <h2>Як ми використовуємо дані</h2>
+    <ul>
+      <li>Щоб створити твій профіль і знайти психологічно сумісну пару.</li>
+      <li>Щоб показувати метчі та давати змогу спілкуватися у внутрішньому чаті.</li>
+      <li>Щоб надсилати сповіщення від бота (новий метч, нове повідомлення).</li>
+    </ul>
+
+    <h2>Обробка штучним інтелектом</h2>
+    <p>Твої відповіді обробляються сервісами ШІ (<b>Google Gemini</b> та <b>Anthropic Claude</b>), щоб сформувати психологічний портрет і оцінити сумісність. Передається лише текст відповідей та анкети — без твого Telegram-контакту.</p>
+
+    <h2>Приватність твого Telegram</h2>
+    <p><b>Твій профіль Telegram ніхто не бачить за замовчуванням.</b> Іншим користувачам показуються лише ім'я, вік, місто, інтереси, фото та портрет — але не твій Telegram-акаунт. Твій юзернейм розкривається парі <b>лише коли ви обидва натиснули «Обмінятись Telegram»</b>.</p>
+
+    <h2>Де зберігаються дані</h2>
+    <p>Дані зберігаються у базі <b>Supabase</b>, застосунок працює на <b>Vercel</b>. Доступ до даних захищений і використовується лише для роботи Sixtio. Ми не продаємо твої дані та не передаємо їх третім сторонам для реклами.</p>
+
+    <h2>Видалення даних</h2>
+    <p>Ти можеш будь-коли <b>видалити свій акаунт</b> у розділі «Профіль». Це <b>назавжди й безповоротно</b> стирає твою анкету, відповіді, портрет, метчі, повідомлення та фото.</p>
+
+    <h2>Вік</h2>
+    <p>Sixtio призначений лише для повнолітніх (18+).</p>
+
+    <h2>Контакт</h2>
+    <p class="muted">З питань приватності напиши нам у боті <b>@Sixtiobot</b>.</p>
+  </div>
+
+  <script>
+    (function(){
+      var tg = window.Telegram && window.Telegram.WebApp;
+      if (tg) {
+        tg.ready(); tg.expand();
+        try { tg.setHeaderColor && tg.setHeaderColor('bg_color'); } catch(e){}
+        if (tg.BackButton) { try { tg.BackButton.show(); tg.BackButton.onClick(goBack); } catch(e){} }
+      }
+      function goBack(){ history.length > 1 ? history.back() : (window.location.href = 'profile.html'); }
+      document.getElementById('back').addEventListener('click', goBack);
+    })();
+  </script>
+</body>
+</html>
