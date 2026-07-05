@@ -1,6 +1,6 @@
 // Sixtio paywall — one reusable glassmorphism overlay for the whole app.
 // Usage:  SixtioPaywall.open({ initData, starsBalance, onSuccess: fn(result) })
-// It handles the /api/purchase call itself, updates the cached sixtio_me, and
+// It handles the /api/interact purchase call itself, updates cached sixtio_me, and
 // calls onSuccess with the fresh entitlement so the caller can un-blur / refresh.
 (function () {
   var PREMIUM_PRICE = 150;
@@ -120,10 +120,10 @@
         busy = true;
         note.textContent = 'Обробка…';
         haptic('medium');
-        fetch('/api/purchase', {
+        fetch('/api/interact', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ initData: initData, item: item }),
+          body: JSON.stringify({ op: 'purchase', initData: initData, item: item }),
         }).then(function (r) { return r.json(); }).then(function (res) {
           busy = false;
           if (!res || !res.ok) {

@@ -213,7 +213,7 @@
           b.addEventListener('click', function(){
             if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('medium'); } catch(e){} }
             b.disabled = true;
-            api('/api/share-telegram', { action: 'consent' })
+            api('/api/chat', { op: 'share', action: 'consent' })
               .then(renderShare)
               .catch(function(){ b.disabled = false; });
           });
@@ -222,12 +222,12 @@
       }
 
       function loadShare(){
-        api('/api/share-telegram', { action: 'state' }).then(renderShare).catch(function(){});
+        api('/api/chat', { op: 'share', action: 'state' }).then(renderShare).catch(function(){});
       }
 
       var partnerLoaded = false;
       function load(){
-        api('/api/messages', {}).then(function(data){
+        api('/api/chat', { op: 'list' }).then(function(data){
           if (!data.hasMatch) { goBack(); return; }
           if (data.matchId) matchId = data.matchId;
           if (!partnerLoaded) {
@@ -256,7 +256,7 @@
         autosize();
         sendBtn.disabled = true;
         if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('light'); } catch(err){} }
-        api('/api/send-message', { text: text }).then(function(resp){
+        api('/api/chat', { op: 'send', text: text }).then(function(resp){
           if (resp && resp.message) addMessage(resp.message);
         }).catch(function(){
           input.value = text; autosize();

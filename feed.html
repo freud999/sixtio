@@ -273,7 +273,7 @@
         busy = true;
         haptic('medium');
         if (action === 'like' && likesLeft !== null && likesLeft > 0) likesLeft--;
-        api('/api/swipe', { targetId: cand.userId, action: action }).then(function(res){
+        api('/api/interact', { op: 'swipe', targetId: cand.userId, action: action }).then(function(res){
           // Authoritative backstop: server refused the like (race on the cap).
           if (res && res.paywall) openPaywall();
         }).catch(function(){});
