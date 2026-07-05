@@ -87,6 +87,37 @@
   .save-row .btn-glass{ flex:1; }
   .save-note{ font-size:12px; color:var(--hint); text-align:center; min-height:16px; }
 
+  /* ---- Profile depth (gamification) ---- */
+  .depth-top{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:12px; }
+  .depth-pct{ font-size:18px; font-weight:800;
+    background:linear-gradient(100deg, var(--a1), var(--a2));
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  .depth-bar{ position:relative; width:100%; height:12px; border-radius:999px; overflow:hidden;
+    background:var(--faux-glass); border:1px solid var(--glass-border); }
+  .depth-fill{ position:absolute; inset:0 auto 0 0; width:40%; border-radius:999px;
+    background:linear-gradient(100deg, var(--a2), var(--a1));
+    box-shadow:0 0 14px 1px var(--glow); transition:width .5s cubic-bezier(.2,.8,.2,1);
+    animation:depthPulse 2.4s ease-in-out infinite; }
+  @keyframes depthPulse{ 0%,100%{ filter:brightness(1); } 50%{ filter:brightness(1.25); } }
+  .depth-widget{ margin-top:16px; padding:14px; border-radius:16px;
+    background:var(--faux-glass); border:1px solid var(--glass-border); }
+  .depth-q{ font-size:14px; font-weight:600; line-height:1.5; }
+  .depth-input{ width:100%; margin-top:12px; border:1px solid var(--glass-border); border-radius:14px;
+    padding:12px 14px; font-size:15px; font-family:inherit; color:var(--text);
+    background:var(--bg); outline:none; resize:none; min-height:72px; line-height:1.5; }
+  .depth-submit{ width:100%; margin-top:12px; }
+  .depth-note{ font-size:12.5px; color:var(--hint); text-align:center; min-height:16px; margin-top:10px; }
+
+  /* achievements grid — neon badge chips */
+  .achieve-grid{ display:flex; flex-wrap:wrap; gap:10px; }
+  .achieve-badge{ display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700;
+    padding:9px 14px; border-radius:14px; color:#fff;
+    background:linear-gradient(135deg, rgba(124,58,237,.28), rgba(236,72,153,.28));
+    border:1px solid rgba(196,120,255,.5);
+    box-shadow:0 0 18px -6px var(--glow), inset 0 0 12px -6px rgba(255,150,240,.6); }
+  .achieve-badge .em{ font-size:17px; line-height:1; }
+  .achieve-empty{ font-size:13.5px; color:var(--hint); line-height:1.5; }
+
   /* ---- Dark Mode (18+) ---- */
   .dark-head{ display:flex; align-items:center; justify-content:space-between; gap:14px; }
   .dark-desc{ font-size:12.5px; color:var(--hint); line-height:1.45; margin-top:2px; }
@@ -152,6 +183,26 @@
     <div class="name-age" id="nameAge"></div>
     <div class="meta" id="meta"></div>
     <span class="goal-badge" id="goalBadge" hidden></span>
+  </div>
+
+  <div class="section glass" id="depthSection">
+    <div class="depth-top">
+      <div class="sec-title grad" style="margin-bottom:0;">Глибина профілю</div>
+      <span class="depth-pct" id="depthPct">40%</span>
+    </div>
+    <div class="depth-bar"><div class="depth-fill" id="depthFill"></div></div>
+    <div class="depth-widget" id="depthWidget" hidden>
+      <div class="depth-q" id="depthQ">🧠 Дозаповни профіль (+20%)</div>
+      <textarea class="depth-input" id="depthInput" maxlength="600"
+        placeholder="Відповідай вільно, своїми словами…"></textarea>
+      <button class="btn-primary depth-submit" id="depthSubmit">Відповісти (+20%)</button>
+      <div class="depth-note" id="depthNote"></div>
+    </div>
+  </div>
+
+  <div class="section glass" id="achieveSection">
+    <div class="sec-title grad">🏅 Досягнення</div>
+    <div class="achieve-grid" id="achieveGrid"></div>
   </div>
 
   <div class="section glass stars-card" id="starsSection">
@@ -341,6 +392,57 @@
         }
 
         renderDark(u);
+        renderDepth(u);
+        renderAchievements(u.achievements);
+      }
+
+      // ---- Profile depth + achievements (gamification) --------------------
+      var ACHIEVEMENTS = {
+        crystal_empath: { em: '🏆', label: 'Кришталевий Емпат' },
+        master_charisma:{ em: '⚡', label: 'Магістр Харизми' },
+        rock_stability: { em: '🛡️', label: 'Скеля Стабільності' },
+        explorer:       { em: '🪐', label: 'Першовідкривач' },
+        zen_strategist: { em: '🎯', label: 'Дзен-Стратег' }
+      };
+      // Three tricky depth questions — one per +20 step from the base 40% → 100%.
+      var EXTRA_QUESTIONS = [
+        'Що останнім часом змусило тебе передумати про щось важливе?',
+        'Коли ти почуваєшся найбільш собою — і хто поруч у цей момент?',
+        'За що ти вдячний(-а) навіть у складні дні — і чому саме за це?'
+      ];
+
+      function renderDepth(u){
+        var depth = typeof u.profileDepth === 'number' ? u.profileDepth : 40;
+        depth = Math.max(0, Math.min(100, depth));
+        document.getElementById('depthFill').style.width = depth + '%';
+        document.getElementById('depthPct').textContent = depth + '%';
+        var widget = document.getElementById('depthWidget');
+        if (depth >= 100) { widget.hidden = true; return; }
+        // Pick the question matching the current step (40→0, 60→1, 80→2).
+        var idx = Math.max(0, Math.min(EXTRA_QUESTIONS.length - 1, Math.round((depth - 40) / 20)));
+        document.getElementById('depthQ').textContent = '🧠 ' + EXTRA_QUESTIONS[idx];
+        document.getElementById('depthWidget').dataset.qid = 'extra_deep_' + idx;
+        widget.hidden = false;
+      }
+
+      function renderAchievements(list){
+        var grid = document.getElementById('achieveGrid');
+        grid.innerHTML = '';
+        var keys = (list || []).filter(function(k){ return ACHIEVEMENTS[k]; });
+        if (!keys.length) {
+          var ph = document.createElement('div');
+          ph.className = 'achieve-empty';
+          ph.textContent = 'Твій психотип формується… відповідай на питання, і бейджі зʼявляться ✨';
+          grid.appendChild(ph);
+          return;
+        }
+        keys.forEach(function(k){
+          var b = ACHIEVEMENTS[k];
+          var chip = document.createElement('span');
+          chip.className = 'achieve-badge';
+          chip.innerHTML = '<span class="em">' + b.em + '</span>' + b.label;
+          grid.appendChild(chip);
+        });
       }
 
       // ---- Dark Mode (18+) -------------------------------------------------
@@ -671,6 +773,46 @@
         openInterview()
           .then(function(markers){ syncDark(true, markers); })
           .catch(function(){});
+      });
+
+      // ---- Profile depth: answer an extra deep question (+20%) ------------
+      document.getElementById('depthSubmit').addEventListener('click', function(){
+        var btn = this;
+        var input = document.getElementById('depthInput');
+        var note = document.getElementById('depthNote');
+        var answer = input.value.trim();
+        if (answer.length < 3) { note.textContent = 'Кілька слів — і профіль стане глибшим 💬'; return; }
+        btn.disabled = true;
+        note.textContent = 'Sixtio запамʼятовує…';
+        var qid = document.getElementById('depthWidget').dataset.qid || 'extra_deep';
+        api('/api/me', { op: 'submit_extra_question', answer: answer, questionId: qid })
+          .then(function(res){
+            if (!res || !res.ok) throw new Error('failed');
+            input.value = '';
+            if (current) {
+              current.profileDepth = res.profileDepth;
+              current.starsBalance = res.starsBalance;
+            }
+            // Keep every screen in sync via the cached payload.
+            try {
+              var me = JSON.parse(localStorage.getItem('sixtio_me') || 'null');
+              if (me && me.user) {
+                me.user.profileDepth = res.profileDepth;
+                me.user.starsBalance = res.starsBalance;
+                localStorage.setItem('sixtio_me', JSON.stringify(me));
+              }
+            } catch(e){}
+            document.getElementById('starsBalance').textContent = res.starsBalance || 0;
+            if (current) renderDepth(current);
+            if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.notificationOccurred('success'); } catch(e){} }
+            note.textContent = res.bonusAwarded
+              ? '🎉 Профіль заповнено! +2 ⭐ бонус'
+              : 'Готово ✓ Профіль глибший на +20%';
+          })
+          .catch(function(){
+            note.textContent = 'Не вдалося зберегти — спробуй ще раз';
+          })
+          .then(function(){ btn.disabled = false; });
       });
 
       load().catch(function(){ /* offline */ });
