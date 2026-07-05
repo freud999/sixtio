@@ -51,6 +51,9 @@
     transition:transform .12s ease, opacity .12s ease, color .6s ease; }
   .option-btn:active{ transform:scale(0.96); opacity:.85; }
   .option-btn.secondary{ color:var(--hint); font-weight:500; }
+  .option-btn.gps{ color:#fff; border:none;
+    background:linear-gradient(120deg, var(--a2), var(--a1));
+    box-shadow:0 8px 22px -10px var(--glow); }
 
   /* completion / profile card */
   .done-card{ align-self:center; text-align:center; max-width:92%; padding:18px; margin-top:8px; }
@@ -302,7 +305,7 @@
         list.forEach(function(opt){
           var btn = document.createElement('button');
           btn.type = 'button';
-          btn.className = 'option-btn' + (opt.secondary ? ' secondary' : '');
+          btn.className = 'option-btn' + (opt.secondary ? ' secondary' : '') + (opt.cls ? ' ' + opt.cls : '');
           btn.textContent = opt.label;
           btn.addEventListener('click', function(){
             if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('light'); } catch(e){} }
@@ -341,8 +344,13 @@
           } else {
             setComposer(true, step.type === 'number' ? 'Вкажи вік числом...' : 'Напишіть відповідь...');
             var extraOptions = [];
-            if (step.id === 'city' && detectedCity) {
-              extraOptions.push({ label: '📍 ' + detectedCity, onSelect: function(){ answerProfile(step, detectedCity, detectedCity); } });
+            if (step.id === 'city') {
+              extraOptions.push({ label: '📍 Поділитися локацією', cls: 'gps',
+                onSelect: function(){ requestGpsCity(step); } });
+              if (detectedCity) {
+                extraOptions.push({ label: '📍 ' + detectedCity,
+                  onSelect: function(){ answerProfile(step, detectedCity, detectedCity); } });
+              }
             }
             if (step.optional) {
               extraOptions.push({ label: 'Пропустити', secondary: true, onSelect: function(){ skipProfile(step); } });
@@ -360,8 +368,52 @@
         if (step.id === 'gender' && window.SixtioTheme) {
           window.SixtioTheme.setGender(value);
         }
+        if (step.id === 'city' && value) {
+          api('/api/me', { op: 'update_location', city: value }).catch(function(){});
+        }
         pIndex++;
         askNextProfile();
+      }
+
+      // Logic A: native GPS -> client-side reverse geocode (Nominatim) -> op:update_location.
+      // Any denial, timeout, or unresolved city falls straight through to the manual
+      // text input (Logic B), so onboarding is never blocked by location.
+      function requestGpsCity(step){
+        removeOptions();
+        function toManual(msg){
+          addBubble(msg || 'Гаразд — впиши місто вручну 🙂', 'bot');
+          setComposer(true, 'Напиши місто...');
+          if (step.optional) showOptions([{ label: 'Пропустити', secondary: true,
+            onSelect: function(){ skipProfile(step); } }]);
+        }
+        if (!navigator.geolocation) { toManual(); return; }
+
+        setComposer(false);
+        var typingEl = startTyping();
+        var done = false;
+        function fail(msg){ if (done) return; done = true; typingEl.remove(); toManual(msg); }
+
+        navigator.geolocation.getCurrentPosition(function(pos){
+          if (done) return;
+          var lat = pos.coords.latitude, lon = pos.coords.longitude;
+          fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat +
+                '&lon=' + lon + '&accept-language=uk', { headers: { 'Accept': 'application/json' } })
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+              if (done) return; done = true;
+              typingEl.remove();
+              var a = (d && d.address) || {};
+              var city = a.city || a.town || a.village || a.municipality || '';
+              if (!city) { toManual('Не вдалося визначити місто — впиши його вручну 🙂'); return; }
+              addBubble('📍 ' + city, 'user');
+              profileData[step.id] = city;
+              api('/api/me', { op: 'update_location', city: city }).catch(function(){});
+              pIndex++;
+              askNextProfile();
+            })
+            .catch(function(){ fail('Не вдалося визначити місто — впиши його вручну 🙂'); });
+        }, function(){ fail('Гаразд — впиши місто вручну 🙂'); },
+           { enableHighAccuracy: false, timeout: 10000, maximumAge: 600000 });
       }
 
       function skipProfile(step){

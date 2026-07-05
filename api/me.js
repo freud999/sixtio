@@ -45,6 +45,7 @@ export default async function handler(req, res) {
     }
 
     if (body.op === 'submit_extra_question') return submitExtraQuestion(res, tgUser, body);
+    if (body.op === 'update_location') return updateLocation(res, tgUser, body);
 
     const supabase = getSupabase();
     const { data: user, error } = await supabase
@@ -225,4 +226,27 @@ async function submitExtraQuestion(res, tgUser, body) {
     starsBalance: updated ? updated.stars_balance : (user.stars_balance || 0),
     bonusAwarded: reachedFull,
   });
+}
+
+// --- Location capture (GPS reverse-geocoded client-side, or manual) ---------
+// The frontend resolves a city name itself (Nominatim or a typed value) to keep
+// zero backend footprint under the 12-function cap; here we just sanitize and
+// persist it. Self-guarded so a bad payload can never bubble a 500 to onboarding.
+async function updateLocation(res, tgUser, body) {
+  try {
+    const city = typeof body.city === 'string' ? body.city.trim().slice(0, 120) : '';
+    if (!city) return res.status(400).json({ ok: false, error: 'city is required' });
+
+    const supabase = getSupabase();
+    const { error } = await supabase
+      .from('users')
+      .update({ city })
+      .eq('telegram_id', tgUser.id);
+    if (error) throw error;
+
+    return res.status(200).json({ ok: true, city });
+  } catch (e) {
+    console.error('update_location failed:', e);
+    return res.status(500).json({ ok: false, error: 'Internal error' });
+  }
 }
