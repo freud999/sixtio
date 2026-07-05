@@ -19,7 +19,7 @@ export default async function handler(req, res) {
     const supabase = getSupabase();
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, name, gender, seeking_gender, goal, age, city, interests, bio, photo_url, stars_balance, premium, premium_until, daily_likes_count, last_like_reset')
+      .select('id, name, gender, seeking_gender, goal, age, city, interests, bio, photo_url, stars_balance, premium, premium_until, daily_likes_count, last_like_reset, dark_mode_active, kink_markers')
       .eq('telegram_id', tgUser.id)
       .maybeSingle();
     if (error) throw error;
@@ -119,6 +119,10 @@ export default async function handler(req, res) {
         premiumUntil: ent.premiumUntil,
         likesLeft: likesLeftForClient(ent),   // null = unlimited
         blur: ent.blur,
+        // Dark Mode (18+): the user's own state, so the profile toggle + the
+        // first-run kink interview can render. Markers are the user's own only.
+        darkMode: !!user.dark_mode_active,
+        kinkMarkers: user.kink_markers || [],
       },
       profile: profile
         ? { traits: profile.traits_json || [], vibe: profile.vibe || '', summary: profile.summary_text || '' }

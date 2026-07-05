@@ -55,6 +55,25 @@
     background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.28);
     -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px); }
 
+  /* ---- Dark Mode (18+) intimate compatibility ---- */
+  .card-dark{ margin-top:10px; padding:10px 12px; border-radius:16px;
+    background:linear-gradient(120deg, rgba(255,86,64,.22), rgba(190,40,120,.28));
+    border:1px solid rgba(255,120,90,.45);
+    box-shadow:0 6px 20px -8px rgba(255,70,60,.6); }
+  .dark-score{ font-size:13.5px; font-weight:700; color:#fff; letter-spacing:.01em;
+    text-shadow:0 1px 8px rgba(0,0,0,.45); animation:flameGlow 2.4s ease-in-out infinite; }
+  .dark-score b{ font-weight:900; }
+  @keyframes flameGlow{ 0%,100%{ text-shadow:0 1px 8px rgba(255,90,60,.5); }
+    50%{ text-shadow:0 1px 16px rgba(255,140,80,.95); } }
+  .dark-tags{ display:flex; flex-wrap:wrap; gap:6px; margin-top:9px; }
+  .dark-tags.blurred{ filter:blur(5px); opacity:.85; pointer-events:none; }
+  .dark-tag{ font-size:11.5px; font-weight:700; padding:5px 10px; border-radius:999px; color:#fff;
+    background:rgba(255,120,90,.28); border:1px solid rgba(255,150,110,.5);
+    animation:tagPulse 1.9s ease-in-out infinite; }
+  @keyframes tagPulse{ 0%,100%{ transform:scale(1); opacity:.9; }
+    50%{ transform:scale(1.045); opacity:1; } }
+  .dark-hint{ font-size:11.5px; font-weight:600; color:#ffd9cf; margin-top:8px; }
+
   /* drag verdict stamps */
   .badge{ position:absolute; top:26px; font-size:26px; font-weight:900; letter-spacing:.08em;
     padding:7px 14px; border-radius:12px; opacity:0; pointer-events:none; }
@@ -118,6 +137,16 @@
         try { tg.setHeaderColor && tg.setHeaderColor('bg_color'); } catch(e){}
       }
       var initData = (tg && tg.initData) || '';
+
+      // Ukrainian labels for the standardized kink markers (Dark Mode 18+).
+      var KINK_LABELS = {
+        dominant:'Домінування', submissive:'Підкорення', switch:'Світч',
+        sensual:'Чуттєвість', passionate:'Пристрасть', romantic:'Романтика',
+        tender:'Ніжність', playful:'Грайливість', experimental:'Експерименти',
+        adventurous:'Авантюрність', curious:'Допитливість', vanilla:'Класика',
+        roleplay:'Рольові ігри', bondage:'Бондаж', voyeur:'Вуаєризм',
+        exhibitionist:'Ексгібіціонізм'
+      };
 
       // Gender tint from the cached profile (feed doesn't carry it).
       try {
@@ -186,6 +215,31 @@
         pct.textContent = (c.compatibility || 0) + '%';
         head.appendChild(pct);
         info.appendChild(head);
+
+        // Dark Mode (18+): second, glowing flame scale — only present when both
+        // this user and the candidate opted in (server gates it in api/feed.js).
+        if (c.darkMode) {
+          var dm = document.createElement('div'); dm.className = 'card-dark';
+          var ds = document.createElement('div'); ds.className = 'dark-score';
+          ds.innerHTML = '🔥 Інтимна сумісність: <b>' + (c.intimateCompatibility || 0) + '%</b>';
+          dm.appendChild(ds);
+          // Premium males & females get the real matching tags. Free males get
+          // an empty array (withheld server-side) + the locked upsell nudge.
+          if (c.intimateTags && c.intimateTags.length) {
+            var dt = document.createElement('div'); dt.className = 'dark-tags';
+            c.intimateTags.slice(0, 4).forEach(function(t){
+              var chip = document.createElement('span'); chip.className = 'dark-tag';
+              chip.textContent = KINK_LABELS[t] || t;
+              dt.appendChild(chip);
+            });
+            dm.appendChild(dt);
+          } else if (c.intimateTagsBlurred) {
+            var dh = document.createElement('div'); dh.className = 'dark-hint';
+            dh.textContent = '🔓 Premium — щоб побачити спільні збіги';
+            dm.appendChild(dh);
+          }
+          info.appendChild(dm);
+        }
 
         if (c.city) {
           var city = document.createElement('div'); city.className = 'card-city';

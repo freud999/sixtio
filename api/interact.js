@@ -4,11 +4,14 @@ import {
   entitlements, likesLeftForClient,
   FREE_DAILY_LIMIT, PREMIUM_PRICE, PREMIUM_DAYS, SWIPE_PACK_PRICE,
 } from './_lib/entitlements.js';
+import { processKinkInterview } from './_lib/kink.js';
 
 // Consolidated user-interaction endpoint. Vercel Hobby caps a project at 12
-// serverless functions, so swipe + purchase share one file and route on `op`:
-//   op: 'swipe'    -> body { targetId, action:'like'|'dislike' }
-//   op: 'purchase' -> body { item:'premium'|'swipe_pack' }
+// serverless functions, so several write-ops share one file and route on `op`:
+//   op: 'swipe'                -> body { targetId, action:'like'|'dislike' }
+//   op: 'purchase'             -> body { item:'premium'|'swipe_pack' }
+//   op: 'toggle_dark_mode'     -> body { active:bool }        Dark Mode (18+) on/off
+//   op: 'submit_kink_interview'-> body { answers:string }     AI kink-marker analysis
 // (Legacy callers that omit `op` but send targetId/action still swipe.)
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -23,6 +26,8 @@ export default async function handler(req, res) {
 
     const op = body.op || (body.item ? 'purchase' : 'swipe');
     if (op === 'purchase') return purchase(req, res, tgUser, body);
+    if (op === 'toggle_dark_mode') return toggleDarkMode(res, tgUser, body);
+    if (op === 'submit_kink_interview') return submitKinkInterview(res, tgUser, body);
     return swipe(req, res, tgUser, body);
   } catch (e) {
     console.error('api/interact failed:', e);
@@ -136,4 +141,44 @@ async function purchase(req, res, tgUser, body) {
     likesLeft: likesLeftForClient(ent),
     blur: ent.blur,
   });
+}
+
+// --- Dark Mode toggle ---------------------------------------------------
+// Flips users.dark_mode_active. Intimate data is only ever computed between two
+// users who BOTH have this on (see api/feed.js), so switching off instantly and
+// fully hides this user from — and blinds them to — the intimate layer.
+async function toggleDarkMode(res, tgUser, body) {
+  const active = !!body.active;
+  const userId = await findUserId(tgUser.id);
+  if (!userId) return res.status(200).json({ ok: false });
+
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('users')
+    .update({ dark_mode_active: active })
+    .eq('id', userId)
+    .select('dark_mode_active, kink_markers')
+    .maybeSingle();
+  if (error) throw error;
+
+  return res.status(200).json({
+    ok: true,
+    darkModeActive: !!(data && data.dark_mode_active),
+    // Lets the client decide whether the first-run interview is still needed.
+    hasMarkers: !!(data && data.kink_markers && data.kink_markers.length),
+  });
+}
+
+// --- Kink interview -----------------------------------------------------
+// One AI pass maps the short anonymous interview to standardized markers, saves
+// them, and turns Dark Mode on. `answers` is the concatenated Q&A free text.
+async function submitKinkInterview(res, tgUser, body) {
+  const answers = typeof body.answers === 'string' ? body.answers.trim() : '';
+  if (!answers) return res.status(400).json({ error: 'answers is required' });
+
+  const userId = await findUserId(tgUser.id);
+  if (!userId) return res.status(200).json({ ok: false });
+
+  const markers = await processKinkInterview(userId, answers);
+  return res.status(200).json({ ok: true, darkModeActive: true, kinkMarkers: markers });
 }

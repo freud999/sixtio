@@ -1,6 +1,6 @@
 import { resolveUser } from './_lib/telegram.js';
 import { getSupabase } from './_lib/supabase.js';
-import { entitlements, likesLeftForClient } from './_lib/entitlements.js';
+import { entitlements, likesLeftForClient, intimateCompatibility } from './_lib/entitlements.js';
 
 // Recommendation feed for the swipe deck (feed.html). Pure Supabase — no AI.
 // Candidates are opposite-gender, within ±10 years, never already swiped, and
@@ -23,7 +23,7 @@ export default async function handler(req, res) {
     const supabase = getSupabase();
     const { data: me, error: meError } = await supabase
       .from('users')
-      .select('id, gender, seeking_gender, age, liked_users, disliked_users, premium, premium_until, daily_likes_count, last_like_reset')
+      .select('id, gender, seeking_gender, age, liked_users, disliked_users, premium, premium_until, daily_likes_count, last_like_reset, dark_mode_active, kink_markers')
       .eq('telegram_id', tgUser.id)
       .maybeSingle();
     if (meError) throw meError;
@@ -57,9 +57,13 @@ export default async function handler(req, res) {
 
     const { data: candidates, error: candError } = await supabase
       .from('users')
-      .select('id, name, gender, seeking_gender, age, city, photo_url')
+      .select('id, name, gender, seeking_gender, age, city, photo_url, dark_mode_active, kink_markers')
       .neq('id', me.id);
     if (candError) throw candError;
+
+    // Dark Mode (18+) is a mutual, opt-in layer: intimate data is computed ONLY
+    // when this user has it on, and then only against candidates who also do.
+    const darkOn = !!me.dark_mode_active;
 
     const ranked = [];
     for (const c of candidates || []) {
@@ -72,7 +76,7 @@ export default async function handler(req, res) {
       if (me.age && Math.abs(me.age - c.age) > MAX_AGE_GAP) continue;
 
       const hit = compatByUser[c.id];
-      ranked.push({
+      const card = {
         userId: c.id,
         name: (c.name || '').split(' ')[0] || 'Хтось особливий',
         age: c.age,
@@ -81,7 +85,24 @@ export default async function handler(req, res) {
         // 0..100; unscored profiles get 0 so they sort after scored ones.
         compatibility: hit ? hit.score : 0,
         tags: hit ? (hit.tags || []).slice(0, 3) : [],
-      });
+      };
+
+      // Only surface the intimate layer when BOTH sides opted in — otherwise the
+      // card stays byte-for-byte standard, keeping opted-out users fully private.
+      if (darkOn && c.dark_mode_active) {
+        const intim = intimateCompatibility(me.kink_markers, c.kink_markers);
+        card.darkMode = true;
+        card.intimateCompatibility = intim.score;
+        // Privacy-first: free males get the % only — the actual matching tags are
+        // WITHHELD from the payload entirely (not just CSS-blurred), so they can
+        // never be recovered from the wire. Premium males & all females (never
+        // blurred) receive the full tag list. `intimateTagsBlurred` still tells
+        // the client to render the locked/upsell state.
+        card.intimateTagsBlurred = ent.blur;
+        card.intimateTags = ent.blur ? [] : intim.tags;
+      }
+
+      ranked.push(card);
     }
 
     // Highly compatible first (99 → 0), then the rest for endless scrolling.

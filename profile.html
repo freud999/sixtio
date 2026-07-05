@@ -86,6 +86,54 @@
   .save-row .btn-primary{ flex:1; padding:14px; }
   .save-row .btn-glass{ flex:1; }
   .save-note{ font-size:12px; color:var(--hint); text-align:center; min-height:16px; }
+
+  /* ---- Dark Mode (18+) ---- */
+  .dark-head{ display:flex; align-items:center; justify-content:space-between; gap:14px; }
+  .dark-desc{ font-size:12.5px; color:var(--hint); line-height:1.45; margin-top:2px; }
+  .dark-markers{ display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
+  .dark-marker{ font-size:12.5px; font-weight:700; padding:6px 12px; border-radius:999px; color:#fff;
+    background:linear-gradient(120deg, rgba(255,86,64,.9), rgba(190,40,120,.92));
+    box-shadow:0 6px 16px -8px rgba(255,70,60,.7); }
+  .dark-redo{ margin-top:14px; font-size:12.5px; color:var(--a1); background:none; border:none;
+    padding:0; cursor:pointer; font-family:inherit; text-decoration:underline; }
+  /* iOS-style switch */
+  .ios-switch{ position:relative; display:inline-block; width:52px; height:31px; flex-shrink:0; }
+  .ios-switch input{ opacity:0; width:0; height:0; }
+  .ios-slider{ position:absolute; inset:0; cursor:pointer; border-radius:999px;
+    background:var(--faux-glass); border:1px solid var(--glass-border); transition:background .22s ease; }
+  .ios-slider::before{ content:''; position:absolute; height:25px; width:25px; left:3px; top:2px;
+    border-radius:50%; background:#fff; box-shadow:0 2px 6px rgba(0,0,0,.35); transition:transform .22s ease; }
+  .ios-switch input:checked + .ios-slider{
+    background:linear-gradient(120deg, #ff5640, #be2878); border-color:transparent; }
+  .ios-switch input:checked + .ios-slider::before{ transform:translateX(21px); }
+
+  /* interview overlay — tinted anonymous chat */
+  .kv-overlay{ position:fixed; inset:0; z-index:1100; display:flex; align-items:flex-end;
+    justify-content:center; background:rgba(14,4,10,.62); -webkit-backdrop-filter:blur(8px);
+    backdrop-filter:blur(8px); opacity:0; transition:opacity .22s ease; padding:16px;
+    padding-bottom:calc(env(safe-area-inset-bottom) + 16px); }
+  .kv-overlay.show{ opacity:1; }
+  .kv-sheet{ width:100%; max-width:440px; border-radius:26px; padding:22px 20px 20px; position:relative;
+    background:linear-gradient(160deg, rgba(40,10,26,.96), rgba(20,6,16,.98));
+    border:1px solid rgba(255,120,90,.4); box-shadow:0 20px 60px -20px rgba(255,60,50,.5);
+    transform:translateY(24px); transition:transform .26s cubic-bezier(.2,.8,.2,1); color:#fff; }
+  .kv-overlay.show .kv-sheet{ transform:translateY(0); }
+  .kv-close{ position:absolute; top:14px; right:14px; width:34px; height:34px; border-radius:50%;
+    border:1px solid rgba(255,255,255,.2); background:rgba(255,255,255,.08); color:#fff;
+    font-size:15px; cursor:pointer; font-family:inherit; line-height:1; }
+  .kv-title{ font-size:15px; font-weight:800; letter-spacing:.04em; }
+  .kv-step{ font-size:12px; color:#ffb3a3; margin-top:4px; }
+  .kv-q{ font-size:16px; line-height:1.5; margin-top:16px; font-weight:600; }
+  .kv-a{ width:100%; margin-top:14px; border:1px solid rgba(255,150,110,.4); border-radius:16px;
+    padding:12px 14px; font-size:15px; font-family:inherit; color:#fff; background:rgba(255,255,255,.06);
+    outline:none; resize:none; min-height:80px; line-height:1.5; }
+  .kv-a::placeholder{ color:rgba(255,255,255,.45); }
+  .kv-next{ width:100%; margin-top:14px; border:none; border-radius:999px; padding:15px; font-size:15px;
+    font-weight:700; color:#fff; font-family:inherit; cursor:pointer;
+    background:linear-gradient(120deg, #ff5640, #be2878); box-shadow:0 12px 30px -12px rgba(255,70,60,.8); }
+  .kv-next:disabled{ opacity:.5; cursor:default; }
+  .kv-note{ font-size:12.5px; color:#ffb3a3; text-align:center; min-height:16px; margin-top:10px; }
+  .kv-priv{ font-size:11.5px; color:rgba(255,255,255,.55); text-align:center; margin-top:12px; line-height:1.45; }
 </style>
 </head>
 <body class="has-tab-bar">
@@ -125,6 +173,21 @@
   <div class="section glass" id="interestsSection" hidden>
     <div class="sec-title">Інтереси</div>
     <div class="chips" id="interests"></div>
+  </div>
+
+  <div class="section glass" id="darkSection">
+    <div class="dark-head">
+      <div>
+        <div class="sec-title grad" style="margin-bottom:4px;">🔥 Dark Mode (18+)</div>
+        <div class="dark-desc">Анонімний пошук за інтимною сумісністю. Видно лише тим, хто теж увімкнув Dark Mode.</div>
+      </div>
+      <label class="ios-switch">
+        <input type="checkbox" id="darkToggle" />
+        <span class="ios-slider"></span>
+      </label>
+    </div>
+    <div class="dark-markers" id="darkMarkers" hidden></div>
+    <button class="dark-redo" id="darkRedo" hidden>Пройти інтерв'ю знову</button>
   </div>
 
   <div class="section glass" id="traitsSection" hidden>
@@ -275,6 +338,41 @@
           fillChips('traits', p.traits, false);
           document.getElementById('summary').textContent = p.summary || '';
           document.getElementById('traitsSection').hidden = false;
+        }
+
+        renderDark(u);
+      }
+
+      // ---- Dark Mode (18+) -------------------------------------------------
+      var KINK_LABELS = {
+        dominant:'Домінування', submissive:'Підкорення', switch:'Світч',
+        sensual:'Чуттєвість', passionate:'Пристрасть', romantic:'Романтика',
+        tender:'Ніжність', playful:'Грайливість', experimental:'Експерименти',
+        adventurous:'Авантюрність', curious:'Допитливість', vanilla:'Класика',
+        roleplay:'Рольові ігри', bondage:'Бондаж', voyeur:'Вуаєризм',
+        exhibitionist:'Ексгібіціонізм'
+      };
+
+      function renderDark(u){
+        var toggle = document.getElementById('darkToggle');
+        var wrap = document.getElementById('darkMarkers');
+        var redo = document.getElementById('darkRedo');
+        var markers = u.kinkMarkers || [];
+        toggle.checked = !!u.darkMode;
+        wrap.innerHTML = '';
+        // Markers are shown only while Dark Mode is on (and only to the user).
+        if (u.darkMode && markers.length) {
+          markers.forEach(function(m){
+            var chip = document.createElement('span');
+            chip.className = 'dark-marker';
+            chip.textContent = KINK_LABELS[m] || m;
+            wrap.appendChild(chip);
+          });
+          wrap.hidden = false;
+          redo.hidden = false;
+        } else {
+          wrap.hidden = true;
+          redo.hidden = true;
         }
       }
 
@@ -439,6 +537,140 @@
         } else if (window.confirm(msg)) {
           doDelete();
         }
+      });
+
+      // ---- Dark Mode: toggle + first-run AI kink interview -----------------
+      var KINK_QUESTIONS = [
+        'Яка роль тобі ближча в близькості — вести, слідувати чи змінюватись за настроєм?',
+        'Що додає пристрасті саме тобі: ніжність і чуттєвість чи сміливі експерименти?',
+        'Наскільки тобі цікаві рольові ігри, сценарії або легкий бондаж?',
+        'Що для тебе однозначне табу, а до чого ти відкритий(-а) досліджувати з партнером?'
+      ];
+
+      // Reflect Dark Mode state into cached sixtio_me so every screen agrees.
+      function syncDark(active, markers){
+        if (current) {
+          current.darkMode = active;
+          if (markers) current.kinkMarkers = markers;
+        }
+        try {
+          var me = JSON.parse(localStorage.getItem('sixtio_me') || 'null');
+          if (me && me.user) {
+            me.user.darkMode = active;
+            if (markers) me.user.kinkMarkers = markers;
+            localStorage.setItem('sixtio_me', JSON.stringify(me));
+          }
+        } catch(e){}
+        if (current) renderDark(current);
+      }
+
+      function setDarkMode(active){
+        return api('/api/interact', { op: 'toggle_dark_mode', active: active })
+          .then(function(res){ syncDark(!!(res && res.darkModeActive)); });
+      }
+
+      // Sequential tinted-chat interview. Resolves with the concatenated Q&A on
+      // finish, or rejects if the user closes it — so the toggle can revert.
+      function openInterview(){
+        return new Promise(function(resolve, reject){
+          var step = 0;
+          var answers = [];
+          var overlay = document.createElement('div');
+          overlay.className = 'kv-overlay';
+          overlay.innerHTML =
+            '<div class="kv-sheet">' +
+              '<button class="kv-close" aria-label="Закрити">✕</button>' +
+              '<div class="kv-title">🔥 Анонімне інтерв\'ю</div>' +
+              '<div class="kv-step" id="kvStep"></div>' +
+              '<div class="kv-q" id="kvQ"></div>' +
+              '<textarea class="kv-a" id="kvA" placeholder="Відповідай вільно, своїми словами…"></textarea>' +
+              '<button class="kv-next" id="kvNext">Далі</button>' +
+              '<div class="kv-note" id="kvNote"></div>' +
+              '<div class="kv-priv">Sixtio перетворює відповіді на анонімні теги сумісності. ' +
+              'Твої слова не показуються нікому.</div>' +
+            '</div>';
+          document.body.appendChild(overlay);
+          requestAnimationFrame(function(){ overlay.classList.add('show'); });
+
+          var qEl = overlay.querySelector('#kvQ');
+          var aEl = overlay.querySelector('#kvA');
+          var stepEl = overlay.querySelector('#kvStep');
+          var nextBtn = overlay.querySelector('#kvNext');
+          var note = overlay.querySelector('#kvNote');
+          var settled = false;
+
+          function close(){
+            overlay.classList.remove('show');
+            setTimeout(function(){ if (overlay.parentNode) overlay.remove(); }, 240);
+          }
+          function paint(){
+            stepEl.textContent = 'Питання ' + (step + 1) + ' з ' + KINK_QUESTIONS.length;
+            qEl.textContent = KINK_QUESTIONS[step];
+            aEl.value = answers[step] || '';
+            nextBtn.textContent = step === KINK_QUESTIONS.length - 1 ? 'Завершити' : 'Далі';
+            note.textContent = '';
+            aEl.focus();
+          }
+
+          overlay.querySelector('.kv-close').addEventListener('click', function(){
+            if (settled) return;
+            settled = true; close(); reject();
+          });
+
+          nextBtn.addEventListener('click', function(){
+            var val = aEl.value.trim();
+            if (val.length < 2) { note.textContent = 'Кілька слів — і рушаємо далі 💬'; return; }
+            answers[step] = val;
+            if (step < KINK_QUESTIONS.length - 1) { step++; paint(); return; }
+            // Final: analyse via Gemini and save markers.
+            settled = true;
+            nextBtn.disabled = true;
+            note.textContent = 'Sixtio аналізує…';
+            var payload = KINK_QUESTIONS
+              .map(function(q, i){ return 'Питання: ' + q + '\nВідповідь: ' + (answers[i] || '') + '\n'; })
+              .join('');
+            api('/api/interact', { op: 'submit_kink_interview', answers: payload })
+              .then(function(res){
+                if (!res || !res.ok) throw new Error('failed');
+                if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.notificationOccurred('success'); } catch(e){} }
+                close();
+                resolve(res.kinkMarkers || []);
+              })
+              .catch(function(){
+                nextBtn.disabled = false;
+                settled = false;
+                note.textContent = 'Не вдалося проаналізувати. Спробуй ще раз.';
+              });
+          });
+
+          paint();
+        });
+      }
+
+      document.getElementById('darkToggle').addEventListener('change', function(){
+        var toggle = this;
+        if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('light'); } catch(e){} }
+        if (!toggle.checked) {
+          // Turning OFF — instant, fully hides this user from the intimate layer.
+          setDarkMode(false).catch(function(){ toggle.checked = true; });
+          return;
+        }
+        // Turning ON: first-timers do the interview (which also flips it on
+        // server-side); returning users just re-enable.
+        var hasMarkers = current && current.kinkMarkers && current.kinkMarkers.length;
+        if (hasMarkers) {
+          setDarkMode(true).catch(function(){ toggle.checked = false; });
+        } else {
+          openInterview()
+            .then(function(markers){ syncDark(true, markers); })
+            .catch(function(){ toggle.checked = false; });   // cancelled
+        }
+      });
+
+      document.getElementById('darkRedo').addEventListener('click', function(){
+        openInterview()
+          .then(function(markers){ syncDark(true, markers); })
+          .catch(function(){});
       });
 
       load().catch(function(){ /* offline */ });
