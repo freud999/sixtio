@@ -48,20 +48,11 @@ export async function handleTelegramUpdate(req, res, update) {
       if (isOwner(msg.from)) {
         await renderNew(msg.chat.id, '24h');
       } else {
-        // TEMP DEBUG: echo the caller's real Telegram id straight into the chat so
-        // it can be cross-checked against the OWNER_TELEGRAM_ID env var on Vercel.
-        const uid = msg.from && msg.from.id;
-        console.log('Stats command but ID mismatch:', uid, 'vs env:', OWNER_TELEGRAM_ID);
-        try {
-          await callBot('sendMessage', {
-            chat_id: msg.chat.id,
-            text: `⚠️ Доступ обмежено. Твій ID: ${uid}`,
-          });
-        } catch (e) {
-          console.error('debug id-echo sendMessage failed:', e.message);
-        }
+        // Non-owner: silently ignore. Never reveal to a stranger that /stats
+        // exists — only a server-side log is emitted for observability.
+        console.log('Stats command but ID mismatch:', msg.from && msg.from.id, 'vs env:', OWNER_TELEGRAM_ID);
       }
-      return res.status(200).json({ ok: true });   // non-owner: ID echoed above
+      return res.status(200).json({ ok: true });   // non-owner: silently ignore
     }
 
     return res.status(200).json({ ok: true });      // any other update: ignore
