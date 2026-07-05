@@ -13,6 +13,8 @@ export const FREE_DAILY_LIMIT = 30;   // free male right-swipes per rolling 24h
 export const PREMIUM_PRICE   = 150;   // ⭐ for 30-day Premium
 export const PREMIUM_DAYS    = 30;
 export const SWIPE_PACK_PRICE = 10;   // ⭐ for +30 likes today
+export const MYSTERY_UNLOCK_PRICE = 10;   // ⭐ to reveal the daily Mystery Match
+export const LOOTBOX_PRICE = 5;           // ⭐ per lootbox after the free daily one
 export const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function entitlements(user) {

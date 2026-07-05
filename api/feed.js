@@ -9,6 +9,11 @@ import { entitlements, likesLeftForClient, intimateCompatibility } from './_lib/
 const MAX_AGE_GAP = 10;          // same convention as matching.js
 const DEFAULT_LIMIT = 20;
 
+// "Daily Mystery Match": the single strongest Big Five match, refreshed at most
+// once per rolling 24h and shown fully anonymized until unlocked (10 ⭐).
+const MYSTERY_MIN_SCORE = 90;    // only a >90% match is worth teasing
+const MYSTERY_REFRESH_MS = 24 * 60 * 60 * 1000;
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -23,7 +28,7 @@ export default async function handler(req, res) {
     const supabase = getSupabase();
     const { data: me, error: meError } = await supabase
       .from('users')
-      .select('id, gender, seeking_gender, age, liked_users, disliked_users, premium, premium_until, daily_likes_count, last_like_reset, dark_mode_active, kink_markers')
+      .select('id, gender, seeking_gender, age, liked_users, disliked_users, premium, premium_until, daily_likes_count, last_like_reset, dark_mode_active, kink_markers, last_mystery_match_id, last_mystery_match_time, mystery_match_unlocked')
       .eq('telegram_id', tgUser.id)
       .maybeSingle();
     if (meError) throw meError;
@@ -112,6 +117,17 @@ export default async function handler(req, res) {
     const size = Math.min(50, Math.max(1, parseInt(limit, 10) || DEFAULT_LIMIT));
     const page = ranked.slice(start, start + size);
 
+    // Mystery Match is a once-per-load concern: only compute (and possibly
+    // refresh) it on the first page so paginated scroll stays a pure read.
+    let mysteryMatch = null;
+    if (start === 0) {
+      try {
+        mysteryMatch = await resolveMysteryMatch(supabase, me, ranked, compatByUser);
+      } catch (mmError) {
+        console.error('mystery match failed:', mmError.message);
+      }
+    }
+
     return res.status(200).json({
       registered: true,
       // Drives the frosted-glass gate on the client (false = clean photos).
@@ -122,9 +138,80 @@ export default async function handler(req, res) {
       rateLimited: ent.rateLimited,
       candidates: page,
       hasMore: start + size < ranked.length,
+      // Anonymized-until-unlocked daily tease (null when there's no >90% match).
+      mysteryMatch,
     });
   } catch (e) {
     console.error('api/feed failed:', e);
     return res.status(500).json({ error: 'Internal error' });
   }
+}
+
+// --- Daily Mystery Match ----------------------------------------------------
+// Picks (and, at most once per 24h, refreshes + persists) this user's single
+// strongest Big Five match above MYSTERY_MIN_SCORE. Returns a fully anonymized
+// card (name '?', no photo/bio/tags — only the compatibility % and the
+// isMysteryMatch flag) until the user pays to unlock it, after which the real
+// identity is revealed. `ranked` is the already-filtered, score-sorted deck;
+// `compatByUser` maps userId -> { score, tags }.
+async function resolveMysteryMatch(supabase, me, ranked, compatByUser) {
+  const now = Date.now();
+  const lastMs = me.last_mystery_match_time ? new Date(me.last_mystery_match_time).getTime() : 0;
+  const needRefresh = !lastMs || (now - lastMs) > MYSTERY_REFRESH_MS;
+
+  let targetId;
+  let unlocked;
+  if (needRefresh) {
+    // ranked is sorted highest-first, so the top card (if >90%) is the pick.
+    const best = ranked[0] && ranked[0].compatibility > MYSTERY_MIN_SCORE ? ranked[0] : null;
+    targetId = best ? best.userId : null;
+    unlocked = false;
+    const { error } = await supabase
+      .from('users')
+      .update({
+        last_mystery_match_id: targetId,
+        last_mystery_match_time: new Date(now).toISOString(),
+        mystery_match_unlocked: false,
+      })
+      .eq('id', me.id);
+    if (error) console.error('mystery match persist failed:', error.message);
+  } else {
+    targetId = me.last_mystery_match_id || null;
+    unlocked = !!me.mystery_match_unlocked;
+  }
+  if (!targetId) return null;
+
+  const hit = compatByUser[targetId];
+  const compatibility = hit ? hit.score : null;
+
+  // Locked: expose ONLY the compatibility % and the flag; everything else blank.
+  if (!unlocked) {
+    return {
+      userId: targetId, compatibility, isMysteryMatch: true, unlocked: false,
+      name: '?', age: null, city: '', photoUrl: '', tags: [], bio: '',
+    };
+  }
+
+  // Unlocked: reveal identity. Prefer the already-built ranked card; fall back
+  // to a direct fetch if this person has since dropped out of the eligible deck.
+  let card = ranked.find((c) => c.userId === targetId);
+  if (!card) {
+    const { data: u } = await supabase
+      .from('users')
+      .select('id, name, age, city, photo_url')
+      .eq('id', targetId)
+      .maybeSingle();
+    if (!u) return null;
+    card = {
+      userId: u.id,
+      name: (u.name || '').split(' ')[0] || 'Хтось особливий',
+      age: u.age, city: u.city || '', photoUrl: u.photo_url || '',
+      tags: hit ? (hit.tags || []).slice(0, 3) : [],
+    };
+  }
+  return {
+    userId: card.userId, compatibility, isMysteryMatch: true, unlocked: true,
+    name: card.name, age: card.age, city: card.city, photoUrl: card.photoUrl,
+    tags: card.tags || [],
+  };
 }

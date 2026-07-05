@@ -95,6 +95,83 @@
     background:linear-gradient(120deg, var(--a2), var(--a1));
     box-shadow:0 12px 30px -10px var(--glow), inset 0 1px 0 rgba(255,255,255,.35); }
 
+  /* ---- 🔥 Daily Mystery Match ---- */
+  .mystery{ width:100%; max-width:420px; border-radius:22px; padding:14px 16px;
+    display:flex; align-items:center; gap:14px; cursor:default;
+    background:linear-gradient(125deg, rgba(120,40,200,.42), rgba(210,40,130,.38));
+    border:1px solid rgba(200,130,255,.5);
+    box-shadow:0 10px 34px -12px rgba(180,60,220,.8), inset 0 1px 0 rgba(255,255,255,.18);
+    -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px);
+    animation:mysteryGlow 3s ease-in-out infinite; }
+  @keyframes mysteryGlow{ 0%,100%{ box-shadow:0 10px 34px -14px rgba(180,60,220,.7), inset 0 1px 0 rgba(255,255,255,.18); }
+    50%{ box-shadow:0 14px 42px -10px rgba(230,80,200,.95), inset 0 1px 0 rgba(255,255,255,.25); } }
+  .mystery-orb{ flex-shrink:0; width:66px; height:66px; border-radius:20px;
+    display:flex; align-items:center; justify-content:center; font-size:34px; font-weight:900; color:#fff;
+    background:radial-gradient(circle at 35% 30%, rgba(255,255,255,.35), rgba(150,40,220,.65));
+    border:1px solid rgba(255,255,255,.4);
+    box-shadow:0 0 24px -2px rgba(220,90,255,.9), inset 0 0 18px rgba(255,255,255,.25);
+    overflow:hidden; }
+  .mystery-orb .q{ animation:orbFloat 2.6s ease-in-out infinite; }
+  @keyframes orbFloat{ 0%,100%{ transform:scale(1); text-shadow:0 0 12px rgba(255,255,255,.8); }
+    50%{ transform:scale(1.14); text-shadow:0 0 22px rgba(255,255,255,1); } }
+  .mystery-orb img{ width:100%; height:100%; object-fit:cover; }
+  .mystery-body{ flex:1; min-width:0; }
+  .mystery-title{ font-size:12px; font-weight:800; letter-spacing:.08em; text-transform:uppercase;
+    color:#ffd6f4; }
+  .mystery-pct{ font-size:20px; font-weight:900; color:#fff; margin-top:2px;
+    text-shadow:0 2px 12px rgba(0,0,0,.35); }
+  .mystery-pct b{ background:linear-gradient(120deg,#ffe08a,#ff7ad9);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  .mystery-name{ font-size:15px; font-weight:800; color:#fff; margin-top:2px; }
+  .mystery-btn{ margin-top:8px; width:100%; border:none; cursor:pointer; font-family:inherit;
+    font-size:13.5px; font-weight:800; color:#fff; padding:9px 12px; border-radius:12px;
+    background:linear-gradient(120deg,#a23bff,#ff4db8);
+    box-shadow:0 8px 20px -8px rgba(220,70,200,.9); transition:transform .14s ease; }
+  .mystery-btn:active{ transform:scale(.96); }
+  .mystery-btn:disabled{ opacity:.6; cursor:default; }
+
+  /* ---- 🎁 Lootbox modal ("Скриньки Удачі") ---- */
+  .loot-back{ position:fixed; inset:0; z-index:50; display:flex; align-items:flex-end;
+    justify-content:center; background:rgba(6,4,16,.66);
+    -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px);
+    opacity:0; pointer-events:none; transition:opacity .28s ease; }
+  .loot-back.show{ opacity:1; pointer-events:auto; }
+  .loot-sheet{ width:100%; max-width:440px; border-radius:26px 26px 0 0; padding:22px 18px calc(22px + env(safe-area-inset-bottom));
+    background:var(--card); border:1px solid var(--glass-border); box-shadow:var(--glass-shadow);
+    transform:translateY(102%); transition:transform .34s cubic-bezier(.22,1,.36,1); }
+  .loot-back.show .loot-sheet{ transform:translateY(0); }
+  .loot-h{ text-align:center; }
+  .loot-h .t{ font-size:19px; font-weight:900; letter-spacing:.01em;
+    background:linear-gradient(120deg,#a23bff,#ff4db8); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  .loot-h .s{ font-size:13px; color:var(--hint); margin-top:5px; line-height:1.5; }
+  .loot-boxes{ display:flex; justify-content:center; gap:14px; margin:22px 0 6px; }
+  .loot-box{ width:88px; height:88px; border-radius:20px; cursor:pointer; font-size:40px;
+    display:flex; align-items:center; justify-content:center; font-family:inherit; color:#fff;
+    background:linear-gradient(140deg, rgba(150,50,220,.5), rgba(220,50,140,.5));
+    border:1px solid rgba(210,140,255,.55);
+    box-shadow:0 8px 24px -8px rgba(190,70,230,.8), inset 0 1px 0 rgba(255,255,255,.25);
+    animation:lootIdle 2.2s ease-in-out infinite; transition:transform .2s ease; }
+  .loot-box:active{ transform:scale(.93); }
+  @keyframes lootIdle{ 0%,100%{ transform:translateY(0) rotate(-2deg); }
+    50%{ transform:translateY(-6px) rotate(2deg); } }
+  .loot-box.opening{ animation:lootPop .5s ease forwards; }
+  @keyframes lootPop{ 0%{ transform:scale(1) rotate(0); } 40%{ transform:scale(1.28) rotate(8deg); }
+    100%{ transform:scale(1) rotate(0); } }
+  .loot-box.opened{ animation:none; cursor:default; opacity:.55;
+    background:linear-gradient(140deg, rgba(90,70,130,.4), rgba(120,70,110,.4)); box-shadow:none; }
+  .loot-box.win{ opacity:1; border-color:rgba(255,220,130,.85);
+    box-shadow:0 0 26px -2px rgba(255,210,110,.95); background:linear-gradient(140deg, rgba(255,180,60,.5), rgba(255,90,170,.5)); }
+  .loot-result{ text-align:center; min-height:26px; margin-top:6px; font-size:15px; font-weight:800; color:#fff; }
+  .loot-result.win{ animation:resultPop .4s ease; }
+  @keyframes resultPop{ 0%{ transform:scale(.7); opacity:0; } 100%{ transform:scale(1); opacity:1; } }
+  .loot-actions{ margin-top:16px; display:flex; flex-direction:column; gap:9px; }
+  .loot-cost{ text-align:center; font-size:12.5px; color:var(--hint); }
+  .loot-premium{ width:100%; border:none; cursor:pointer; font-family:inherit; font-size:13.5px;
+    font-weight:800; color:#fff; padding:12px; border-radius:14px;
+    background:linear-gradient(120deg, var(--a2), var(--a1)); box-shadow:0 8px 22px -8px var(--glow); }
+  .loot-close{ width:100%; background:none; border:none; cursor:pointer; font-family:inherit;
+    font-size:13px; font-weight:700; color:var(--hint); padding:8px; }
+
   /* empty / loading */
   .state{ display:flex; flex-direction:column; align-items:center; justify-content:center;
     text-align:center; gap:10px; height:100%; padding:24px; color:var(--hint); }
@@ -113,6 +190,16 @@
 
   <div class="page-title led grad-text">ЗНАЙТИ ПАРУ</div>
 
+  <div class="mystery" id="mysteryCard" hidden>
+    <div class="mystery-orb" id="mysteryOrb"><span class="q">?</span></div>
+    <div class="mystery-body">
+      <div class="mystery-title">🔥 Таємний метч дня</div>
+      <div class="mystery-pct" id="mysteryPct">— % сумісності</div>
+      <div class="mystery-name" id="mysteryName" hidden></div>
+      <button class="mystery-btn" id="mysteryBtn">🔓 Розблокувати особу · 10 ⭐</button>
+    </div>
+  </div>
+
   <div class="deck" id="deck">
     <div class="state" id="loadingState"><span class="spin"></span></div>
   </div>
@@ -120,6 +207,26 @@
   <div class="actions" id="actions" hidden>
     <button class="act nope" id="nopeBtn" aria-label="Пропустити">✕</button>
     <button class="act like" id="likeBtn" aria-label="Подобається">💜</button>
+  </div>
+
+  <div class="loot-back" id="lootBack">
+    <div class="loot-sheet">
+      <div class="loot-h">
+        <div class="t">🎁 Скриньки Удачі</div>
+        <div class="s" id="lootSub">Ліміт свайпів вичерпано. Спробуй удачу — перша скринька безкоштовна!</div>
+      </div>
+      <div class="loot-boxes" id="lootBoxes">
+        <button class="loot-box" data-i="0">🎁</button>
+        <button class="loot-box" data-i="1">🎁</button>
+        <button class="loot-box" data-i="2">🎁</button>
+      </div>
+      <div class="loot-result" id="lootResult"></div>
+      <div class="loot-actions">
+        <div class="loot-cost" id="lootCost">Перша скринька — безкоштовно</div>
+        <button class="loot-premium" id="lootPremium">💎 Або Premium — безлімітні свайпи</button>
+        <button class="loot-close" id="lootClose">Закрити</button>
+      </div>
+    </div>
   </div>
 
   <nav class="tab-bar">
@@ -317,7 +424,7 @@
       // Free males must have a like left; entitled users (null) always pass.
       function canLike(){
         if (premium || likesLeft === null) return true;
-        if (likesLeft <= 0){ haptic('rigid'); openPaywall(); return false; }
+        if (likesLeft <= 0){ haptic('rigid'); openLootboxModal(); return false; }
         return true;
       }
 
@@ -329,7 +436,7 @@
         if (action === 'like' && likesLeft !== null && likesLeft > 0) likesLeft--;
         api('/api/interact', { op: 'swipe', targetId: cand.userId, action: action }).then(function(res){
           // Authoritative backstop: server refused the like (race on the cap).
-          if (res && res.paywall) openPaywall();
+          if (res && res.paywall) openLootboxModal();
         }).catch(function(){});
         setTimeout(function(){
           deck.shift();
@@ -395,12 +502,15 @@
       function loadMore(){
         if (loading) return Promise.resolve();
         loading = true;
+        var reqOffset = offset;   // remember which page this call fetched
         return api('/api/feed', { offset: offset, limit: 20 }).then(function(res){
           if (!res.registered) { window.location.replace('onboarding.html'); return; }
           premium = !!res.premium;
           likesLeft = (typeof res.likesLeft === 'number') ? res.likesLeft : null;
-          // Male out of likes on load — intercept before they even drag.
-          if (res.rateLimited) openPaywall();
+          // Mystery Match rides only on the first page's payload.
+          if (reqOffset === 0) renderMystery(res.mysteryMatch);
+          // Male out of likes on load — pop the luck boxes before they even drag.
+          if (res.rateLimited) openLootboxModal();
           var got = res.candidates || [];
           offset += got.length;
           got.forEach(function(c){
@@ -420,6 +530,131 @@
           }
         });
       }
+
+      // ---- 🔥 Daily Mystery Match ----------------------------------------
+      var mystery = null, mysteryBusy = false, lootOpen = false, lootBusy = false;
+      var mysteryCard = document.getElementById('mysteryCard');
+      var mysteryOrb  = document.getElementById('mysteryOrb');
+      var mysteryPct  = document.getElementById('mysteryPct');
+      var mysteryName = document.getElementById('mysteryName');
+      var mysteryBtn  = document.getElementById('mysteryBtn');
+
+      // Keep the cached wallet in sync so every screen reads the fresh balance.
+      function persistStars(bal){
+        try {
+          var me = JSON.parse(localStorage.getItem('sixtio_me') || 'null');
+          if (me && me.user) { me.user.starsBalance = bal; localStorage.setItem('sixtio_me', JSON.stringify(me)); }
+        } catch(e){}
+      }
+
+      function renderMystery(m){
+        mystery = m || null;
+        if (!mystery) { mysteryCard.hidden = true; return; }
+        mysteryCard.hidden = false;
+        var pct = (mystery.compatibility == null ? '—' : mystery.compatibility) + '% сумісності';
+        mysteryPct.innerHTML = '<b>' + pct + '</b>';
+        if (mystery.unlocked) {
+          mysteryOrb.innerHTML = '';
+          if (mystery.photoUrl) {
+            var im = document.createElement('img'); im.src = mystery.photoUrl; im.alt = ''; im.draggable = false;
+            mysteryOrb.appendChild(im);
+          } else {
+            mysteryOrb.innerHTML = '<span class="q">' + ((mystery.name && mystery.name.charAt(0)) || '✨') + '</span>';
+          }
+          mysteryName.hidden = false;
+          mysteryName.textContent = mystery.name +
+            (mystery.age ? ', ' + mystery.age : '') + (mystery.city ? ' · ' + mystery.city : '');
+          mysteryBtn.hidden = true;
+        } else {
+          mysteryOrb.innerHTML = '<span class="q">?</span>';
+          mysteryName.hidden = true;
+          mysteryBtn.hidden = false; mysteryBtn.disabled = false;
+          mysteryBtn.textContent = '🔓 Розблокувати особу · 10 ⭐';
+        }
+      }
+
+      mysteryBtn.addEventListener('click', function(){
+        if (mysteryBusy || !mystery || mystery.unlocked) return;
+        if (starsBalance() < 10) { haptic('rigid'); openPaywall(); return; }   // top up first
+        mysteryBusy = true; mysteryBtn.disabled = true; mysteryBtn.textContent = 'Розблокування…';
+        api('/api/interact', { op: 'unlock_mystery_match' }).then(function(res){
+          mysteryBusy = false;
+          if (!res || !res.ok) {
+            mysteryBtn.disabled = false;
+            if (res && res.reason === 'insufficient') { mysteryBtn.textContent = 'Недостатньо ⭐'; openPaywall(); }
+            else mysteryBtn.textContent = '🔓 Розблокувати особу · 10 ⭐';
+            return;
+          }
+          if (typeof res.starsBalance === 'number') persistStars(res.starsBalance);
+          if (res.profile) { res.profile.unlocked = true; renderMystery(res.profile); }
+          haptic('heavy');
+        }).catch(function(){
+          mysteryBusy = false; mysteryBtn.disabled = false;
+          mysteryBtn.textContent = '🔓 Розблокувати особу · 10 ⭐';
+        });
+      });
+
+      // ---- 🎁 Lootboxes ("Скриньки Удачі") -------------------------------
+      var lootBack   = document.getElementById('lootBack');
+      var lootBoxesEl= document.getElementById('lootBoxes');
+      var lootResult = document.getElementById('lootResult');
+      var lootCost   = document.getElementById('lootCost');
+      var LOOT_LABELS = {
+        '+3_swipes':   '🎉 +3 безкоштовні свайпи!',
+        'discount_30': '🏷️ 30% знижка на Premium!',
+        'empty':       'Пусто… Спробуй ще завтра!'
+      };
+
+      function openLootboxModal(){
+        if (lootOpen) return;
+        lootOpen = true;
+        lootResult.textContent = ''; lootResult.className = 'loot-result';
+        Array.prototype.forEach.call(lootBoxesEl.children, function(b){
+          b.className = 'loot-box'; b.textContent = '🎁'; b.disabled = false;
+        });
+        lootCost.textContent = 'Перша скринька — безкоштовно';
+        lootBack.classList.add('show');
+      }
+      function closeLootbox(){ lootOpen = false; lootBack.classList.remove('show'); }
+
+      Array.prototype.forEach.call(lootBoxesEl.children, function(box){
+        box.addEventListener('click', function(){
+          if (lootBusy || box.classList.contains('opened')) return;
+          lootBusy = true; box.classList.add('opening'); haptic('medium');
+          api('/api/interact', { op: 'open_lootbox' }).then(function(res){
+            lootBusy = false; box.classList.remove('opening');
+            if (!res || !res.ok) {   // out of Stars for another paid open
+              lootResult.textContent = 'Недостатньо ⭐ для ще однієї спроби';
+              lootResult.className = 'loot-result';
+              lootCost.textContent = 'Спробуй Premium нижче ⬇';
+              return;
+            }
+            if (typeof res.starsBalance === 'number') persistStars(res.starsBalance);
+            var win = res.rewardType !== 'empty';
+            box.classList.add('opened'); if (win) box.classList.add('win');
+            box.textContent = win ? '✨' : '📭';
+            lootResult.textContent = LOOT_LABELS[res.rewardType] || '';
+            lootResult.className = 'loot-result' + (win ? ' win' : '');
+            haptic(win ? 'heavy' : 'light');
+
+            if (res.rewardType === '+3_swipes') {
+              // Server rolled usage back by 3; let them resume swiping.
+              likesLeft = (likesLeft === null ? null : 3);
+              setTimeout(function(){ closeLootbox(); render(); }, 1500);
+            } else if (res.rewardType === 'discount_30') {
+              try {
+                localStorage.setItem('sixtio_premium_discount',
+                  JSON.stringify({ pct: 30, day: new Date().toISOString().slice(0, 10) }));
+              } catch(e){}
+            }
+            lootCost.textContent = 'Наступна скринька — 5 ⭐ · баланс: ' + starsBalance() + ' ⭐';
+          }).catch(function(){ lootBusy = false; box.classList.remove('opening'); });
+        });
+      });
+
+      document.getElementById('lootClose').addEventListener('click', closeLootbox);
+      document.getElementById('lootPremium').addEventListener('click', function(){ closeLootbox(); openPaywall(); });
+      lootBack.addEventListener('click', function(e){ if (e.target === lootBack) closeLootbox(); });
 
       loadMore();
     })();

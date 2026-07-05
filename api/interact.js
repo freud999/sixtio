@@ -3,8 +3,26 @@ import { findUserId, getSupabase } from './_lib/supabase.js';
 import {
   entitlements, likesLeftForClient,
   FREE_DAILY_LIMIT, PREMIUM_PRICE, PREMIUM_DAYS, SWIPE_PACK_PRICE,
+  MYSTERY_UNLOCK_PRICE, LOOTBOX_PRICE,
 } from './_lib/entitlements.js';
 import { processKinkInterview } from './_lib/kink.js';
+
+// Chance-based lootbox reward table. Rolled server-side so the client can't
+// bias the odds: 40% +3 swipes, 20% a 30% Premium discount, 40% nothing.
+const LOOTBOX_REWARDS = [
+  { type: '+3_swipes',   weight: 40 },
+  { type: 'discount_30', weight: 20 },
+  { type: 'empty',       weight: 40 },
+];
+function rollLootboxReward() {
+  const total = LOOTBOX_REWARDS.reduce((s, r) => s + r.weight, 0);
+  let roll = Math.random() * total;
+  for (const r of LOOTBOX_REWARDS) {
+    if (roll < r.weight) return r.type;
+    roll -= r.weight;
+  }
+  return 'empty';
+}
 
 // Consolidated user-interaction endpoint. Vercel Hobby caps a project at 12
 // serverless functions, so several write-ops share one file and route on `op`:
@@ -12,6 +30,8 @@ import { processKinkInterview } from './_lib/kink.js';
 //   op: 'purchase'             -> body { item:'premium'|'swipe_pack' }
 //   op: 'toggle_dark_mode'     -> body { active:bool }        Dark Mode (18+) on/off
 //   op: 'submit_kink_interview'-> body { answers:string }     AI kink-marker analysis
+//   op: 'unlock_mystery_match' -> {}                          reveal the daily match (10 ⭐)
+//   op: 'open_lootbox'         -> {}                          open a luck box (first free, then 5 ⭐)
 // (Legacy callers that omit `op` but send targetId/action still swipe.)
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -28,6 +48,8 @@ export default async function handler(req, res) {
     if (op === 'purchase') return purchase(req, res, tgUser, body);
     if (op === 'toggle_dark_mode') return toggleDarkMode(res, tgUser, body);
     if (op === 'submit_kink_interview') return submitKinkInterview(res, tgUser, body);
+    if (op === 'unlock_mystery_match') return unlockMysteryMatch(res, tgUser);
+    if (op === 'open_lootbox') return openLootbox(res, tgUser);
     return swipe(req, res, tgUser, body);
   } catch (e) {
     console.error('api/interact failed:', e);
@@ -181,4 +203,105 @@ async function submitKinkInterview(res, tgUser, body) {
 
   const markers = await processKinkInterview(userId, answers);
   return res.status(200).json({ ok: true, darkModeActive: true, kinkMarkers: markers });
+}
+
+// --- Unlock Mystery Match (10 ⭐) ----------------------------------------
+// Reveals the identity behind today's anonymized "?" card. Charges once via a
+// guarded RPC (never double-charges, never goes negative); if already unlocked
+// we skip the charge and just re-serve the identity. Returns the full card so
+// the client can flip the "?" into a real person without another round-trip.
+async function unlockMysteryMatch(res, tgUser) {
+  const supabase = getSupabase();
+  const { data: me, error } = await supabase
+    .from('users')
+    .select('id, last_mystery_match_id, mystery_match_unlocked, stars_balance')
+    .eq('telegram_id', tgUser.id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!me || !me.last_mystery_match_id) {
+    return res.status(200).json({ ok: false, reason: 'no_match' });
+  }
+
+  let starsBalance = me.stars_balance || 0;
+  if (!me.mystery_match_unlocked) {
+    const { data: newBalance, error: rpcError } = await supabase.rpc('unlock_mystery_match', {
+      buyer: me.id, price: MYSTERY_UNLOCK_PRICE,
+    });
+    if (rpcError) throw rpcError;
+    if (newBalance === null || newBalance === undefined) {
+      return res.status(200).json({ ok: false, reason: 'insufficient', starsBalance });
+    }
+    starsBalance = newBalance;
+  }
+
+  const profile = await revealMysteryCard(supabase, me.id, me.last_mystery_match_id);
+  return res.status(200).json({ ok: true, starsBalance, profile });
+}
+
+// Builds the unlocked Mystery Match card (identity + fresh Big Five score/tags).
+async function revealMysteryCard(supabase, meId, targetId) {
+  const { data: u } = await supabase
+    .from('users')
+    .select('id, name, age, city, photo_url')
+    .eq('id', targetId)
+    .maybeSingle();
+  if (!u) return null;
+
+  let compatibility = null;
+  let tags = [];
+  try {
+    const { data: compat, error } = await supabase.rpc('calculate_compatibility', {
+      current_user_id: meId,
+    });
+    if (error) throw error;
+    const hit = (compat || []).find((c) => c.user_id === targetId);
+    if (hit) { compatibility = hit.compatibility_score; tags = (hit.compatibility_tags || []).slice(0, 3); }
+  } catch (e) {
+    console.error('mystery reveal compat failed:', e.message);
+  }
+
+  return {
+    userId: u.id,
+    name: (u.name || '').split(' ')[0] || 'Хтось особливий',
+    age: u.age, city: u.city || '', photoUrl: u.photo_url || '',
+    compatibility, tags, isMysteryMatch: true, unlocked: true,
+  };
+}
+
+// --- Open Lootbox (first free / then 5 ⭐) -------------------------------
+// The reward is rolled HERE (server-authoritative odds) and handed to the RPC,
+// which atomically prices the open (free first today, 5 ⭐ after), charges it,
+// bumps the daily counter, and — for a '+3_swipes' win — rolls this user's like
+// usage back by 3. Returns the reward, the cost actually charged, the new daily
+// count, and the fresh Stars balance so the client can update the wallet + the
+// remaining-likes gate immediately.
+async function openLootbox(res, tgUser) {
+  const userId = await findUserId(tgUser.id);
+  if (!userId) return res.status(200).json({ ok: false });
+
+  const supabase = getSupabase();
+  const rewardType = rollLootboxReward();
+
+  const { data: rows, error } = await supabase.rpc('open_lootbox', {
+    opener: userId, subsequent_price: LOOTBOX_PRICE, reward: rewardType,
+  });
+  if (error) throw error;
+
+  // Empty result set = no such user or insufficient Stars for a paid open.
+  const result = Array.isArray(rows) ? rows[0] : rows;
+  if (!result) {
+    const { data: u } = await supabase
+      .from('users').select('stars_balance').eq('id', userId).maybeSingle();
+    return res.status(200).json({
+      ok: false, reason: 'insufficient', starsBalance: (u && u.stars_balance) || 0,
+    });
+  }
+
+  return res.status(200).json({
+    ok: true,
+    rewardType,
+    cost: result.charged,
+    lootboxesOpenedToday: result.opened_today,
+    starsBalance: result.balance,
+  });
 }
