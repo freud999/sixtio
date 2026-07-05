@@ -1,6 +1,6 @@
 const APP_URL = process.env.APP_URL || 'https://sixtio.vercel.app';
 
-async function callBot(method, payload) {
+export async function callBot(method, payload) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) throw new Error('TELEGRAM_BOT_TOKEN is not set');
   const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {

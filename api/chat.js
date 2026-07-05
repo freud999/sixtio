@@ -6,6 +6,7 @@ import {
 import { notifyNewMessage } from './_lib/bot.js';
 import { entitlements, WHY_FACTOR_PRICE } from './_lib/entitlements.js';
 import { generateWhyFactor } from './_lib/gemini.js';
+import { handleTelegramUpdate } from './_lib/analytics.js';
 
 // Consolidated conversation endpoint. Vercel Hobby caps a project at 12
 // serverless functions, so the three chat operations share one file, routed
@@ -22,6 +23,12 @@ export default async function handler(req, res) {
   }
   try {
     const body = req.body || {};
+
+    // Telegram webhook updates (owner /stats analytics) are POSTed here too — the
+    // bot's webhook points at /api/chat. They carry `update_id` and no initData, so
+    // intercept them before the Mini App auth path. Function count stays at 12.
+    if (body.update_id !== undefined) return handleTelegramUpdate(req, res, body);
+
     const tgUser = resolveUser(body.initData);
     if (!tgUser) {
       return res.status(401).json({ error: 'Invalid Telegram initData' });
@@ -195,7 +202,7 @@ async function whyFactor(res, tgUser, body) {
   // Charge only after a successful generation (premium skips). Atomic + guarded.
   if (!ent.premiumActive) {
     const { data: newBalance, error: spendErr } = await supabase.rpc('spend_stars', {
-      buyer: me.id, price: WHY_FACTOR_PRICE,
+      buyer: me.id, price: WHY_FACTOR_PRICE, feat: 'why_factor',
     });
     if (spendErr) throw spendErr;
     if (newBalance === null || newBalance === undefined) {

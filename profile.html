@@ -139,12 +139,14 @@
   .ios-switch input:checked + .ios-slider::before{ transform:translateX(21px); }
 
   /* interview overlay — tinted anonymous chat */
-  .kv-overlay{ position:fixed; inset:0; z-index:1100; display:flex; align-items:flex-end;
-    justify-content:center; background:rgba(14,4,10,.62); -webkit-backdrop-filter:blur(8px);
-    backdrop-filter:blur(8px); opacity:0; transition:opacity .22s ease; padding:16px;
-    padding-bottom:calc(env(safe-area-inset-bottom) + 16px); }
+  .kv-overlay{ position:fixed; inset:0; z-index:1100; display:flex; flex-direction:column;
+    align-items:center; justify-content:flex-end; background:rgba(14,4,10,.62);
+    -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); opacity:0;
+    transition:opacity .22s ease; padding:16px;
+    padding-bottom:calc(env(safe-area-inset-bottom) + 16px);
+    overflow-y:auto; -webkit-overflow-scrolling:touch; }
   .kv-overlay.show{ opacity:1; }
-  .kv-sheet{ width:100%; max-width:440px; border-radius:26px; padding:22px 20px 20px; position:relative;
+  .kv-sheet{ width:100%; max-width:440px; border-radius:26px; padding:22px 20px calc(20px + var(--kv-kb, 0px)); margin-top:auto; position:relative;
     background:linear-gradient(160deg, rgba(40,10,26,.96), rgba(20,6,16,.98));
     border:1px solid rgba(255,120,90,.4); box-shadow:0 20px 60px -20px rgba(255,60,50,.5);
     transform:translateY(24px); transition:transform .26s cubic-bezier(.2,.8,.2,1); color:#fff; }
@@ -694,6 +696,16 @@
           document.body.appendChild(overlay);
           requestAnimationFrame(function(){ overlay.classList.add('show'); });
 
+          // iOS keyboard handling: track the on-screen keyboard via visualViewport
+          // and expand the sheet's bottom padding so the "Далі" button stays
+          // scrollable into view above it.
+          var vv = window.visualViewport;
+          function onKb(){
+            var kb = vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0;
+            overlay.style.setProperty('--kv-kb', kb + 'px');
+          }
+          if (vv){ vv.addEventListener('resize', onKb); vv.addEventListener('scroll', onKb); onKb(); }
+
           var qEl = overlay.querySelector('#kvQ');
           var aEl = overlay.querySelector('#kvA');
           var stepEl = overlay.querySelector('#kvStep');
@@ -701,7 +713,19 @@
           var note = overlay.querySelector('#kvNote');
           var settled = false;
 
+          // Fallback for browsers without visualViewport: reserve space on focus.
+          if (!vv){
+            aEl.addEventListener('focus', function(){ overlay.style.setProperty('--kv-kb','340px'); });
+            aEl.addEventListener('blur', function(){ overlay.style.setProperty('--kv-kb','0px'); });
+          }
+          // Tapping the backdrop or pressing Enter gracefully blurs to close the keyboard.
+          overlay.addEventListener('click', function(e){ if (e.target === overlay) aEl.blur(); });
+          aEl.addEventListener('keydown', function(e){
+            if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); aEl.blur(); }
+          });
+
           function close(){
+            if (vv){ vv.removeEventListener('resize', onKb); vv.removeEventListener('scroll', onKb); }
             overlay.classList.remove('show');
             setTimeout(function(){ if (overlay.parentNode) overlay.remove(); }, 240);
           }
