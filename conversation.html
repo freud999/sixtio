@@ -48,7 +48,7 @@
   .share-btn.done .txt{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
   /* messages */
-  .messages{ flex:1; overflow-y:auto; padding:14px 16px; display:flex; flex-direction:column; gap:8px;
+  .messages{ flex:1; overflow-y:auto; padding:14px 16px; display:flex; flex-direction:column; gap:3px;
     -webkit-overflow-scrolling:touch; }
   .intro{ align-self:center; text-align:center; max-width:82%; margin:auto 0; padding:22px;
     font-size:13px; line-height:1.6; color:var(--hint); }
@@ -61,6 +61,12 @@
   .msg.me{ align-self:flex-end; color:#fff; border-bottom-right-radius:5px;
     background:linear-gradient(120deg, var(--a2), var(--a1));
     box-shadow:0 8px 22px -10px var(--glow); }
+
+  /* Consecutive bubbles from the same sender within 2 min stack tight, and the
+     inner (top) corner squares off so the group reads as one continuous block. */
+  .msg:not(.grouped){ margin-top:9px; }
+  .msg.me.grouped{ border-top-right-radius:6px; }
+  .msg.them.grouped{ border-top-left-radius:6px; }
 
   /* composer — glass bar */
   .composer{ display:flex; gap:8px; align-items:flex-end;
@@ -160,14 +166,21 @@
         requestAnimationFrame(function(){ messagesEl.scrollTop = messagesEl.scrollHeight; });
       }
 
+      var lastMine = null;   // was the previous rendered bubble mine?
+      var lastTime = 0;      // …and when (ms) — for the <2min stacking rule
       function addMessage(m){
         if (seen[m.id]) return;
         seen[m.id] = true;
         intro.hidden = true;
+        var t = m.createdAt ? new Date(m.createdAt).getTime() : Date.now();
+        // Same sender as the previous bubble AND within 2 minutes → stack it.
+        var grouped = (lastMine === m.mine) && (t - lastTime) < 120000;
         var el = document.createElement('div');
-        el.className = 'msg ' + (m.mine ? 'me' : 'them');
+        el.className = 'msg ' + (m.mine ? 'me' : 'them') + (grouped ? ' grouped' : '');
         el.textContent = m.text;
         messagesEl.appendChild(el);
+        lastMine = m.mine;
+        lastTime = t;
         scrollToBottom();
       }
 

@@ -4,6 +4,8 @@ import {
   getShareState, setShareConsent,
 } from './_lib/supabase.js';
 import { notifyNewMessage } from './_lib/bot.js';
+import { entitlements, WHY_FACTOR_PRICE } from './_lib/entitlements.js';
+import { generateWhyFactor } from './_lib/gemini.js';
 
 // Consolidated conversation endpoint. Vercel Hobby caps a project at 12
 // serverless functions, so the three chat operations share one file, routed
@@ -28,6 +30,7 @@ export default async function handler(req, res) {
     const op = body.op || (typeof body.text === 'string' ? 'send' : 'list');
     if (op === 'send') return send(res, tgUser, body);
     if (op === 'share') return share(res, tgUser, body);
+    if (op === 'the_why_factor') return whyFactor(res, tgUser, body);
     return list(res, tgUser, body);
   } catch (e) {
     console.error('api/chat failed:', e);
@@ -140,4 +143,67 @@ async function share(res, tgUser, body) {
     shareBoth: state.shareBoth,
     partnerUsername: state.partnerUsername,
   });
+}
+
+// --- The Why Factor (premium / 10 ⭐) ------------------------------------
+// Generates one AI paragraph on why the current user and their match are deeply
+// compatible. Premium reveals for free; everyone else pays WHY_FACTOR_PRICE ⭐.
+// Order is intentional: we generate FIRST, then charge atomically on success —
+// so a Gemini failure never costs the user Stars, and the guarded RPC still makes
+// the deduction race-safe (never double-charge, never negative). The intimate
+// layer is fed to the AI ONLY on a mutual Dark Mode opt-in (both sides), so a
+// paying user can never surface a partner's intimate profile without her consent.
+async function whyFactor(res, tgUser, body) {
+  const supabase = getSupabase();
+
+  const { data: me, error: meErr } = await supabase
+    .from('users')
+    .select('id, gender, premium, premium_until, stars_balance, dark_mode_active, kink_markers')
+    .eq('telegram_id', tgUser.id)
+    .maybeSingle();
+  if (meErr) throw meErr;
+  if (!me) return res.status(409).json({ error: 'Not registered' });
+
+  const match = await resolveMatchForUser(me.id, body.matchId);
+  if (!match) return res.status(409).json({ error: 'No match' });
+
+  const ent = entitlements(me);
+  let starsBalance = me.stars_balance || 0;
+  // Pre-gate: non-premium users must be able to afford it before we spend a call.
+  if (!ent.premiumActive && starsBalance < WHY_FACTOR_PRICE) {
+    return res.status(200).json({ ok: false, reason: 'insufficient', paywall: true, starsBalance });
+  }
+
+  const PCOLS = 'traits_json, trait_openness, trait_conscientiousness, trait_extraversion, trait_agreeableness, trait_neuroticism';
+  const { data: myProfile } = await supabase
+    .from('profiles').select(PCOLS).eq('user_id', me.id).maybeSingle();
+  const { data: partner } = await supabase
+    .from('users').select('name, gender, dark_mode_active, kink_markers').eq('id', match.partnerId).maybeSingle();
+  const { data: partnerProfile } = await supabase
+    .from('profiles').select(PCOLS).eq('user_id', match.partnerId).maybeSingle();
+
+  // Intimate markers only on a MUTUAL Dark Mode opt-in — otherwise withheld.
+  const mutualIntimate = !!(me.dark_mode_active && partner && partner.dark_mode_active);
+  const text = await generateWhyFactor(
+    { gender: me.gender, traits: myProfile, kink: mutualIntimate ? me.kink_markers : [] },
+    {
+      name: partner && partner.name, gender: partner && partner.gender,
+      traits: partnerProfile, kink: mutualIntimate ? (partner && partner.kink_markers) : [],
+    }
+  );
+
+  // Charge only after a successful generation (premium skips). Atomic + guarded.
+  if (!ent.premiumActive) {
+    const { data: newBalance, error: spendErr } = await supabase.rpc('spend_stars', {
+      buyer: me.id, price: WHY_FACTOR_PRICE,
+    });
+    if (spendErr) throw spendErr;
+    if (newBalance === null || newBalance === undefined) {
+      // Lost a race for the last Stars between the pre-gate and the charge.
+      return res.status(200).json({ ok: false, reason: 'insufficient', paywall: true, starsBalance });
+    }
+    starsBalance = newBalance;
+  }
+
+  return res.status(200).json({ ok: true, text, starsBalance });
 }

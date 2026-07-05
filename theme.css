@@ -7,59 +7,60 @@
 @import url('https://fonts.googleapis.com/css2?family=Doto:wght@700;900&display=swap');
 
 :root{
-  /* accent trio (neutral brand) */
-  --a1:#7F77DD;            /* main accent */
-  --a2:#534AB7;            /* deep accent */
-  --a3:#1D9E75;            /* companion accent */
-  --glow:rgba(127,119,221,.45);
+  /* Neon accent trio (Telegram Night — electric cyan/blue + cyber pink) */
+  --a1:#4FACFE;            /* electric blue */
+  --a2:#00F2FE;            /* neon cyan */
+  --a3:#FF007F;            /* cyber pink */
+  --glow:rgba(0,242,254,.35);
 
-  /* surfaces — light defaults, tinted by Telegram vars where present */
-  --bg:var(--tg-theme-bg-color,#f5f3fa);
-  --text:var(--tg-theme-text-color,#17161d);
-  --hint:var(--tg-theme-hint-color,#7c7b89);
-  --card:var(--tg-theme-secondary-bg-color,#edeaf5);
+  /* Deep-purple night surfaces — forced (NOT tinted by a light Telegram theme) */
+  --bg:#0F0A1C;
+  --bg-grad:linear-gradient(160deg,#0F0A1C 0%,#160F29 100%);
+  --text:#F4F2FB;
+  --hint:#A99FC7;
+  --card:#1B1330;
 
-  /* mirror glass: a translucent gradient + top sheen (see .glass) */
-  --glass-grad:linear-gradient(158deg, rgba(255,255,255,.72), rgba(255,255,255,.4));
-  --glass-bg:rgba(255,255,255,.5);
-  --glass-border:rgba(255,255,255,.85);
-  --glass-hi:rgba(255,255,255,.95);            /* inset top highlight */
-  --glass-shadow:0 10px 30px -14px rgba(45,32,90,.25);
-  --faux-glass:rgba(255,255,255,.55);          /* cheap glass: no backdrop blur */
-  --aura-deep:#ffffff;
-  --dots:rgba(25,18,50,.06);
+  /* Premium frosted glassmorphism (rgba(34,23,61,.6) + blur + hairline border) */
+  --glass-grad:linear-gradient(158deg, rgba(34,23,61,.72), rgba(34,23,61,.5));
+  --glass-bg:rgba(34,23,61,.6);
+  --glass-border:rgba(255,255,255,.08);
+  --glass-hi:rgba(255,255,255,.10);            /* inset top highlight */
+  --glass-shadow:0 14px 40px -16px rgba(0,0,0,.7);
+  --faux-glass:rgba(34,23,61,.55);             /* cheap glass: no backdrop blur */
+  --aura-deep:#0F0A1C;
+  --dots:rgba(255,255,255,.05);
   --on-accent:#ffffff;
 }
 
 html[data-theme="dark"]{
-  --bg:#0a0a10;
-  --text:#f4f3f8;
-  --hint:#9a99a8;
-  --card:#16161e;
-  --glass-grad:linear-gradient(158deg, rgba(255,255,255,.15), rgba(255,255,255,.04));
-  --glass-bg:rgba(255,255,255,.06);
-  --glass-border:rgba(255,255,255,.16);
-  --glass-hi:rgba(255,255,255,.22);
-  --glass-shadow:0 14px 40px -16px rgba(0,0,0,.65);
-  --faux-glass:rgba(255,255,255,.07);
-  --aura-deep:#0a0a10;
+  --bg:#0F0A1C;
+  --text:#F4F2FB;
+  --hint:#A99FC7;
+  --card:#1B1330;
+  --glass-grad:linear-gradient(158deg, rgba(34,23,61,.72), rgba(34,23,61,.5));
+  --glass-bg:rgba(34,23,61,.6);
+  --glass-border:rgba(255,255,255,.08);
+  --glass-hi:rgba(255,255,255,.10);
+  --glass-shadow:0 14px 40px -16px rgba(0,0,0,.7);
+  --faux-glass:rgba(34,23,61,.55);
+  --aura-deep:#0F0A1C;
   --dots:rgba(255,255,255,.05);
 }
 
 html[data-gender="female"]{
-  --a1:#FF5D9E; --a2:#E23A86; --a3:#FFB3D2;
-  --glow:rgba(255,93,158,.5);
+  --a1:#FF007F; --a2:#B24BF3; --a3:#FF6FD8;
+  --glow:rgba(255,0,127,.42);
 }
 html[data-gender="male"]{
-  --a1:#5B9DFF; --a2:#3B6CF0; --a3:#7FE3FF;
-  --glow:rgba(91,157,255,.5);
+  --a1:#4FACFE; --a2:#00F2FE; --a3:#7F9CFF;
+  --glow:rgba(0,242,254,.4);
 }
 
 *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
 [hidden]{ display:none !important; }
 html{ height:100%; }
 body{
-  background:var(--bg);
+  background:var(--bg-grad); background-attachment:fixed;
   color:var(--text);
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   min-height:100dvh;   /* grows with content — do NOT set height:100% (breaks scroll padding) */
@@ -80,8 +81,8 @@ html[data-theme="dark"] .bg-aura.two{ opacity:.2; }
 /* ---- true glass (few per screen — backdrop blur costs GPU) ---- */
 .glass{
   background:var(--glass-grad);
-  -webkit-backdrop-filter:blur(26px) saturate(1.7);
-  backdrop-filter:blur(26px) saturate(1.7);
+  -webkit-backdrop-filter:blur(12px) saturate(1.5);
+  backdrop-filter:blur(12px) saturate(1.5);
   border:1px solid var(--glass-border);
   border-radius:22px;
   box-shadow:var(--glass-shadow), inset 0 1px 0 var(--glass-hi);

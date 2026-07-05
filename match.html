@@ -53,6 +53,42 @@
     font-size:16px; font-weight:700; color:var(--a2); background:#fff; cursor:pointer;
     font-family:inherit; box-shadow:0 10px 26px -10px rgba(0,0,0,.3); }
   .write-btn:active{ transform:scale(.98); opacity:.94; }
+
+  /* --- The Why Factor: pulsing neon CTA --- */
+  .why-btn{ width:100%; max-width:460px; border:none; border-radius:999px; padding:16px;
+    font-size:16px; font-weight:800; color:#fff; cursor:pointer; font-family:inherit;
+    letter-spacing:.2px;
+    background:linear-gradient(120deg,#4FACFE,#00F2FE 45%,#FF007F);
+    box-shadow:0 0 22px -2px rgba(0,242,254,.6), 0 0 30px -6px rgba(255,0,127,.5);
+    animation:whyPulse 2.2s ease-in-out infinite; }
+  .why-btn:active{ transform:scale(.98); }
+  .why-btn:disabled{ opacity:.7; animation:none; cursor:default; }
+  @keyframes whyPulse{ 0%,100%{ box-shadow:0 0 18px -4px rgba(0,242,254,.5), 0 0 26px -8px rgba(255,0,127,.4); }
+    50%{ box-shadow:0 0 30px 0 rgba(0,242,254,.75), 0 0 40px -4px rgba(255,0,127,.6); } }
+
+  /* --- reveal overlay: glowing frosted glass + typing text --- */
+  .why-overlay{ position:fixed; inset:0; z-index:1200; display:flex; align-items:center;
+    justify-content:center; padding:20px; background:rgba(9,5,20,.66);
+    -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
+    opacity:0; transition:opacity .24s ease; }
+  .why-overlay.show{ opacity:1; }
+  .why-sheet{ width:100%; max-width:440px; border-radius:26px; padding:24px 22px 20px; position:relative;
+    background:linear-gradient(158deg, rgba(34,23,61,.82), rgba(22,15,41,.9));
+    border:1px solid rgba(0,242,254,.28);
+    box-shadow:0 24px 70px -20px rgba(0,242,254,.4), inset 0 1px 0 rgba(255,255,255,.08);
+    transform:translateY(18px) scale(.98); transition:transform .26s cubic-bezier(.2,.8,.2,1); color:#F4F2FB; }
+  .why-overlay.show .why-sheet{ transform:translateY(0) scale(1); }
+  .why-close{ position:absolute; top:14px; right:14px; width:34px; height:34px; border-radius:50%;
+    border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.06); color:#fff;
+    font-size:15px; cursor:pointer; font-family:inherit; line-height:1; }
+  .why-title{ font-size:14px; font-weight:800; letter-spacing:.06em; text-transform:uppercase;
+    background:linear-gradient(100deg,#00F2FE,#FF007F); -webkit-background-clip:text; background-clip:text;
+    -webkit-text-fill-color:transparent; }
+  .why-body{ font-size:15.5px; line-height:1.65; margin-top:14px; min-height:120px; white-space:pre-wrap; }
+  .why-body .caret{ display:inline-block; width:2px; height:1.05em; vertical-align:-2px;
+    margin-left:1px; background:#00F2FE; animation:whyCaret .8s step-end infinite; }
+  @keyframes whyCaret{ 50%{ opacity:0; } }
+  .why-note{ font-size:12.5px; color:#A99FC7; text-align:center; margin-top:14px; min-height:16px; }
 </style>
 </head>
 <body>
@@ -85,6 +121,7 @@
     <div class="bio" id="bio"></div>
   </div>
 
+  <button class="why-btn" id="whyBtn" hidden>🧠 Чому ми підходимо один одному?</button>
   <button class="write-btn" id="writeBtn" hidden>Написати повідомлення 💬</button>
 
   <script>
@@ -133,6 +170,13 @@
           if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('medium'); } catch(e){} }
           window.location.href = 'conversation.html' + (m.matchId ? '?match=' + encodeURIComponent(m.matchId) : '');
         });
+
+        var why = document.getElementById('whyBtn');
+        why.hidden = false;
+        why.addEventListener('click', function(){
+          if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('medium'); } catch(e){} }
+          openWhyFactor(m.matchId, (pt.name || '').split(' ')[0] || 'вами');
+        });
       }
 
       function pick(me){
@@ -158,6 +202,64 @@
           localStorage.setItem('sixtio_me', JSON.stringify(me));
           pick(me);
         }).catch(function(){ /* offline — cached shown */ });
+
+      // ---- The Why Factor: fetch + glowing overlay with a typing reveal ------
+      function openWhyFactor(mId, name){
+        var overlay = document.createElement('div');
+        overlay.className = 'why-overlay';
+        overlay.innerHTML =
+          '<div class="why-sheet">' +
+            '<button class="why-close" aria-label="Закрити">✕</button>' +
+            '<div class="why-title">🧠 Чому ви підходите</div>' +
+            '<div class="why-body" id="whyText"><span class="caret"></span></div>' +
+            '<div class="why-note" id="whyNote">Sixtio аналізує вашу сумісність…</div>' +
+          '</div>';
+        document.body.appendChild(overlay);
+        requestAnimationFrame(function(){ overlay.classList.add('show'); });
+
+        var bodyEl = overlay.querySelector('#whyText');
+        var note = overlay.querySelector('#whyNote');
+        var typeTimer = null;
+        function close(){
+          if (typeTimer) clearInterval(typeTimer);
+          overlay.classList.remove('show');
+          setTimeout(function(){ if (overlay.parentNode) overlay.remove(); }, 240);
+        }
+        overlay.querySelector('.why-close').addEventListener('click', close);
+        overlay.addEventListener('click', function(e){ if (e.target === overlay) close(); });
+
+        function typeOut(text){
+          note.textContent = '';
+          var i = 0;
+          bodyEl.innerHTML = '<span class="caret"></span>';
+          var caret = bodyEl.querySelector('.caret');
+          typeTimer = setInterval(function(){
+            if (i >= text.length) { clearInterval(typeTimer); if (caret) caret.remove(); return; }
+            caret.insertAdjacentText('beforebegin', text.charAt(i));
+            i++;
+            bodyEl.scrollTop = bodyEl.scrollHeight;
+          }, 18);
+        }
+
+        fetch('/api/chat', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ initData: initData, op: 'the_why_factor', matchId: mId })
+        }).then(function(r){ return r.json(); }).then(function(res){
+          if (res && res.ok && res.text) {
+            if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.notificationOccurred('success'); } catch(e){} }
+            typeOut(res.text);
+          } else if (res && res.reason === 'insufficient') {
+            bodyEl.textContent = '';
+            note.textContent = 'Недостатньо зірок (потрібно 10 ⭐). Запроси друзів, щоб отримати більше.';
+          } else {
+            bodyEl.textContent = '';
+            note.textContent = 'Не вдалося згенерувати. Спробуй ще раз.';
+          }
+        }).catch(function(){
+          bodyEl.textContent = '';
+          note.textContent = 'Не вдалося згенерувати. Спробуй ще раз.';
+        });
+      }
     })();
   </script>
 </body>
