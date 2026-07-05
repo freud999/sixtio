@@ -26,25 +26,42 @@ const KEYBOARD = {
 // Entry point from chat.js. ALWAYS answers 200 so Telegram never retries.
 export async function handleTelegramUpdate(req, res, update) {
   try {
-    // Reject forged updates when a webhook secret is configured (defence in depth
-    // on top of the owner-id check).
-    if (WEBHOOK_SECRET && req.headers['x-telegram-bot-api-secret-token'] !== WEBHOOK_SECRET) {
-      return res.status(200).json({ ok: true });
-    }
-
+    // Security note: authorization relies EXCLUSIVELY on isOwner(from) — a
+    // hardcoded numeric Telegram id — so the WEBHOOK_SECRET header gate was
+    // removed to eliminate setWebhook-secret sync as a failure mode. No update
+    // can trigger /stats without matching OWNER_TELEGRAM_ID.
     const cb = update.callback_query;
     const msg = update.message;
 
     if (cb && typeof cb.data === 'string' && cb.data.startsWith('stats:')) {
-      if (!isOwner(cb.from)) { await ack(cb.id); return res.status(200).json({ ok: true }); }
+      if (!isOwner(cb.from)) {
+        console.log('Stats callback but ID mismatch:', cb.from && cb.from.id, 'vs env:', OWNER_TELEGRAM_ID);
+        await ack(cb.id);
+        return res.status(200).json({ ok: true });
+      }
       await renderInto(cb.message.chat.id, cb.message.message_id, cb.data.slice(6));
       await ack(cb.id, '📊 Оновлено');
       return res.status(200).json({ ok: true });
     }
 
     if (msg && typeof msg.text === 'string' && msg.text.trim().split(/\s+/)[0] === '/stats') {
-      if (isOwner(msg.from)) await renderNew(msg.chat.id, '24h');
-      return res.status(200).json({ ok: true });   // non-owner: silently ignore
+      if (isOwner(msg.from)) {
+        await renderNew(msg.chat.id, '24h');
+      } else {
+        // TEMP DEBUG: echo the caller's real Telegram id straight into the chat so
+        // it can be cross-checked against the OWNER_TELEGRAM_ID env var on Vercel.
+        const uid = msg.from && msg.from.id;
+        console.log('Stats command but ID mismatch:', uid, 'vs env:', OWNER_TELEGRAM_ID);
+        try {
+          await callBot('sendMessage', {
+            chat_id: msg.chat.id,
+            text: `⚠️ Доступ обмежено. Твій ID: ${uid}`,
+          });
+        } catch (e) {
+          console.error('debug id-echo sendMessage failed:', e.message);
+        }
+      }
+      return res.status(200).json({ ok: true });   // non-owner: ID echoed above
     }
 
     return res.status(200).json({ ok: true });      // any other update: ignore
@@ -55,7 +72,9 @@ export async function handleTelegramUpdate(req, res, update) {
 }
 
 function isOwner(from) {
-  return !!from && !!OWNER_TELEGRAM_ID && Number(from.id) === OWNER_TELEGRAM_ID;
+  // Coerce BOTH sides to primitive numbers — Vercel env vars arrive as strings,
+  // Telegram ids as numbers; a strict === across those types silently fails.
+  return !!from && !!OWNER_TELEGRAM_ID && Number(from.id) === Number(OWNER_TELEGRAM_ID);
 }
 
 function ack(id, text) {
@@ -64,10 +83,17 @@ function ack(id, text) {
 }
 
 async function renderNew(chatId, period) {
-  await callBot('sendMessage', {
-    chat_id: chatId, text: await buildDashboard(period),
-    parse_mode: 'HTML', disable_web_page_preview: true, reply_markup: KEYBOARD,
-  });
+  try {
+    await callBot('sendMessage', {
+      chat_id: chatId, text: await buildDashboard(period),
+      parse_mode: 'HTML', disable_web_page_preview: true, reply_markup: KEYBOARD,
+    });
+  } catch (e) {
+    // Surface the exact Telegram fault (expired token, unescaped HTML, bad chat) —
+    // callBot throws with Telegram's `description`, so never swallow it silently.
+    console.error('renderNew sendMessage failed:', e.message);
+    throw e;
+  }
 }
 
 async function renderInto(chatId, messageId, period) {

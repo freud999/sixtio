@@ -274,8 +274,15 @@ const RETENTION_BATCH = 50;
 
 async function cronRetentionTrigger(req, res) {
   const secret = process.env.CRON_SECRET;
-  const auth = req.headers.authorization || '';
-  if (!secret || auth !== `Bearer ${secret}`) {
+  // Node lowercases header names; read both casings defensively regardless.
+  const authHeader = req.headers.authorization || req.headers.Authorization || '';
+  if (!secret || authHeader !== `Bearer ${secret}`) {
+    // Never log the token itself. This isolates the two failure modes: whether
+    // Vercel actually sees CRON_SECRET, and whether cron-job.org sent any header.
+    console.error(
+      'Cron auth failed. Expected:', secret ? 'set' : 'not set',
+      'Received length:', authHeader.length
+    );
     return res.status(401).json({ ok: false, error: 'Unauthorized' });
   }
 
