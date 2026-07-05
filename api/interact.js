@@ -6,6 +6,7 @@ import {
   MYSTERY_UNLOCK_PRICE, LOOTBOX_PRICE,
 } from './_lib/entitlements.js';
 import { processKinkInterview } from './_lib/kink.js';
+import { notifyInstantMatch } from './_lib/bot.js';
 
 // Chance-based lootbox reward table. Rolled server-side so the client can't
 // bias the odds: 40% +3 swipes, 20% a 30% Premium discount, 40% nothing.
@@ -73,7 +74,7 @@ async function swipe(req, res, tgUser, body) {
   const supabase = getSupabase();
   const { data: me, error: meError } = await supabase
     .from('users')
-    .select('id, gender, premium, premium_until, daily_likes_count, last_like_reset')
+    .select('id, name, gender, premium, premium_until, daily_likes_count, last_like_reset')
     .eq('telegram_id', tgUser.id)
     .maybeSingle();
   if (meError) throw meError;
@@ -100,7 +101,45 @@ async function swipe(req, res, tgUser, body) {
   });
   if (error) throw error;
 
-  return res.status(200).json({ ok: true });
+  // Instant match: a LIKE that the target already returned = mutual. Create the
+  // match (idempotent via the unique(user_a,user_b) constraint) and ping both in
+  // Telegram. Notifications fire ONLY on a freshly-inserted row, so re-swipes or
+  // an already-AI-matched pair never double-notify. Fully self-guarded — nothing
+  // here can 500 or block the swipe response.
+  let matched = false;
+  if (action === 'like') {
+    try {
+      const { data: target } = await supabase
+        .from('users')
+        .select('id, name, telegram_id, liked_users')
+        .eq('id', String(targetId))
+        .maybeSingle();
+
+      if (target && (target.liked_users || []).includes(me.id)) {
+        const [a, b] = me.id < target.id ? [me.id, target.id] : [target.id, me.id];
+        const { data: inserted, error: insErr } = await supabase
+          .from('matches')
+          .upsert(
+            { user_a: a, user_b: b, reason: 'Ви вподобали одне одного 🔥' },
+            { onConflict: 'user_a,user_b', ignoreDuplicates: true }
+          )
+          .select('id');
+        if (insErr) throw insErr;
+
+        if (Array.isArray(inserted) && inserted.length) {
+          matched = true;
+          await notifyInstantMatch(
+            { telegram_id: tgUser.id, name: me.name },
+            { telegram_id: target.telegram_id, name: target.name }
+          );
+        }
+      }
+    } catch (e) {
+      console.error('instant match/notify failed:', e);
+    }
+  }
+
+  return res.status(200).json({ ok: true, matched });
 }
 
 // --- Purchase -----------------------------------------------------------

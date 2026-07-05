@@ -2,6 +2,7 @@ import { resolveUser } from './_lib/telegram.js';
 import { getSupabase, getMatchesFor } from './_lib/supabase.js';
 import { buildReferralLink } from './_lib/referrals.js';
 import { entitlements, likesLeftForClient } from './_lib/entitlements.js';
+import { notifyRetention } from './_lib/bot.js';
 
 // Base completeness after onboarding; each answered "extra" deep question is +20.
 const BASE_PROFILE_DEPTH = 40;
@@ -39,6 +40,11 @@ export default async function handler(req, res) {
   }
   try {
     const body = req.body || {};
+
+    // Server-to-server retention cron (Vercel Scheduled / external). Authorized
+    // by CRON_SECRET, NOT Telegram initData — so it runs before resolveUser.
+    if (body.op === 'cron_retention_trigger') return cronRetentionTrigger(req, res);
+
     const tgUser = resolveUser(body.initData);
     if (!tgUser) {
       return res.status(401).json({ error: 'Invalid Telegram initData' });
@@ -57,6 +63,14 @@ export default async function handler(req, res) {
     if (!user) {
       return res.status(200).json({ registered: false, user: null, profile: null, matches: [] });
     }
+
+    // Retention: stamp activity on every authenticated app load (best-effort,
+    // never fatal). Covers profile/matches/app-boot; feed.js stamps the deck.
+    try {
+      await supabase.from('users')
+        .update({ last_active: new Date().toISOString() })
+        .eq('id', user.id);
+    } catch (e) { console.error('last_active stamp failed:', e.message); }
 
     // Paywall entitlement (gender-biased): drives blur, deepen gating, and the
     // remaining-likes counter on every screen from one cached payload.
@@ -247,6 +261,51 @@ async function updateLocation(res, tgUser, body) {
     return res.status(200).json({ ok: true, city });
   } catch (e) {
     console.error('update_location failed:', e);
+    return res.status(500).json({ ok: false, error: 'Internal error' });
+  }
+}
+
+// --- 48h inactivity retention cron -------------------------------------
+// Finds users idle > 48h who haven't been nudged in the last 48h, pings each via
+// the bot, and stamps last_retention_push to lock the next window. Authorized by
+// a shared CRON_SECRET (Bearer), never by Telegram identity. Batched so one run
+// stays well under the serverless time budget; the cron drains the rest next tick.
+const RETENTION_BATCH = 50;
+
+async function cronRetentionTrigger(req, res) {
+  const secret = process.env.CRON_SECRET;
+  const auth = req.headers.authorization || '';
+  if (!secret || auth !== `Bearer ${secret}`) {
+    return res.status(401).json({ ok: false, error: 'Unauthorized' });
+  }
+
+  try {
+    const supabase = getSupabase();
+    const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+
+    const { data: users, error } = await supabase
+      .from('users')
+      .select('id, telegram_id, last_retention_push')
+      .lt('last_active', cutoff)
+      .or(`last_retention_push.is.null,last_retention_push.lt.${cutoff}`)
+      .not('telegram_id', 'is', null)
+      .limit(RETENTION_BATCH);
+    if (error) throw error;
+
+    let sent = 0;
+    for (const u of users || []) {
+      await notifyRetention(u.telegram_id);
+      const { error: upErr } = await supabase
+        .from('users')
+        .update({ last_retention_push: new Date().toISOString() })
+        .eq('id', u.id);
+      if (upErr) console.error('retention stamp failed:', upErr.message);
+      else sent++;
+    }
+
+    return res.status(200).json({ ok: true, candidates: (users || []).length, sent });
+  } catch (e) {
+    console.error('cron_retention_trigger failed:', e);
     return res.status(500).json({ ok: false, error: 'Internal error' });
   }
 }

@@ -61,6 +61,36 @@ export async function notifyReferralBonus(telegramId) {
   }
 }
 
+// --- Retention engine (Task 9) -----------------------------------------
+// Fire-and-forget nudge with an "Open Sixtio" button; self-guarded so a user
+// who never pressed Start (can't be messaged) never breaks the caller.
+async function nudge(telegramId, text, url) {
+  const reply_markup = {
+    inline_keyboard: [[{ text: 'Відкрити Sixtio', web_app: { url: url || APP_URL } }]],
+  };
+  try {
+    await callBot('sendMessage', { chat_id: telegramId, text, reply_markup });
+  } catch (e) {
+    console.error(`nudge to ${telegramId} failed:`, e.message);
+  }
+}
+
+const firstNameOf = (name) => (name || '').split(' ')[0] || 'Хтось особливий';
+
+/** Instant mutual-swipe match — pings both sides. Never throws. */
+export async function notifyInstantMatch(userA, userB) {
+  await nudge(userA.telegram_id,
+    `🔥 ШІ знайшов твій ідеальний метч! ${firstNameOf(userB.name)} чекає на тебе в чаті.`);
+  await nudge(userB.telegram_id,
+    `🔥 ШІ знайшов твій ідеальний метч! ${firstNameOf(userA.name)} чекає на тебе в чаті.`);
+}
+
+/** 48-hour inactivity retention nudge. Never throws. */
+export async function notifyRetention(telegramId) {
+  await nudge(telegramId,
+    '✨ Sixtio проаналізував нові анкети і знайшов 3 людей з сумісністю >80%. Зазирни в додаток!');
+}
+
 /** Pings a user that their match sent them a new in-app message. */
 export async function notifyNewMessage(to, fromName, preview, matchId) {
   const name = (fromName || '').split(' ')[0] || 'Твоя пара';

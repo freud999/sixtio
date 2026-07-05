@@ -34,6 +34,13 @@ export default async function handler(req, res) {
     if (meError) throw meError;
     if (!me) return res.status(200).json({ registered: false, candidates: [], hasMore: false });
 
+    // Retention: stamp activity when the swipe deck loads (best-effort).
+    try {
+      await supabase.from('users')
+        .update({ last_active: new Date().toISOString() })
+        .eq('id', me.id);
+    } catch (e) { console.error('last_active stamp failed:', e.message); }
+
     // Gender-biased entitlement: females & premium males see clean photos with
     // no limit; free males see blurred photos and a 30/24h like allowance.
     const ent = entitlements(me);
