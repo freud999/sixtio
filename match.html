@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="theme.js"></script>
+<script src="paywall.js"></script>
 <link rel="stylesheet" href="theme.css" />
 <style>
   body{
@@ -89,6 +90,23 @@
     margin-left:1px; background:#00F2FE; animation:whyCaret .8s step-end infinite; }
   @keyframes whyCaret{ 50%{ opacity:0; } }
   .why-note{ font-size:12.5px; color:#A99FC7; text-align:center; margin-top:14px; min-height:16px; }
+
+  /* --- The Why Factor: premium blur-lock (subsequent reveals) --- */
+  .why-sheet.locked{ border-color:color-mix(in srgb, var(--neon-p) 45%, transparent);
+    box-shadow:0 24px 70px -20px color-mix(in srgb, var(--neon-p) 55%, transparent),
+      inset 0 1px 0 rgba(255,255,255,.08); }
+  .why-lockwrap{ position:relative; margin-top:14px; min-height:132px; }
+  .why-blur{ font-size:15.5px; line-height:1.65; color:#F4F2FB; opacity:.9;
+    filter:blur(6px); -webkit-filter:blur(6px); user-select:none; pointer-events:none; }
+  .why-lockcta{ position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:12px; text-align:center; }
+  .why-lockstar{ font-size:30px; line-height:1;
+    filter:drop-shadow(0 0 12px color-mix(in srgb, var(--neon-p) 85%, transparent)); }
+  .why-unlock{ border:none; border-radius:999px; padding:13px 20px; font-size:15px; font-weight:800;
+    color:#fff; font-family:inherit; cursor:pointer; letter-spacing:.2px;
+    background:linear-gradient(120deg, color-mix(in srgb, var(--neon-p) 80%, #000), var(--neon-p));
+    box-shadow:0 0 26px -4px color-mix(in srgb, var(--neon-p) 75%, transparent); }
+  .why-unlock:active{ transform:scale(.97); }
 </style>
 </head>
 <body>
@@ -217,6 +235,7 @@
         document.body.appendChild(overlay);
         requestAnimationFrame(function(){ overlay.classList.add('show'); });
 
+        var sheet = overlay.querySelector('.why-sheet');
         var bodyEl = overlay.querySelector('#whyText');
         var note = overlay.querySelector('#whyNote');
         var typeTimer = null;
@@ -229,6 +248,7 @@
         overlay.addEventListener('click', function(e){ if (e.target === overlay) close(); });
 
         function typeOut(text){
+          sheet.classList.remove('locked');
           note.textContent = '';
           var i = 0;
           bodyEl.innerHTML = '<span class="caret"></span>';
@@ -241,24 +261,68 @@
           }, 18);
         }
 
-        fetch('/api/chat', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ initData: initData, op: 'the_why_factor', matchId: mId })
-        }).then(function(r){ return r.json(); }).then(function(res){
-          if (res && res.ok && res.text) {
-            if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.notificationOccurred('success'); } catch(e){} }
-            typeOut(res.text);
-          } else if (res && res.reason === 'insufficient') {
-            bodyEl.textContent = '';
-            note.textContent = 'Недостатньо зірок (потрібно 10 ⭐). Запроси друзів, щоб отримати більше.';
+        // Premium blur-lock: today's free reveal is spent, so show a heavily
+        // blurred teaser (server withheld the real text) + a Stars unlock CTA.
+        function showLocked(price){
+          if (typeTimer) clearInterval(typeTimer);
+          sheet.classList.add('locked');
+          note.textContent = 'Перше розкриття на сьогодні — безкоштовне. Наступні — за Stars.';
+          bodyEl.innerHTML =
+            '<div class="why-lockwrap">' +
+              '<div class="why-blur">Ваша глибинна сумісність за пʼятьма осями особистості вже прорахована — щирість, темп життя, спосіб прив\'язаності та ще кілька несподіваних збігів чекають на тебе…</div>' +
+              '<div class="why-lockcta">' +
+                '<div class="why-lockstar" aria-hidden="true">⭐️</div>' +
+                '<button class="why-unlock" id="whyUnlock">Розблокувати за Stars · ' + price + ' ⭐</button>' +
+              '</div>' +
+            '</div>';
+          overlay.querySelector('#whyUnlock').addEventListener('click', function(){
+            if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('medium'); } catch(e){} }
+            sheet.classList.remove('locked');
+            bodyEl.innerHTML = '<span class="caret"></span>';
+            note.textContent = 'Розблокування…';
+            requestReveal(true);
+          });
+        }
+
+        // Not enough Stars to unlock → route to the Stars shop, then retry.
+        function openShop(balance){
+          if (window.SixtioPaywall) {
+            window.SixtioPaywall.open({
+              initData: initData, starsBalance: balance || 0,
+              subtitle: 'Замало зірок, щоб розблокувати розкриття. Поповни баланс 💎',
+              onSuccess: function(){ note.textContent = ''; requestReveal(true); }
+            });
           } else {
             bodyEl.textContent = '';
-            note.textContent = 'Не вдалося згенерувати. Спробуй ще раз.';
+            note.textContent = 'Недостатньо зірок (потрібно 10 ⭐). Запроси друзів, щоб отримати більше.';
           }
-        }).catch(function(){
-          bodyEl.textContent = '';
-          note.textContent = 'Не вдалося згенерувати. Спробуй ще раз.';
-        });
+        }
+
+        // confirmUnlock=false is a plain view (server decides free vs locked);
+        // true is an explicit paid unlock the user just confirmed.
+        function requestReveal(confirmUnlock){
+          fetch('/api/chat', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ initData: initData, op: 'the_why_factor', matchId: mId, confirmUnlock: !!confirmUnlock })
+          }).then(function(r){ return r.json(); }).then(function(res){
+            if (res && res.ok && res.text) {
+              if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.notificationOccurred('success'); } catch(e){} }
+              typeOut(res.text);
+            } else if (res && res.reason === 'locked') {
+              showLocked(res.price || 10);
+            } else if (res && (res.reason === 'insufficient' || res.paywall)) {
+              openShop(res.starsBalance || 0);
+            } else {
+              bodyEl.textContent = '';
+              note.textContent = 'Не вдалося згенерувати. Спробуй ще раз.';
+            }
+          }).catch(function(){
+            bodyEl.textContent = '';
+            note.textContent = 'Не вдалося згенерувати. Спробуй ще раз.';
+          });
+        }
+
+        requestReveal(false);
       }
     })();
   </script>

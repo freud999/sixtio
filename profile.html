@@ -34,6 +34,21 @@
     border-radius:999px; color:#fff; background:linear-gradient(120deg, var(--a2), var(--a1));
     box-shadow:0 8px 22px -10px var(--glow); }
 
+  /* Persistent Stars wallet — glowing premium (--neon-p) pill, pinned top-right,
+     tappable → opens the Stars shop. Always-visible balance across the profile. */
+  .stars-badge{ position:fixed; z-index:6;
+    top:calc(env(safe-area-inset-top) + 12px); right:14px;
+    display:inline-flex; align-items:center; gap:5px; padding:7px 13px;
+    border-radius:999px; text-decoration:none; color:#fff;
+    font-size:13.5px; font-weight:800; letter-spacing:.02em;
+    background:linear-gradient(120deg, color-mix(in srgb, var(--neon-p) 80%, #000), var(--neon-p));
+    border:1px solid color-mix(in srgb, var(--neon-p) 55%, transparent);
+    box-shadow:0 0 18px -2px color-mix(in srgb, var(--neon-p) 70%, transparent),
+      inset 0 1px 0 rgba(255,255,255,.3);
+    transition:transform .12s ease; }
+  .stars-badge:active{ transform:scale(.94); }
+  .stars-badge .sb-star{ font-size:14px; line-height:1; }
+
   /* sections */
   .section{ width:100%; max-width:440px; padding:16px 18px; flex-shrink:0; }
   .sec-title{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.09em;
@@ -191,6 +206,10 @@
   <div class="bg-aura one" aria-hidden="true"></div>
   <div class="bg-aura two" aria-hidden="true"></div>
 
+  <a class="stars-badge" id="starsBadge" href="#shop" aria-label="Магазин Stars">
+    <span class="sb-star" aria-hidden="true">⭐️</span><b id="starsBalance">0</b>
+  </a>
+
   <div class="page-title led grad-text">МІЙ ПРОФІЛЬ</div>
 
   <div class="profile-head">
@@ -260,9 +279,8 @@
        to beat banner blindness — roughly half the previous height. -->
   <div class="section glass stars-card" id="starsSection" style="padding:12px 14px;">
     <div class="stars-row">
-      <span class="stars-ico" aria-hidden="true">⭐</span>
+      <span class="stars-ico" aria-hidden="true">🎁</span>
       <div class="stars-info">
-        <div class="stars-bal"><b id="starsBalance">0</b> зірок</div>
         <div class="stars-sub">💸 +15 ⭐️ за кожного друга (після інтерв'ю)</div>
       </div>
       <button class="btn-primary" id="inviteBtn" style="padding:11px 16px; font-size:14px; white-space:nowrap;">🎁 Запросити</button>
@@ -625,6 +643,20 @@
           navigator.clipboard.writeText(referralLink).then(function(){
             if (tg && tg.showAlert) tg.showAlert('Посилання скопійовано!');
             else window.alert('Посилання скопійовано!');
+          });
+        }
+      });
+
+      // ---- Stars wallet badge → the Stars shop (paywall doubles as the shop) --
+      document.getElementById('starsBadge').addEventListener('click', function(e){
+        e.preventDefault();
+        if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('light'); } catch(err){} }
+        if (window.SixtioPaywall) {
+          window.SixtioPaywall.open({
+            initData: initData,
+            starsBalance: (current && current.starsBalance) || 0,
+            subtitle: 'Магазин Sixtio — поповни баланс і відкрий Premium 💎',
+            onSuccess: function(){ load().catch(function(){}); }
           });
         }
       });

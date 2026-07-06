@@ -22,14 +22,18 @@
     '.pw-title{font-size:15px;letter-spacing:.14em;text-align:center;}' +
     '.pw-sub{font-size:13px;line-height:1.5;color:var(--hint);text-align:center;margin-top:8px;}' +
     '.pw-bal{font-size:13px;color:var(--hint);text-align:center;margin-top:10px;}' +
-    '.pw-bal b{color:var(--a1);font-weight:800;}' +
+    '.pw-bal b{color:var(--neon-b);font-weight:800;}' +
     '.pw-opt{display:block;width:100%;text-align:left;margin-top:14px;padding:16px 16px;' +
     'border-radius:20px;cursor:pointer;font-family:inherit;color:var(--text);' +
     'background:var(--faux-glass);border:1px solid var(--glass-border);' +
     'transition:transform .12s ease;}' +
     '.pw-opt:active{transform:scale(.985);}' +
-    '.pw-premium{background:linear-gradient(135deg, var(--a2), var(--a1));color:#fff;' +
-    'border:none;box-shadow:0 14px 34px -14px var(--glow);}' +
+    '.pw-premium{color:#fff;border:1px solid color-mix(in srgb, var(--neon-p) 55%, transparent);' +
+    'background:linear-gradient(135deg, color-mix(in srgb, var(--neon-p) 80%, #000), var(--neon-p));' +
+    'box-shadow:0 14px 40px -14px color-mix(in srgb, var(--neon-p) 70%, transparent);}' +
+    '.pw-tag{display:inline-block;margin-left:8px;padding:2px 8px;border-radius:999px;' +
+    'font-size:10px;font-weight:800;letter-spacing:.06em;vertical-align:middle;' +
+    'background:rgba(255,255,255,.22);color:#fff;}' +
     '.pw-opt-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;}' +
     '.pw-opt-name{font-size:16px;font-weight:800;}' +
     '.pw-price{font-size:15px;font-weight:800;white-space:nowrap;}' +
@@ -37,8 +41,8 @@
     '.pw-benefits li{font-size:13px;line-height:1.4;opacity:.95;}' +
     '.pw-opt-note{font-size:12.5px;color:var(--hint);margin-top:6px;line-height:1.45;}' +
     '.pw-invite{font-size:12.5px;color:var(--hint);text-align:center;margin-top:14px;}' +
-    '.pw-invite u{color:var(--a1);cursor:pointer;text-decoration:none;}' +
-    '.pw-note{font-size:12.5px;color:var(--a1);text-align:center;min-height:16px;margin-top:10px;}';
+    '.pw-invite u{color:var(--neon-b);cursor:pointer;text-decoration:none;}' +
+    '.pw-note{font-size:12.5px;color:var(--neon-b);text-align:center;min-height:16px;margin-top:10px;}';
 
   function injectStyle() {
     if (injected) return;
@@ -63,6 +67,8 @@
     injectStyle();
     var initData = opts.initData || (tg() && tg().initData) || '';
     var balance = opts.starsBalance || 0;
+    // Caller-supplied context line (shop vs swipe-limit) — defaults to the limit copy.
+    var subtitle = opts.subtitle || 'Твій ліміт вподобань на сьогодні вичерпано. Обери, як продовжити 💜';
 
     var overlay = document.createElement('div');
     overlay.className = 'pw-overlay';
@@ -70,15 +76,16 @@
       '<div class="pw-sheet glass">' +
         '<button class="pw-close" aria-label="Закрити">✕</button>' +
         '<div class="pw-title led grad-text">SIXTIO PREMIUM</div>' +
-        '<div class="pw-sub">Твій ліміт вподобань на сьогодні вичерпано. Обери, як продовжити 💜</div>' +
+        '<div class="pw-sub">' + subtitle + '</div>' +
         '<div class="pw-bal">Баланс: <b>' + balance + ' ⭐</b></div>' +
         '<button class="pw-opt pw-premium" data-item="premium">' +
-          '<div class="pw-opt-head"><span class="pw-opt-name">Premium · 30 днів</span>' +
+          '<div class="pw-opt-head"><span class="pw-opt-name">Premium · 30 днів<span class="pw-tag">ХІТ</span></span>' +
           '<span class="pw-price">150 ⭐</span></div>' +
           '<ul class="pw-benefits">' +
             '<li>♾️ Безлімітні вподобання</li>' +
             '<li>👁 Фото без розмиття</li>' +
-            '<li>🧠 Аналітика Digital Twin</li>' +
+            '<li>🧠 «Чому ви підходите» — без обмежень</li>' +
+            '<li>📊 Аналітика Digital Twin</li>' +
           '</ul>' +
         '</button>' +
         '<button class="pw-opt pw-pack" data-item="swipe_pack">' +
@@ -133,6 +140,12 @@
             return;
           }
           notify('success');
+          // Frictionless confirmation: a concise client log of what was bought and
+          // the resulting entitlement (never any token/secret) for support & QA.
+          try {
+            console.info('[Sixtio] Purchase confirmed:', item, '→',
+              { premium: res.premium, starsBalance: res.starsBalance });
+          } catch (e) {}
           // Keep the cached profile in sync so every screen sees the new state.
           try {
             var me = JSON.parse(localStorage.getItem('sixtio_me') || 'null');

@@ -176,9 +176,34 @@ async function whyFactor(res, tgUser, body) {
 
   const ent = entitlements(me);
   let starsBalance = me.stars_balance || 0;
-  // Pre-gate: non-premium users must be able to afford it before we spend a call.
-  if (!ent.premiumActive && starsBalance < WHY_FACTOR_PRICE) {
-    return res.status(200).json({ ok: false, reason: 'insufficient', paywall: true, starsBalance });
+
+  // Free males get ONE free Why Factor reveal per UTC day (a conversion taste);
+  // every later reveal is locked behind Stars. Premium (all females + premium
+  // males) is always free & unlimited. Daily usage is derived from the append-only
+  // ledger, so the free/paid decision is server-authoritative and can't be forged
+  // by the client. The text payload is generated & returned ONLY on the free look
+  // or an explicitly confirmed paid unlock — never on a locked/insufficient reply.
+  let freeToday = false;
+  if (!ent.premiumActive) {
+    const since = new Date(); since.setUTCHours(0, 0, 0, 0);
+    const { count, error: cErr } = await supabase
+      .from('star_transactions')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', me.id)
+      .in('feature', ['why_factor', 'why_factor_free'])
+      .gte('created_at', since.toISOString());
+    if (cErr) throw cErr;
+    freeToday = (count || 0) === 0;
+
+    if (!freeToday && !body.confirmUnlock) {
+      // Today's free look is spent: withhold the text, tell the client to render
+      // the blurred lock + "Розблокувати за Stars" CTA. Nothing is generated.
+      return res.status(200).json({ ok: false, reason: 'locked', locked: true, price: WHY_FACTOR_PRICE, starsBalance });
+    }
+    if (!freeToday && starsBalance < WHY_FACTOR_PRICE) {
+      // Paid unlock requested but unaffordable — route the client to the shop.
+      return res.status(200).json({ ok: false, reason: 'insufficient', paywall: true, starsBalance });
+    }
   }
 
   const PCOLS = 'traits_json, trait_openness, trait_conscientiousness, trait_extraversion, trait_agreeableness, trait_neuroticism';
@@ -199,18 +224,27 @@ async function whyFactor(res, tgUser, body) {
     }
   );
 
-  // Charge only after a successful generation (premium skips). Atomic + guarded.
+  // Settle after a successful generation (premium reveals free). For free males:
+  // the daily free look logs a 0-amount ledger marker so tomorrow's gate — and a
+  // second look today — see it; a paid unlock deducts atomically and logs revenue.
   if (!ent.premiumActive) {
-    const { data: newBalance, error: spendErr } = await supabase.rpc('spend_stars', {
-      buyer: me.id, price: WHY_FACTOR_PRICE, feat: 'why_factor',
-    });
-    if (spendErr) throw spendErr;
-    if (newBalance === null || newBalance === undefined) {
-      // Lost a race for the last Stars between the pre-gate and the charge.
-      return res.status(200).json({ ok: false, reason: 'insufficient', paywall: true, starsBalance });
+    if (freeToday) {
+      const { error: logErr } = await supabase
+        .from('star_transactions')
+        .insert({ user_id: me.id, feature: 'why_factor_free', amount: 0 });
+      if (logErr) throw logErr;
+    } else {
+      const { data: newBalance, error: spendErr } = await supabase.rpc('spend_stars', {
+        buyer: me.id, price: WHY_FACTOR_PRICE, feat: 'why_factor',
+      });
+      if (spendErr) throw spendErr;
+      if (newBalance === null || newBalance === undefined) {
+        // Lost a race for the last Stars between the pre-gate and the charge.
+        return res.status(200).json({ ok: false, reason: 'insufficient', paywall: true, starsBalance });
+      }
+      starsBalance = newBalance;
     }
-    starsBalance = newBalance;
   }
 
-  return res.status(200).json({ ok: true, text, starsBalance });
+  return res.status(200).json({ ok: true, text, free: !ent.premiumActive && freeToday, starsBalance });
 }
