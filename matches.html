@@ -56,12 +56,15 @@
     box-shadow:0 2px 8px -2px var(--glow); }
   .row-meta{ font-size:12px; color:var(--hint); margin-top:1px; white-space:nowrap;
     overflow:hidden; text-overflow:ellipsis; }
+  /* Shared-value callout: an accent left-rail makes the "why you match" line
+     (e.g. «Ви обидва цінуєте щирість») read as a highlighted value, not filler. */
   .row-vibe{ font-size:14px; font-weight:400; color:#E0E0E0;
     font-family:'Inter','Roboto',-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-    line-height:1.45; margin-top:7px; padding:8px 12px; border-radius:12px;
+    line-height:1.45; margin-top:7px; padding:8px 12px 8px 13px; border-radius:12px;
     font-style:normal; text-decoration:none;
     background:rgba(255,255,255,.05); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
-    border:1px solid rgba(255,255,255,.08); }
+    border:1px solid rgba(255,255,255,.08);
+    border-left:3px solid color-mix(in srgb, var(--accent-current) 75%, transparent); }
   .row-chev{ flex-shrink:0; font-size:22px; color:var(--a1); opacity:.7; }
 
   .hint-empty{ max-width:340px; text-align:center; font-size:13px; line-height:1.6;
@@ -145,14 +148,16 @@
         var nm = document.createElement('div'); nm.className = 'row-name';
         nm.textContent = pt.name + (pt.age ? ', ' + pt.age : '');
         top.appendChild(nm);
-        // Prefer the Big Five math compatibility %; fall back to the AI score.
+        // Always anchor on a percentage — Big Five math % when present, else the
+        // AI 1–10 score rescaled to % (7/10 → 70%). Same pill for both, so the
+        // eye reads one consistent "% сумісність" metric.
         if (typeof m.compatibility === 'number') {
           var pct = document.createElement('div'); pct.className = 'row-pct';
           pct.textContent = m.compatibility + '% сумісність';
           top.appendChild(pct);
         } else if (m.score) {
-          var sc = document.createElement('div'); sc.className = 'row-score';
-          sc.textContent = m.score + '/10';
+          var sc = document.createElement('div'); sc.className = 'row-pct';
+          sc.textContent = Math.round(m.score * 10) + '% сумісність';
           top.appendChild(sc);
         }
         main.appendChild(top);

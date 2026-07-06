@@ -210,6 +210,9 @@
       <span class="depth-pct" id="depthPct">40%</span>
     </div>
     <div class="depth-bar"><div class="depth-fill" id="depthFill"></div></div>
+    <!-- Improve-profile CTA sits directly under the bar to close the UX loop:
+         see your depth → tap to raise it. Free males hit the paywall here. -->
+    <button class="btn-primary" id="deepenBtn" style="width:100%; margin-top:14px;">✨ Покращити профіль із Sixtio</button>
     <div class="depth-widget" id="depthWidget" hidden>
       <div class="depth-q" id="depthQ">🧠 Дозаповни профіль (+20%)</div>
       <textarea class="depth-input" id="depthInput" maxlength="600"
@@ -253,15 +256,17 @@
     </div>
   </div>
 
-  <div class="section glass stars-card" id="starsSection">
+  <!-- Compact referral banner: single row (balance + snappy reward + inline CTA)
+       to beat banner blindness — roughly half the previous height. -->
+  <div class="section glass stars-card" id="starsSection" style="padding:12px 14px;">
     <div class="stars-row">
       <span class="stars-ico" aria-hidden="true">⭐</span>
       <div class="stars-info">
         <div class="stars-bal"><b id="starsBalance">0</b> зірок</div>
-        <div class="stars-sub">Запрошуй друзів — і отримуй +15 ⭐ за кожного, хто пройде інтерв'ю.</div>
+        <div class="stars-sub">💸 +15 ⭐️ за кожного друга (після інтерв'ю)</div>
       </div>
+      <button class="btn-primary" id="inviteBtn" style="padding:11px 16px; font-size:14px; white-space:nowrap;">🎁 Запросити</button>
     </div>
-    <button class="btn-primary" id="inviteBtn" style="width:100%;">🎁 Запросити друга</button>
   </div>
 
   <div class="section glass" id="achieveSection">
@@ -271,7 +276,6 @@
 
   <div class="actions">
     <button class="btn-glass" id="editBtn">✏️ Редагувати анкету</button>
-    <button class="btn-primary" id="deepenBtn" style="width:100%;">✨ Покращити профіль із Sixtio</button>
   </div>
 
   <div class="section glass" id="editSection" hidden>
