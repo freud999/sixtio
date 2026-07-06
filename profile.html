@@ -46,6 +46,23 @@
     color:#fff; background:linear-gradient(120deg, var(--a2), var(--a1)); }
   .chip.outline{ background:var(--faux-glass); border:1px solid var(--glass-border); color:var(--a1); }
 
+  /* ---- Monolithic frosted card (AI hook priority) ----
+     One coherent frosted pane. Personality tags flow straight into the Gemini
+     Barnum text with no inner divider; grouped blocks (About + Interests) share
+     the same pane, separated only by a hairline rule. */
+  .monolith-card{ width:100%; max-width:440px; padding:18px 18px 20px; flex-shrink:0;
+    background:var(--glass-grad);
+    -webkit-backdrop-filter:blur(12px) saturate(1.5); backdrop-filter:blur(12px) saturate(1.5);
+    border:1px solid var(--glass-border); border-radius:22px;
+    box-shadow:var(--glass-shadow), inset 0 1px 0 var(--glass-hi); }
+  .monolith-card .mono-tags{ margin-bottom:12px; }
+  /* Barnum text sits IMMEDIATELY beneath the tags — no gap, no border. */
+  .monolith-card .mono-text{ font-size:14px; line-height:1.6; }
+  /* Grouped sub-blocks (About Me + Interests) inside one shared pane. */
+  .mono-block + .mono-block{ margin-top:16px; padding-top:16px;
+    border-top:1px solid var(--glass-border); }
+  .mono-empty{ font-size:14px; line-height:1.6; color:var(--hint); }
+
   /* stars wallet + referral */
   .stars-card{ display:flex; flex-direction:column; gap:12px; }
   .stars-row{ display:flex; align-items:center; gap:12px; }
@@ -202,30 +219,11 @@
     </div>
   </div>
 
-  <div class="section glass" id="achieveSection">
-    <div class="sec-title grad">🏅 Досягнення</div>
-    <div class="achieve-grid" id="achieveGrid"></div>
-  </div>
-
-  <div class="section glass stars-card" id="starsSection">
-    <div class="stars-row">
-      <span class="stars-ico" aria-hidden="true">⭐</span>
-      <div class="stars-info">
-        <div class="stars-bal"><b id="starsBalance">0</b> зірок</div>
-        <div class="stars-sub">Запрошуй друзів — і отримуй +15 ⭐ за кожного, хто пройде інтерв'ю.</div>
-      </div>
-    </div>
-    <button class="btn-primary" id="inviteBtn" style="width:100%;">🎁 Запросити друга</button>
-  </div>
-
-  <div class="section glass" id="bioSection" hidden>
-    <div class="sec-title">Про мене</div>
-    <div class="sec-body" id="bio"></div>
-  </div>
-
-  <div class="section glass" id="interestsSection" hidden>
-    <div class="sec-title">Інтереси</div>
-    <div class="chips" id="interests"></div>
+  <!-- AI hook priority: personality analysis surfaces right under the depth bar.
+       Tags lead the card and the Barnum text flows immediately beneath them. -->
+  <div class="section monolith-card" id="traitsSection" hidden>
+    <div class="chips mono-tags" id="traits"></div>
+    <div class="mono-text" id="summary"></div>
   </div>
 
   <div class="section glass" id="darkSection">
@@ -243,10 +241,32 @@
     <button class="dark-redo" id="darkRedo" hidden>Пройти інтерв'ю знову</button>
   </div>
 
-  <div class="section glass" id="traitsSection" hidden>
-    <div class="sec-title grad">Як Sixtio тебе зрозуміла</div>
-    <div class="chips" id="traits" style="margin-bottom:12px;"></div>
-    <div class="sec-body" id="summary"></div>
+  <!-- About Me + Interests share one frosted pane (empty bio → gentle nudge). -->
+  <div class="section monolith-card" id="aboutSection">
+    <div class="mono-block">
+      <div class="sec-title">Про мене</div>
+      <div class="sec-body" id="bio"></div>
+    </div>
+    <div class="mono-block" id="interestsBlock" hidden>
+      <div class="sec-title">Інтереси</div>
+      <div class="chips" id="interests"></div>
+    </div>
+  </div>
+
+  <div class="section glass stars-card" id="starsSection">
+    <div class="stars-row">
+      <span class="stars-ico" aria-hidden="true">⭐</span>
+      <div class="stars-info">
+        <div class="stars-bal"><b id="starsBalance">0</b> зірок</div>
+        <div class="stars-sub">Запрошуй друзів — і отримуй +15 ⭐ за кожного, хто пройде інтерв'ю.</div>
+      </div>
+    </div>
+    <button class="btn-primary" id="inviteBtn" style="width:100%;">🎁 Запросити друга</button>
+  </div>
+
+  <div class="section glass" id="achieveSection">
+    <div class="sec-title grad">🏅 Досягнення</div>
+    <div class="achieve-grid" id="achieveGrid"></div>
   </div>
 
   <div class="actions">
@@ -378,13 +398,15 @@
           badge.hidden = true;
         }
 
-        document.getElementById('bioSection').hidden = !u.bio;
-        if (u.bio) document.getElementById('bio').textContent = u.bio;
+        // About Me always renders; empty bio shows a gentle nudge placeholder.
+        var bioEl = document.getElementById('bio');
+        if (u.bio) { bioEl.className = 'sec-body'; bioEl.textContent = u.bio; }
+        else { bioEl.className = 'mono-empty'; bioEl.textContent = '💬 Додай пару слів про себе (✎)'; }
 
         document.getElementById('starsBalance').textContent = u.starsBalance || 0;
         referralLink = u.referralLink || '';
 
-        document.getElementById('interestsSection').hidden =
+        document.getElementById('interestsBlock').hidden =
           !fillChips('interests', u.interests, true);
 
         if (p && p.traits && p.traits.length) {
