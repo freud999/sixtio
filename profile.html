@@ -21,8 +21,15 @@
   .page-title{ font-size:15px; letter-spacing:.12em; }
 
   /* head */
-  .profile-head{ display:flex; flex-direction:column; align-items:center; gap:10px;
+  .profile-head{ position:relative; width:100%; max-width:440px;
+    display:flex; flex-direction:column; align-items:center; gap:10px;
     text-align:center; flex-shrink:0; }
+  /* subtle edit affordance pinned in the header, next to the avatar */
+  .edit-gear{ position:absolute; top:0; right:0; width:38px; height:38px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; font-size:17px;
+    background:var(--faux-glass); border:1px solid var(--glass-border); color:var(--text);
+    cursor:pointer; font-family:inherit; transition:transform .12s ease, opacity .12s ease; }
+  .edit-gear:active{ transform:scale(.9); opacity:.8; }
   .ava-btn{ position:relative; border:none; background:none; padding:0; cursor:pointer; }
   .ava-badge{ position:absolute; right:2px; bottom:2px; width:32px; height:32px; border-radius:50%;
     display:flex; align-items:center; justify-content:center; font-size:15px;
@@ -94,15 +101,14 @@
     cursor:pointer; font-family:inherit; transition:transform .12s ease, opacity .12s ease; }
   .btn-glass:active{ transform:scale(.98); opacity:.9; }
 
-  /* footer: privacy + danger zone */
-  .footer{ width:100%; max-width:440px; display:flex; flex-direction:column; align-items:center;
-    gap:12px; flex-shrink:0; margin-top:6px; }
-  .footer .link{ font-size:13px; color:var(--hint); text-decoration:none; }
-  .footer .link u{ color:var(--a1); text-decoration:none; }
-  .btn-danger{ width:100%; border-radius:999px; padding:14px; font-size:14px; font-weight:600;
-    color:#ff5c6c; background:transparent; border:1px solid rgba(255,92,108,.5);
-    cursor:pointer; font-family:inherit; transition:transform .12s ease, opacity .12s ease; }
-  .btn-danger:active{ transform:scale(.98); opacity:.85; }
+  /* footer: unobtrusive compliance links — tiny grey text, no exit friction */
+  .footer{ width:100%; max-width:440px; display:flex; flex-direction:row; flex-wrap:wrap;
+    align-items:center; justify-content:center; gap:8px; flex-shrink:0; margin-top:18px; }
+  .foot-link{ font-size:12px; color:var(--hint); opacity:.65; background:none; border:none;
+    padding:0; cursor:pointer; font-family:inherit; text-decoration:none; letter-spacing:.01em;
+    transition:opacity .12s ease; }
+  .foot-link:active{ opacity:.4; }
+  .foot-sep{ font-size:12px; color:var(--hint); opacity:.35; }
 
   /* edit form */
   .edit-form{ display:flex; flex-direction:column; gap:12px; }
@@ -150,7 +156,27 @@
   .achieve-badge .em{ font-size:17px; line-height:1; }
   .achieve-empty{ font-size:13.5px; color:var(--hint); line-height:1.5; }
 
-  /* ---- Dark Mode (18+) ---- */
+  /* ---- Dark Mode (18+) — isolated crimson monolith ---- */
+  /* Distinct crimson glass so the 18+ layer never blends with standard sections. */
+  .dark-card{ background:linear-gradient(158deg, rgba(48,10,26,.72), rgba(28,8,18,.6));
+    border:1px solid rgba(255,86,64,.32);
+    box-shadow:0 16px 44px -18px rgba(255,60,50,.5), inset 0 1px 0 rgba(255,150,120,.12); }
+  .grad-crimson{ background:linear-gradient(100deg, #ff7a5c, #ff2f88);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  /* 18+ gate: the toggle stays disabled until age is confirmed (client-side). */
+  .age-gate{ display:flex; align-items:center; gap:10px; margin-top:14px; cursor:pointer;
+    font-size:13px; font-weight:600; color:#ffc9bd; user-select:none; }
+  .age-gate input{ position:absolute; opacity:0; width:0; height:0; }
+  .age-box{ width:22px; height:22px; border-radius:7px; flex-shrink:0; position:relative;
+    background:rgba(255,255,255,.06); border:1.5px solid rgba(255,120,90,.55);
+    transition:background .16s ease, border-color .16s ease; }
+  .age-box::after{ content:'✓'; position:absolute; inset:0; display:flex; align-items:center;
+    justify-content:center; font-size:14px; color:#fff; opacity:0; transition:opacity .16s ease; }
+  .age-gate input:checked + .age-box{ background:linear-gradient(120deg, #ff5640, #be2878);
+    border-color:transparent; }
+  .age-gate input:checked + .age-box::after{ opacity:1; }
+  /* Disabled switch reads as locked until the gate is satisfied. */
+  .dark-card .ios-switch input:disabled + .ios-slider{ opacity:.45; cursor:not-allowed; }
   .dark-head{ display:flex; align-items:center; justify-content:space-between; gap:14px; }
   .dark-desc{ font-size:12.5px; color:var(--hint); line-height:1.45; margin-top:2px; }
   .dark-markers{ display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
@@ -213,6 +239,7 @@
   <div class="page-title led grad-text">МІЙ ПРОФІЛЬ</div>
 
   <div class="profile-head">
+    <button class="edit-gear" id="editBtn" aria-label="Редагувати анкету">⚙️</button>
     <button class="ava-btn" id="avaBtn" aria-label="Змінити фото">
       <img class="story-avatar" id="avatar" alt="Фото профілю" hidden />
       <div class="story-avatar-ph" id="avatarPlaceholder">🙂</div>
@@ -248,17 +275,24 @@
     <div class="mono-text" id="summary"></div>
   </div>
 
-  <div class="section glass" id="darkSection">
+  <!-- 18+ layer isolated in its own crimson monolith; the toggle is locked until
+       the age gate below is confirmed (fast, client-side, unbypassable in-UI). -->
+  <div class="section monolith-card dark-card" id="darkSection">
     <div class="dark-head">
       <div>
-        <div class="sec-title grad" style="margin-bottom:4px;">🔥 Dark Mode (18+)</div>
+        <div class="sec-title grad-crimson" style="margin-bottom:4px;">🔥 Dark Mode (18+)</div>
         <div class="dark-desc">Анонімний пошук за інтимною сумісністю. Видно лише тим, хто теж увімкнув Dark Mode.</div>
       </div>
       <label class="ios-switch">
-        <input type="checkbox" id="darkToggle" />
+        <input type="checkbox" id="darkToggle" disabled />
         <span class="ios-slider"></span>
       </label>
     </div>
+    <label class="age-gate">
+      <input type="checkbox" id="ageConfirm" />
+      <span class="age-box" aria-hidden="true"></span>
+      <span>Мені є 18 років</span>
+    </label>
     <div class="dark-markers" id="darkMarkers" hidden></div>
     <button class="dark-redo" id="darkRedo" hidden>Пройти інтерв'ю знову</button>
   </div>
@@ -290,10 +324,6 @@
   <div class="section glass" id="achieveSection">
     <div class="sec-title grad">🏅 Досягнення</div>
     <div class="achieve-grid" id="achieveGrid"></div>
-  </div>
-
-  <div class="actions">
-    <button class="btn-glass" id="editBtn">✏️ Редагувати анкету</button>
   </div>
 
   <div class="section glass" id="editSection" hidden>
@@ -340,8 +370,9 @@
   </div>
 
   <div class="footer">
-    <a class="link" href="privacy.html">Політика конфіденційності — <u>читати</u></a>
-    <button class="btn-danger" id="deleteBtn">🗑 Видалити акаунт</button>
+    <a class="foot-link" href="privacy.html">Політика конфіденційності</a>
+    <span class="foot-sep" aria-hidden="true">·</span>
+    <button class="foot-link" id="deleteBtn">Видалити акаунт</button>
   </div>
 
   <input type="file" id="photoInput" accept="image/*" hidden />
@@ -507,6 +538,7 @@
         var redo = document.getElementById('darkRedo');
         var markers = u.kinkMarkers || [];
         toggle.checked = !!u.darkMode;
+        if (u.darkMode) setAgeConfirmed(true);   // already in the intimate layer ⇒ 18+ confirmed
         wrap.innerHTML = '';
         // Markers are shown only while Dark Mode is on (and only to the user).
         if (u.darkMode && markers.length) {
@@ -523,6 +555,29 @@
           redo.hidden = true;
         }
       }
+
+      // ---- 18+ gate: the Dark Mode toggle is locked until age is confirmed ----
+      function setAgeConfirmed(ok){
+        document.getElementById('ageConfirm').checked = ok;
+        document.getElementById('darkToggle').disabled = !ok;
+        try { localStorage.setItem('sixtio_age_ok', ok ? '1' : ''); } catch(e){}
+      }
+      // Restore a prior confirmation so returning adults aren't re-gated each visit.
+      (function(){
+        var ok = false;
+        try { ok = localStorage.getItem('sixtio_age_ok') === '1'; } catch(e){}
+        if (ok) setAgeConfirmed(true);
+      })();
+      document.getElementById('ageConfirm').addEventListener('change', function(){
+        var ok = this.checked;
+        if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('light'); } catch(e){} }
+        setAgeConfirmed(ok);
+        if (!ok) {
+          // Withdrawing the confirmation re-locks the toggle and exits the layer.
+          var toggle = document.getElementById('darkToggle');
+          if (toggle.checked) { toggle.checked = false; setDarkMode(false).catch(function(){}); }
+        }
+      });
 
       // Cache-first: paint instantly from the last response, then refresh.
       try {
