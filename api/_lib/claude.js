@@ -23,6 +23,48 @@ function textOf(response) {
     .trim();
 }
 
+// --- JSON-leakage hardening (Task 24) ----------------------------------------
+// Production showed a match notification ending in raw model chatter:
+//   «…} Actually let me reconsider — must be JSON only.}»
+// i.e. the model emitted its JSON object and then kept talking; naive parsing of
+// the whole text either failed or the stray tail ended up inside `reason`.
+// Two defenses: (1) parse ONLY the first balanced JSON object, ignoring anything
+// before/after it; (2) sanitize every user-facing string so no braces, code
+// fences, or trailing meta-commentary can ever reach a notification or the UI.
+
+/** Extracts and parses the first balanced {...} object in `text` (string-aware). */
+export function parseModelJson(text) {
+  try { return JSON.parse(text); } catch (e) { /* fall through to extraction */ }
+  const start = text.indexOf('{');
+  if (start === -1) throw new Error('no JSON object in model output');
+  let depth = 0, inStr = false, esc = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (ch === '\\') esc = true;
+      else if (ch === '"') inStr = false;
+    } else if (ch === '"') inStr = true;
+    else if (ch === '{') depth++;
+    else if (ch === '}') {
+      depth--;
+      if (depth === 0) return JSON.parse(text.slice(start, i + 1));
+    }
+  }
+  throw new Error('unbalanced JSON object in model output');
+}
+
+/** Strips code fences, braces, wrapper quotes and anything after a leaked `{`/`}`. */
+export function sanitizeAiText(s) {
+  if (typeof s !== 'string') return '';
+  let out = s.replace(/```[a-z]*|```/gi, '');
+  // A brace never belongs in prose for humans — treat the first one as the start
+  // of leaked structure and cut there (kills «…} Actually let me reconsider…}»).
+  const brace = out.search(/[{}]/);
+  if (brace !== -1) out = out.slice(0, brace);
+  return out.replace(/^["'«\s]+|["'»\s]+$/g, '').replace(/\s{2,}/g, ' ').trim();
+}
+
 function genderLine(gender) {
   if (gender === 'female') return 'Користувач — жінка: звертайся до неї в жіночому роді. ';
   if (gender === 'male') return 'Користувач — чоловік: звертайся до нього в чоловічому роді. ';
@@ -115,7 +157,7 @@ export async function generateProfile(qaLines, gender) {
   if (response.stop_reason === 'refusal') {
     throw new Error('Claude refused the profile request');
   }
-  const parsed = JSON.parse(textOf(response));
+  const parsed = parseModelJson(textOf(response));
   if (!Array.isArray(parsed.traits) || typeof parsed.summary !== 'string') {
     throw new Error('Claude profile JSON has unexpected shape');
   }
@@ -174,9 +216,12 @@ export async function scoreCandidates(person, candidates) {
   if (response.stop_reason === 'refusal') {
     throw new Error('Claude refused the matching request');
   }
-  const parsed = JSON.parse(textOf(response));
+  const parsed = parseModelJson(textOf(response));
   if (typeof parsed.best !== 'number' || typeof parsed.score !== 'number') {
     throw new Error('Claude matching JSON has unexpected shape');
   }
+  // `reason` is stored in matches.reason AND sent verbatim in the Telegram
+  // notification — it must never carry leaked JSON/meta-commentary.
+  parsed.reason = sanitizeAiText(parsed.reason);
   return parsed;
 }

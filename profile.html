@@ -23,8 +23,9 @@
   .profile-head{ position:relative; width:100%; max-width:440px;
     display:flex; flex-direction:column; align-items:center; gap:10px;
     text-align:center; flex-shrink:0; }
-  /* subtle edit affordance pinned in the header, next to the avatar */
-  .edit-gear{ position:absolute; top:0; right:0; width:38px; height:38px; border-radius:50%;
+  /* Edit affordance pinned top-LEFT of the header — the top-right corner belongs
+     to the fixed Stars wallet badge, which used to overlap/hide the gear. */
+  .edit-gear{ position:absolute; top:0; left:0; width:38px; height:38px; border-radius:50%;
     display:flex; align-items:center; justify-content:center; font-size:17px;
     background:var(--faux-glass); border:1px solid var(--glass-border); color:var(--text);
     cursor:pointer; font-family:inherit; transition:transform .12s ease, opacity .12s ease; }

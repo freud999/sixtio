@@ -1,8 +1,9 @@
 import { resolveUser } from './_lib/telegram.js';
 import { getSupabase, getMatchesFor } from './_lib/supabase.js';
 import { buildReferralLink } from './_lib/referrals.js';
-import { entitlements, likesLeftForClient } from './_lib/entitlements.js';
+import { entitlements, likesLeftForClient, intimateCompatibility } from './_lib/entitlements.js';
 import { notifyRetention } from './_lib/bot.js';
+import { sanitizeAiText } from './_lib/claude.js';
 
 // Base completeness after onboarding; each answered "extra" deep question is +20.
 const BASE_PROFILE_DEPTH = 40;
@@ -111,11 +112,12 @@ export default async function handler(req, res) {
 
     // Build a public card for every match this user holds.
     const rows = await getMatchesFor(user.id);
+    const darkOn = !!user.dark_mode_active;
     const matches = [];
     for (const m of rows) {
       const { data: partner } = await supabase
         .from('users')
-        .select('name, age, city, goal, interests, bio, photo_url')
+        .select('name, age, city, goal, interests, bio, photo_url, dark_mode_active, kink_markers')
         .eq('id', m.partnerId)
         .maybeSingle();
       if (!partner) continue;
@@ -132,9 +134,11 @@ export default async function handler(req, res) {
         .order('created_at', { ascending: false })
         .limit(1);
       const lm = lastRows && lastRows[0];
-      matches.push({
+      const card = {
         matchId: m.matchId,
-        reason: m.reason,
+        // Sanitized on read too: rows written before the parser hardening may
+        // carry leaked JSON/meta-commentary at the tail (see claude.js).
+        reason: sanitizeAiText(m.reason),
         score: m.score,
         // Big Five (OCEAN) math compatibility 0..100, or null if not scored yet.
         compatibility: m.partnerId in compatByUser ? compatByUser[m.partnerId] : null,
@@ -152,7 +156,21 @@ export default async function handler(req, res) {
           traits: (partnerProfile && partnerProfile.traits_json) || [],
           vibe: (partnerProfile && partnerProfile.vibe) || '',
         },
-      });
+      };
+
+      // Dark Mode (18+) on match cards — same mutual-opt-in contract as the feed
+      // (api/feed.js): computed ONLY when BOTH sides have it on, and free males
+      // get the % with the tags WITHHELD server-side (never recoverable from the
+      // wire), so the intimate layer stays byte-for-byte private otherwise.
+      if (darkOn && partner.dark_mode_active) {
+        const intim = intimateCompatibility(user.kink_markers, partner.kink_markers);
+        card.darkMode = true;
+        card.intimateCompatibility = intim.score;
+        card.intimateTagsBlurred = ent.blur;
+        card.intimateTags = ent.blur ? [] : intim.tags;
+      }
+
+      matches.push(card);
     }
 
     return res.status(200).json({

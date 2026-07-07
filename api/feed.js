@@ -1,5 +1,5 @@
 import { resolveUser } from './_lib/telegram.js';
-import { getSupabase } from './_lib/supabase.js';
+import { getSupabase, getMatchesFor } from './_lib/supabase.js';
 import { entitlements, likesLeftForClient, intimateCompatibility } from './_lib/entitlements.js';
 
 // Recommendation feed for the swipe deck (feed.html). Pure Supabase — no AI.
@@ -47,6 +47,13 @@ export default async function handler(req, res) {
 
     // Everyone this user has already acted on (plus themselves) is off the deck.
     const seen = new Set([me.id, ...(me.liked_users || []), ...(me.disliked_users || [])]);
+
+    // Already-matched partners never resurface in the deck (Task 24). Swipe
+    // arrays don't cover AI-created matches (runMatching pairs people without a
+    // like from this side), so exclude by the matches table directly.
+    try {
+      for (const m of await getMatchesFor(me.id)) seen.add(m.partnerId);
+    } catch (e) { console.error('feed match-dedup failed:', e.message); }
 
     // Big Five ranking + tags, in one RPC. Isolated: if the migration/RPC isn't
     // live yet, the feed still works — every candidate just scores 0.
@@ -118,7 +125,13 @@ export default async function handler(req, res) {
     }
 
     // Highly compatible first (99 → 0), then the rest for endless scrolling.
-    ranked.sort((a, b) => b.compatibility - a.compatibility);
+    // A 0% GENERAL score never removes anyone from the deck — and when the
+    // mutual Dark Mode layer is on, ranking uses the BEST of general vs
+    // intimate compatibility, so a 0%-personality / high-kink-overlap profile
+    // surfaces near the top instead of drowning at the tail (Task 24).
+    const rankScore = (c) =>
+      Math.max(c.compatibility || 0, c.darkMode ? (c.intimateCompatibility || 0) : 0);
+    ranked.sort((a, b) => rankScore(b) - rankScore(a));
 
     const start = Math.max(0, parseInt(offset, 10) || 0);
     const size = Math.min(50, Math.max(1, parseInt(limit, 10) || DEFAULT_LIMIT));
@@ -169,8 +182,12 @@ async function resolveMysteryMatch(supabase, me, ranked, compatByUser) {
   let targetId;
   let unlocked;
   if (needRefresh) {
-    // ranked is sorted highest-first, so the top card (if >90%) is the pick.
-    const best = ranked[0] && ranked[0].compatibility > MYSTERY_MIN_SCORE ? ranked[0] : null;
+    // Mystery Match stays a GENERAL-compatibility tease: scan for the highest
+    // Big Five score (the deck order now also weighs intimate compatibility).
+    let best = null;
+    for (const c of ranked) {
+      if (c.compatibility > MYSTERY_MIN_SCORE && (!best || c.compatibility > best.compatibility)) best = c;
+    }
     targetId = best ? best.userId : null;
     unlocked = false;
     const { error } = await supabase
