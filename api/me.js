@@ -7,7 +7,8 @@ import { notifyRetention } from './_lib/bot.js';
 // Base completeness after onboarding; each answered "extra" deep question is +20.
 const BASE_PROFILE_DEPTH = 40;
 const EXTRA_QUESTION_STEP = 20;
-const FULL_PROFILE_BONUS = 2;   // ⭐ credited once, on reaching exactly 100%.
+// The one-time 100%-completion bonus (+2 ⭐) is now credited atomically in the DB
+// (credit_profile_completion_bonus RPC, migration-019), the single source of truth.
 
 // Psychological achievements are derived purely from the user's Big Five vector.
 // Thresholds live here (not in SQL) so they can evolve without a migration; the
@@ -226,18 +227,29 @@ async function submitExtraQuestion(res, tgUser, body) {
   });
   if (ansError) console.error('extra-answer save failed:', ansError.message);
 
-  const patch = { profile_depth: next };
-  if (reachedFull) patch.stars_balance = (user.stars_balance || 0) + FULL_PROFILE_BONUS;
-
+  // Persist the depth meter only; the Stars bonus is credited separately below.
   const { data: updated, error: upError } = await supabase
-    .from('users').update(patch).eq('id', user.id)
+    .from('users').update({ profile_depth: next }).eq('id', user.id)
     .select('profile_depth, stars_balance').maybeSingle();
   if (upError) throw upError;
+
+  // Award the one-time completion bonus through an ATOMIC, idempotent RPC (was a
+  // JS read-modify-write that could clobber a coincident referral/Stars-deposit
+  // credit and, in theory, double-award). The RPC is the single source of truth
+  // for the +2 amount and can never pay it twice (DB-enforced uniqueness).
+  let starsBalance = updated ? updated.stars_balance : (user.stars_balance || 0);
+  if (reachedFull) {
+    const { data: bonusBalance, error: bonusErr } = await supabase.rpc(
+      'credit_profile_completion_bonus', { user_id_param: user.id }
+    );
+    if (bonusErr) throw bonusErr;
+    if (typeof bonusBalance === 'number') starsBalance = bonusBalance;
+  }
 
   return res.status(200).json({
     ok: true,
     profileDepth: updated ? updated.profile_depth : next,
-    starsBalance: updated ? updated.stars_balance : (user.stars_balance || 0),
+    starsBalance,
     bonusAwarded: reachedFull,
   });
 }
