@@ -80,5 +80,12 @@ export async function rewardReferrerOnOnboarding(userId) {
   });
   if (creditError) throw creditError;
 
-  await notifyReferralBonus(referrerTg);
+  // Ping the referrer in THEIR stored language (Task 28) — best-effort lookup.
+  let referrerLang = null;
+  try {
+    const { data: ref } = await supabase
+      .from('users').select('language_code').eq('telegram_id', referrerTg).maybeSingle();
+    referrerLang = ref && ref.language_code;
+  } catch (e) { /* fall back to uk inside the bot */ }
+  await notifyReferralBonus(referrerTg, referrerLang);
 }

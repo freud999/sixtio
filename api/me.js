@@ -68,9 +68,12 @@ export default async function handler(req, res) {
 
     // Retention: stamp activity on every authenticated app load (best-effort,
     // never fatal). Covers profile/matches/app-boot; feed.js stamps the deck.
+    // Task 28: the CURRENT Telegram interface language is re-synced on every
+    // open (from the signed initData, unforgeable) so bot notifications and all
+    // later AI generations follow the user's language switch immediately.
     try {
       await supabase.from('users')
-        .update({ last_active: new Date().toISOString() })
+        .update({ last_active: new Date().toISOString(), language_code: resolveLang(tgUser) })
         .eq('id', user.id);
     } catch (e) { console.error('last_active stamp failed:', e.message); }
 
@@ -114,6 +117,14 @@ export default async function handler(req, res) {
     // Telegram language (Task 26) localizes the rare server-side fallbacks.
     const lang = resolveLang(tgUser);
     const NAME_FALLBACK = { uk: 'Хтось особливий', en: 'Someone special', ru: 'Кто-то особенный' };
+    // Instant mutual-swipe matches store the token 'mutual_like' (Task 28), so
+    // each viewer reads the reason in their own language — unlike AI reasons,
+    // which are one shared string generated in the initiator's language.
+    const MUTUAL_REASON = {
+      uk: 'Ви вподобали одне одного 🔥',
+      en: 'You liked each other 🔥',
+      ru: 'Вы понравились друг другу 🔥',
+    };
     const rows = await getMatchesFor(user.id);
     const darkOn = !!user.dark_mode_active;
     const matches = [];
@@ -141,7 +152,9 @@ export default async function handler(req, res) {
         matchId: m.matchId,
         // Sanitized on read too: rows written before the parser hardening may
         // carry leaked JSON/meta-commentary at the tail (see claude.js).
-        reason: sanitizeAiText(m.reason),
+        reason: m.reason === 'mutual_like'
+          ? (MUTUAL_REASON[lang] || MUTUAL_REASON.uk)
+          : sanitizeAiText(m.reason),
         score: m.score,
         // Big Five (OCEAN) math compatibility 0..100, or null if not scored yet.
         compatibility: m.partnerId in compatByUser ? compatByUser[m.partnerId] : null,
@@ -325,7 +338,7 @@ async function cronRetentionTrigger(req, res) {
 
     const { data: users, error } = await supabase
       .from('users')
-      .select('id, telegram_id, last_retention_push')
+      .select('id, telegram_id, last_retention_push, language_code')
       .lt('last_active', cutoff)
       .or(`last_retention_push.is.null,last_retention_push.lt.${cutoff}`)
       .not('telegram_id', 'is', null)
@@ -334,7 +347,7 @@ async function cronRetentionTrigger(req, res) {
 
     let sent = 0;
     for (const u of users || []) {
-      await notifyRetention(u.telegram_id);
+      await notifyRetention(u.telegram_id, u.language_code);
       const { error: upErr } = await supabase
         .from('users')
         .update({ last_retention_push: new Date().toISOString() })

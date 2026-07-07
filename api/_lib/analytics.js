@@ -1,5 +1,50 @@
 import { getSupabase } from './supabase.js';
-import { callBot } from './bot.js';
+import { callBot, botLang } from './bot.js';
+
+// --- /start welcome (Task 28) ---------------------------------------------
+// The webhook used to ignore /start entirely, so users saw only BotFather's
+// static (Ukrainian) description. Now the bot answers in the sender's CURRENT
+// Telegram interface language, read live from update.message.from.language_code.
+const APP_URL = process.env.APP_URL || 'https://sixtio.vercel.app';
+const WELCOME = {
+  uk: {
+    text:
+      '💜 Привіт! Я Sixtio — розумна сваха.\n\n' +
+      'Я ставлю кілька щирих запитань, вивчаю, хто ти, і знаходжу людину, ' +
+      'з якою у тебе справжня сумісність. Не свайпи — знайомства, які мають сенс.\n\n' +
+      '🔒 Приватно: твого профілю Telegram ніхто не бачить.',
+    btn: '✨ Почати знайомство',
+  },
+  en: {
+    text:
+      '💜 Hi! I\'m Sixtio — a smart matchmaker.\n\n' +
+      'I ask a few sincere questions, learn who you are, and find someone ' +
+      'you are truly compatible with. Not swipes — connections that make sense.\n\n' +
+      '🔒 Private: no one sees your Telegram profile.',
+    btn: '✨ Start meeting',
+  },
+  ru: {
+    text:
+      '💜 Привет! Я Sixtio — умная сваха.\n\n' +
+      'Я задаю несколько искренних вопросов, изучаю, кто ты, и нахожу человека, ' +
+      'с которым у тебя настоящая совместимость. Не свайпы — знакомства, которые имеют смысл.\n\n' +
+      '🔒 Приватно: твой профиль Telegram никто не видит.',
+    btn: '✨ Начать знакомство',
+  },
+};
+
+async function sendStartWelcome(msg) {
+  const w = WELCOME[botLang(msg.from && msg.from.language_code)] || WELCOME.uk;
+  try {
+    await callBot('sendMessage', {
+      chat_id: msg.chat.id,
+      text: w.text,
+      reply_markup: { inline_keyboard: [[{ text: w.btn, web_app: { url: APP_URL } }]] },
+    });
+  } catch (e) {
+    console.error('/start welcome failed:', e.message);
+  }
+}
 
 // Owner-only executive analytics (Task 11). The Telegram webhook is pointed at
 // /api/chat; chat.js forwards raw updates here when they carry `update_id`. Only
@@ -57,6 +102,13 @@ export async function handleTelegramUpdate(req, res, update) {
       }
       await renderInto(cb.message.chat.id, cb.message.message_id, cb.data.slice(6));
       await ack(cb.id, '📊 Оновлено');
+      return res.status(200).json({ ok: true });
+    }
+
+    // Open to every user (not owner-gated). Handles bare /start and payloads
+    // like "/start ref_123" (referral deep-links use ?startapp=, but be lenient).
+    if (msg && typeof msg.text === 'string' && msg.text.trim().split(/\s+/)[0] === '/start') {
+      await sendStartWelcome(msg);
       return res.status(200).json({ ok: true });
     }
 

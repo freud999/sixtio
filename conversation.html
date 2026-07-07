@@ -6,6 +6,7 @@
 <title>Sixtio — розмова</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="i18n.js"></script>
 <script src="theme.js"></script>
 <link rel="stylesheet" href="theme.css" />
 <style>
@@ -93,13 +94,13 @@
   <div class="bg-aura two" aria-hidden="true"></div>
 
   <div class="chat-header">
-    <button class="back" id="back" aria-label="Назад">‹</button>
+    <button class="back" id="back" data-i18n-aria="aria_back" aria-label="Назад">‹</button>
     <button class="peer" id="peer">
       <img class="peer-avatar" id="peerAvatar" alt="" hidden />
       <div class="peer-avatar-ph" id="peerAvatarPh">🙂</div>
       <div style="min-width:0;">
-        <div class="peer-name" id="peerName">Розмова</div>
-        <div class="peer-status led">переглянути метч ›</div>
+        <div class="peer-name" id="peerName" data-i18n="cv_title">Розмова</div>
+        <div class="peer-status led" data-i18n="cv_view_match">переглянути метч ›</div>
       </div>
     </button>
     <span class="info-ico" aria-hidden="true">ⓘ</span>
@@ -110,13 +111,13 @@
   <div class="messages" id="messages">
     <div class="intro glass" id="intro" hidden>
       <span class="spark">💜</span>
-      Sixtio звела вас за справжньою сумісністю. Напиши перше повідомлення — з чогось теплого й щирого.
+      <span data-i18n="cv_intro">Sixtio звела вас за справжньою сумісністю. Напиши перше повідомлення — з чогось теплого й щирого.</span>
     </div>
   </div>
 
   <form class="composer" id="composer">
-    <textarea id="msgInput" rows="1" placeholder="Повідомлення..."></textarea>
-    <button type="submit" id="sendBtn" aria-label="Надіслати">➤</button>
+    <textarea id="msgInput" rows="1" data-i18n-ph="cv_msg_ph" placeholder="Повідомлення..."></textarea>
+    <button type="submit" id="sendBtn" data-i18n-aria="ob_send_aria" aria-label="Надіслати">➤</button>
   </form>
 
   <script>
@@ -186,7 +187,7 @@
 
       function renderPartner(partner){
         if (!partner) return;
-        document.getElementById('peerName').textContent = partner.name || 'Розмова';
+        document.getElementById('peerName').textContent = partner.name || SixtioI18n.t('cv_title');
         if (partner.photoUrl) {
           var av = document.getElementById('peerAvatar');
           av.src = partner.photoUrl;
@@ -197,7 +198,7 @@
 
       // ---- Telegram exchange (mutual consent) --------------------------------
       var shareBar = document.getElementById('shareBar');
-      var peerName = 'пара';
+      var peerName = SixtioI18n.t('cv_pair');
 
       function renderShare(state){
         shareBar.hidden = false;
@@ -208,21 +209,23 @@
           if (state.partnerUsername) {
             a.href = 'https://t.me/' + state.partnerUsername;
             a.target = '_blank'; a.rel = 'noopener';
-            a.innerHTML = '<span>✈️</span><span class="txt">Відкрити @' + state.partnerUsername + ' у Telegram</span>';
+            a.innerHTML = '<span>✈️</span><span class="txt"></span>';
+            a.querySelector('.txt').textContent = SixtioI18n.t('cv_open_tg', { u: state.partnerUsername });
           } else {
             a.className = 'share-btn wait';
-            a.textContent = '✈️ Ви обмінялись — але в людини немає @юзернейма в Telegram';
+            a.textContent = SixtioI18n.t('cv_no_username');
           }
           shareBar.appendChild(a);
         } else if (state.shareMine) {
           var w = document.createElement('span');
           w.className = 'share-btn wait';
-          w.textContent = '⏳ Чекаємо, поки ' + peerName + ' теж погодиться';
+          w.textContent = SixtioI18n.t('cv_waiting', { name: peerName });
           shareBar.appendChild(w);
         } else {
           var b = document.createElement('button');
           b.className = 'share-btn';
-          b.innerHTML = '<span>🔗</span><span>Обмінятись Telegram</span>';
+          b.innerHTML = '<span>🔗</span><span></span>';
+          b.querySelector('span:last-child').textContent = SixtioI18n.t('cv_share_btn');
           b.addEventListener('click', function(){
             if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('medium'); } catch(e){} }
             b.disabled = true;
@@ -245,7 +248,7 @@
           if (data.matchId) matchId = data.matchId;
           if (!partnerLoaded) {
             renderPartner(data.partner);
-            peerName = (data.partner && data.partner.name) || 'пара';
+            peerName = (data.partner && data.partner.name) || SixtioI18n.t('cv_pair');
             partnerLoaded = true;
             loadShare();
           }

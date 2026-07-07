@@ -1,4 +1,4 @@
-import { resolveUser } from './_lib/telegram.js';
+import { resolveUser, resolveLang } from './_lib/telegram.js';
 import { findUserId, getSupabase } from './_lib/supabase.js';
 import {
   entitlements, likesLeftForClient,
@@ -121,7 +121,7 @@ async function swipe(req, res, tgUser, body) {
     try {
       const { data: target } = await supabase
         .from('users')
-        .select('id, name, telegram_id, liked_users')
+        .select('id, name, telegram_id, liked_users, language_code')
         .eq('id', String(targetId))
         .maybeSingle();
 
@@ -130,7 +130,8 @@ async function swipe(req, res, tgUser, body) {
         const { data: inserted, error: insErr } = await supabase
           .from('matches')
           .upsert(
-            { user_a: a, user_b: b, reason: 'Ви вподобали одне одного 🔥' },
+            // Language-neutral token — /api/me localizes it per viewer (Task 28).
+            { user_a: a, user_b: b, reason: 'mutual_like' },
             { onConflict: 'user_a,user_b', ignoreDuplicates: true }
           )
           .select('id');
@@ -139,8 +140,8 @@ async function swipe(req, res, tgUser, body) {
         if (Array.isArray(inserted) && inserted.length) {
           matched = true;
           await notifyInstantMatch(
-            { telegram_id: tgUser.id, name: me.name },
-            { telegram_id: target.telegram_id, name: target.name }
+            { telegram_id: tgUser.id, name: me.name, language_code: resolveLang(tgUser) },
+            { telegram_id: target.telegram_id, name: target.name, language_code: target.language_code }
           );
         }
       }

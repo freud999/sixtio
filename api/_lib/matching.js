@@ -62,7 +62,7 @@ export async function runMatching(userId, lang = 'uk') {
 
   const { data: candidates, error: candError } = await supabase
     .from('users')
-    .select('id, telegram_id, name, tg_username, gender, seeking_gender, goal, age, city, interests, bio, photo_url')
+    .select('id, telegram_id, name, tg_username, gender, seeking_gender, goal, age, city, interests, bio, photo_url, language_code')
     .neq('id', userId);
   if (candError) throw candError;
 

@@ -1,4 +1,4 @@
-import { resolveUser } from './_lib/telegram.js';
+import { resolveUser, resolveLang } from './_lib/telegram.js';
 import { getSupabase, upsertUser } from './_lib/supabase.js';
 
 const GENDERS = ['male', 'female'];
@@ -18,6 +18,9 @@ export default async function handler(req, res) {
     }
 
     const fields = {};
+    // Task 28: bind the account to the CURRENT Telegram interface language at
+    // registration; /api/me re-syncs it on every later open.
+    fields.language_code = resolveLang(tgUser);
     if (GENDERS.includes(gender)) fields.gender = gender;
     if (SEEKING.includes(seekingGender)) fields.seeking_gender = seekingGender;
     if (GOALS.includes(goal)) fields.goal = goal;

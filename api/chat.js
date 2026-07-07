@@ -114,7 +114,7 @@ async function send(res, tgUser, body) {
     const { data: me } = await supabase.from('users').select('name').eq('id', userId).maybeSingle();
     const { data: partner } = await supabase
       .from('users')
-      .select('telegram_id')
+      .select('telegram_id, language_code')
       .eq('id', match.partnerId)
       .maybeSingle();
     if (partner) {

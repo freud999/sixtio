@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Sixtio — знайомство</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="i18n.js"></script>
 <script src="theme.js"></script>
 <link rel="stylesheet" href="theme.css" />
 <style>
@@ -116,8 +117,8 @@
   <div class="chat" id="chat"></div>
 
   <form class="composer" id="composer">
-    <textarea id="answerInput" rows="1" placeholder="Напишіть відповідь..."></textarea>
-    <button type="submit" id="sendBtn" aria-label="Надіслати">➤</button>
+    <textarea id="answerInput" rows="1" data-i18n-ph="ob_write_ph" placeholder="Напишіть відповідь..."></textarea>
+    <button type="submit" id="sendBtn" data-i18n-aria="ob_send_aria" aria-label="Надіслати">➤</button>
   </form>
   <input type="file" id="photoInput" accept="image/*" hidden />
 
@@ -129,6 +130,10 @@
         tg.expand();
         try { tg.setHeaderColor && tg.setHeaderColor('bg_color'); } catch(e){}
       }
+      // Task 28: everything the user reads comes from the i18n dictionary,
+      // bound to the CURRENT Telegram interface language — never to any
+      // DB-cached preference. Question ids stay language-neutral.
+      var t = SixtioI18n.t;
 
       // Deepen mode: a short, limited AI session to enrich an existing profile
       // (3 extra questions, no Gemini follow-ups — saves AI budget).
@@ -136,51 +141,37 @@
 
       // ---- steps -------------------------------------------------------
       var profileSteps = [
-        { id:'gender', type:'options', text:'Привіт! Я Sixtio 💜 Спершу трохи про тебе. Хто ти?',
-          options:[{v:'male',label:'Чоловік'},{v:'female',label:'Жінка'}] },
-        { id:'seekingGender', type:'options', text:'Кого ти хочеш зустріти?',
-          options:[{v:'male',label:'Чоловіка'},{v:'female',label:'Жінку'},{v:'any',label:'Неважливо'}] },
-        { id:'goal', type:'options', text:'Що ти шукаєш у Sixtio?',
-          options:[{v:'longterm',label:'Довготривалі стосунки'},{v:'fun',label:'Розважитись'},{v:'situational',label:'По ситуації'}] },
-        { id:'age', type:'number', text:'Скільки тобі років?' },
-        { id:'city', type:'text', optional:true, text:'З якого ти міста?' },
-        { id:'interests', type:'text', optional:true,
-          text:'Розкажи про свої інтереси — просто через кому. Наприклад: подорожі, кіно, біг' },
-        { id:'bio', type:'text', optional:true,
-          text:'Кілька слів про себе — як би ти представив себе людині, яка тобі подобається?',
-          textF:'Кілька слів про себе — як би ти представила себе людині, яка тобі подобається?' },
-        { id:'photo', type:'photo', optional:true,
-          text:'І додай своє фото — його побачить лише людина, з якою у вас метч.' }
+        { id:'gender', type:'options', text:t('ob_hello_gender'),
+          options:[{v:'male',label:t('ob_i_male')},{v:'female',label:t('ob_i_female')}] },
+        { id:'seekingGender', type:'options', text:t('ob_seeking_q'),
+          options:[{v:'male',label:t('opt_male')},{v:'female',label:t('opt_female')},{v:'any',label:t('opt_any')}] },
+        { id:'goal', type:'options', text:t('ob_goal_q'),
+          options:[{v:'longterm',label:t('opt_longterm')},{v:'fun',label:t('opt_fun')},{v:'situational',label:t('opt_situational')}] },
+        { id:'age', type:'number', text:t('ob_age_q') },
+        { id:'city', type:'text', optional:true, text:t('ob_city_q') },
+        { id:'interests', type:'text', optional:true, text:t('ob_interests_q') },
+        { id:'bio', type:'text', optional:true, text:t('ob_bio_q'), textF:t('ob_bio_q_f') },
+        { id:'photo', type:'photo', optional:true, text:t('ob_photo_q') }
       ];
 
       // Keep ids in sync with api/_lib/questions.js.
       // `text` — masculine/neutral form; `textF` — feminine form, picked once gender is known.
       // Deep, premium interview — five questions that build a real psychological portrait.
       var questions = [
-        { id: "q1",
-          text: "А тепер — найцікавіше. Розкажи про мить за останній рік, коли ти відчув себе по-справжньому живим. Де ти був, з ким, і що робило її справжньою?",
-          textF: "А тепер — найцікавіше. Розкажи про мить за останній рік, коли ти відчула себе по-справжньому живою. Де ти була, з ким, і що робило її справжньою?" },
-        { id: "q2",
-          text: "Коли близька людина тебе розчаровує — що відбувається всередині тебе першої хвилини, і як ти зазвичай дієш далі?" },
-        { id: "q3",
-          text: "Що людина має зробити чи сказати, щоб ти відчув: «ось із цим я можу бути собою»?",
-          textF: "Що людина має зробити чи сказати, щоб ти відчула: «ось із цим я можу бути собою»?" },
-        { id: "q4",
-          text: "За що тебе по-справжньому цінують ті, хто знає тебе давно, — і чи згоден ти з ними?",
-          textF: "За що тебе по-справжньому цінують ті, хто знає тебе давно, — і чи згодна ти з ними?" },
-        { id: "q5",
-          text: "І останнє, найважливіше: чого ти більше не готовий терпіти у стосунках — і що навчило тебе цій межі?",
-          textF: "І останнє, найважливіше: чого ти більше не готова терпіти у стосунках — і що навчило тебе цій межі?" }
+        { id: "q1", text: t('ob_q1'), textF: t('ob_q1_f') },
+        { id: "q2", text: t('ob_q2') },
+        { id: "q3", text: t('ob_q3'), textF: t('ob_q3_f') },
+        { id: "q4", text: t('ob_q4'), textF: t('ob_q4_f') },
+        { id: "q5", text: t('ob_q5'), textF: t('ob_q5_f') }
       ];
 
       // Keep ids in sync with api/_lib/questions.js (d1–d5) — deep, premium.
       var deepenPool = [
-        { id: "d1", text: "Що в тобі змінилося за останні кілька років — і як ти до цього ставишся?" },
-        { id: "d2", text: "Яка твоя маленька дивакуватість, яку по-справжньому оцінить лише правильна людина?" },
-        { id: "d3", text: "Коли ти уявляєш спільне майбутнє з кимось — що в цій картині для тебе найважливіше?" },
-        { id: "d4", text: "У який момент ти відчуваєш найбільшу самотність — і що допомагає з неї вийти?" },
-        { id: "d5", text: "Що ти зрозумів про кохання таке, чого не знав у 20?",
-          textF: "Що ти зрозуміла про кохання таке, чого не знала у 20?" }
+        { id: "d1", text: t('ob_d1') },
+        { id: "d2", text: t('ob_d2') },
+        { id: "d3", text: t('ob_d3') },
+        { id: "d4", text: t('ob_d4') },
+        { id: "d5", text: t('ob_d5'), textF: t('ob_d5_f') }
       ];
 
       if (DEEPEN) {
@@ -259,7 +250,7 @@
         el.className = 'bubble photo';
         var img = document.createElement('img');
         img.src = dataUrl;
-        img.alt = 'Твоє фото';
+        img.alt = t('ob_photo_alt');
         el.appendChild(img);
         chat.appendChild(el);
         scrollToBottom();
@@ -287,13 +278,13 @@
         var done = (stage === 'profile') ? pIndex : profileSteps.length + index;
         var pct = Math.min(done, TOTAL) / TOTAL * 100;
         progressFill.style.width = pct + '%';
-        stepLabel.textContent = done < TOTAL ? 'Крок ' + (done + 1) + ' з ' + TOTAL : 'Готово';
+        stepLabel.textContent = done < TOTAL ? t('ob_step', { n: done + 1, total: TOTAL }) : t('ob_done_lbl');
       }
 
       function setComposer(enabled, placeholder){
         input.disabled = !enabled;
         sendBtn.disabled = !enabled;
-        input.placeholder = placeholder || 'Напишіть відповідь...';
+        input.placeholder = placeholder || t('ob_write_ph');
         if (enabled) input.focus();
       }
 
@@ -338,14 +329,14 @@
             }));
           } else if (step.type === 'photo') {
             showOptions([
-              { label: '📷 Обрати фото', onSelect: function(){ photoInput.click(); } },
-              { label: 'Пропустити', secondary: true, onSelect: function(){ skipProfile(step); } }
+              { label: t('ob_pick_photo'), onSelect: function(){ photoInput.click(); } },
+              { label: t('ob_skip'), secondary: true, onSelect: function(){ skipProfile(step); } }
             ]);
           } else {
-            setComposer(true, step.type === 'number' ? 'Вкажи вік числом...' : 'Напишіть відповідь...');
+            setComposer(true, step.type === 'number' ? t('ob_age_ph') : t('ob_write_ph'));
             var extraOptions = [];
             if (step.id === 'city') {
-              extraOptions.push({ label: '📍 Поділитися локацією', cls: 'gps',
+              extraOptions.push({ label: t('ob_share_gps'), cls: 'gps',
                 onSelect: function(){ requestGpsCity(step); } });
               if (detectedCity) {
                 extraOptions.push({ label: '📍 ' + detectedCity,
@@ -353,7 +344,7 @@
               }
             }
             if (step.optional) {
-              extraOptions.push({ label: 'Пропустити', secondary: true, onSelect: function(){ skipProfile(step); } });
+              extraOptions.push({ label: t('ob_skip'), secondary: true, onSelect: function(){ skipProfile(step); } });
             }
             if (extraOptions.length) showOptions(extraOptions);
           }
@@ -381,9 +372,9 @@
       function requestGpsCity(step){
         removeOptions();
         function toManual(msg){
-          addBubble(msg || 'Гаразд — впиши місто вручну 🙂', 'bot');
-          setComposer(true, 'Напиши місто...');
-          if (step.optional) showOptions([{ label: 'Пропустити', secondary: true,
+          addBubble(msg || t('ob_city_manual'), 'bot');
+          setComposer(true, t('ob_city_ph'));
+          if (step.optional) showOptions([{ label: t('ob_skip'), secondary: true,
             onSelect: function(){ skipProfile(step); } }]);
         }
         if (!navigator.geolocation) { toManual(); return; }
@@ -397,28 +388,28 @@
           if (done) return;
           var lat = pos.coords.latitude, lon = pos.coords.longitude;
           fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat +
-                '&lon=' + lon + '&accept-language=uk', { headers: { 'Accept': 'application/json' } })
+                '&lon=' + lon + '&accept-language=' + SixtioI18n.lang, { headers: { 'Accept': 'application/json' } })
             .then(function(r){ return r.json(); })
             .then(function(d){
               if (done) return; done = true;
               typingEl.remove();
               var a = (d && d.address) || {};
               var city = a.city || a.town || a.village || a.municipality || '';
-              if (!city) { toManual('Не вдалося визначити місто — впиши його вручну 🙂'); return; }
+              if (!city) { toManual(t('ob_city_fail')); return; }
               addBubble('📍 ' + city, 'user');
               profileData[step.id] = city;
               api('/api/me', { op: 'update_location', city: city }).catch(function(){});
               pIndex++;
               askNextProfile();
             })
-            .catch(function(){ fail('Не вдалося визначити місто — впиши його вручну 🙂'); });
-        }, function(){ fail('Гаразд — впиши місто вручну 🙂'); },
+            .catch(function(){ fail(t('ob_city_fail')); });
+        }, function(){ fail(t('ob_city_manual')); },
            { enableHighAccuracy: false, timeout: 10000, maximumAge: 600000 });
       }
 
       function skipProfile(step){
         removeOptions();
-        addBubble('Пропустити', 'user');
+        addBubble(t('ob_skip'), 'user');
         pIndex++;
         askNextProfile();
       }
@@ -430,8 +421,8 @@
           if (!/^\d{2,3}$/.test(value.trim()) || age < 18 || age > 100) {
             addBubble(value, 'user');
             showTyping(function(){
-              addBubble(age < 18 ? 'Sixtio знайомить лише повнолітніх — вкажи вік від 18 🙂' : 'Вкажи, будь ласка, вік числом — наприклад, 25', 'bot');
-              setComposer(true, 'Вкажи вік числом...');
+              addBubble(age < 18 ? t('ob_age_minor') : t('ob_age_nan'), 'bot');
+              setComposer(true, t('ob_age_ph'));
             });
             return;
           }
@@ -492,18 +483,18 @@
             var typingEl = startTyping();
             api('/api/photo', { imageBase64: dataUrl }).then(function(){
               typingEl.remove();
-              addBubble('Чудове фото! 📸', 'bot');
+              addBubble(t('ob_photo_ok'), 'bot');
               pIndex++;
               askNextProfile();
             }).catch(function(){
               typingEl.remove();
-              addBubble('Не вдалося завантажити фото — спробуємо пізніше, це не завадить знайомству.', 'bot');
+              addBubble(t('ob_photo_fail'), 'bot');
               pIndex++;
               askNextProfile();
             });
           };
           img.onerror = function(){
-            addBubble('Не вдалося прочитати це фото. Спробуй інше.', 'bot');
+            addBubble(t('ob_photo_read_fail'), 'bot');
             askNextProfile();
           };
           img.src = reader.result;
@@ -610,7 +601,7 @@
 
         var title = document.createElement('div');
         title.className = 'title';
-        title.textContent = 'Ось як Sixtio тебе зрозуміла';
+        title.textContent = t('ob_card_title');
 
         var chips = document.createElement('div');
         chips.className = 'chips';
@@ -627,7 +618,7 @@
 
         var next = document.createElement('div');
         next.className = 'next';
-        next.textContent = 'Скоро Sixtio запропонує перше знайомство.';
+        next.textContent = t('ob_card_next');
 
         card.appendChild(check);
         card.appendChild(title);
@@ -643,8 +634,10 @@
         card.className = 'bubble done-card';
         card.style.opacity = 1;
         card.innerHTML = '<div class="check">✨</div>' +
-          '<div class="title">Дякую, що поділився(-лась)</div>' +
-          '<div class="sub">Sixtio вже аналізує твої відповіді, щоб знайти людину зі справжньою сумісністю. Скоро продовжимо.</div>';
+          '<div class="title"></div>' +
+          '<div class="sub"></div>';
+        card.querySelector('.title').textContent = t('ob_thanks');
+        card.querySelector('.sub').textContent = t('ob_thanks_sub');
         chat.appendChild(card);
         scrollToBottom();
       }
@@ -652,7 +645,7 @@
       function addContinueButton(){
         var btn = document.createElement('button');
         btn.className = 'continue-btn';
-        btn.textContent = 'Продовжити';
+        btn.textContent = t('ob_continue');
         btn.addEventListener('click', function(){
           if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('medium'); } catch(err){} }
           window.location.href = DEEPEN ? 'profile.html' : 'matches.html';
@@ -690,7 +683,7 @@
       if (DEEPEN) {
         // Short enrichment session: greet and go straight to the extra questions.
         showTyping(function(){
-          addBubble('Рада бачити тебе знову! Кілька нових запитань — і я зрозумію тебе ще глибше ✨', 'bot');
+          addBubble(t('ob_deepen_hello'), 'bot');
           askNext();
         });
       } else {
