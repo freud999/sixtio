@@ -6,6 +6,7 @@
 <title>Sixtio — мій профіль</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="i18n.js"></script>
 <script src="theme.js"></script>
 <script src="paywall.js"></script>
 <link rel="stylesheet" href="theme.css" />
@@ -251,18 +252,20 @@
 
   <div class="section glass" id="depthSection">
     <div class="depth-top">
-      <div class="sec-title grad" style="margin-bottom:0;">Глибина профілю</div>
+      <div class="sec-title grad" style="margin-bottom:0;" data-i18n="depth_title">Глибина профілю</div>
       <span class="depth-pct" id="depthPct">40%</span>
     </div>
     <div class="depth-bar"><div class="depth-fill" id="depthFill"></div></div>
     <!-- Improve-profile CTA sits directly under the bar to close the UX loop:
          see your depth → tap to raise it. Free males hit the paywall here. -->
-    <button class="btn-primary" id="deepenBtn" style="width:100%; margin-top:14px;">✨ Покращити профіль із Sixtio</button>
+    <button class="btn-primary" id="deepenBtn" style="width:100%; margin-top:14px;" data-i18n="improve_btn">✨ Покращити профіль із Sixtio</button>
     <div class="depth-widget" id="depthWidget" hidden>
+      <!-- No data-i18n here: renderDepth() always sets the localized question,
+           and it can run BEFORE the DOMContentLoaded i18n pass (cache-first). -->
       <div class="depth-q" id="depthQ">🧠 Дозаповни профіль (+20%)</div>
-      <textarea class="depth-input" id="depthInput" maxlength="600"
+      <textarea class="depth-input" id="depthInput" maxlength="600" data-i18n-ph="answer_free_ph"
         placeholder="Відповідай вільно, своїми словами…"></textarea>
-      <button class="btn-primary depth-submit" id="depthSubmit">Відповісти (+20%)</button>
+      <button class="btn-primary depth-submit" id="depthSubmit" data-i18n="depth_submit">Відповісти (+20%)</button>
       <div class="depth-note" id="depthNote"></div>
     </div>
   </div>
@@ -280,7 +283,7 @@
     <div class="dark-head">
       <div>
         <div class="sec-title grad-crimson" style="margin-bottom:4px;">🔥 Dark Mode (18+)</div>
-        <div class="dark-desc">Анонімний пошук за інтимною сумісністю. Видно лише тим, хто теж увімкнув Dark Mode.</div>
+        <div class="dark-desc" data-i18n="dark_desc">Анонімний пошук за інтимною сумісністю. Видно лише тим, хто теж увімкнув Dark Mode.</div>
       </div>
       <label class="ios-switch">
         <input type="checkbox" id="darkToggle" disabled />
@@ -290,20 +293,20 @@
     <label class="age-gate">
       <input type="checkbox" id="ageConfirm" />
       <span class="age-box" aria-hidden="true"></span>
-      <span>Мені є 18 років</span>
+      <span data-i18n="age_confirm">Мені є 18 років</span>
     </label>
     <div class="dark-markers" id="darkMarkers" hidden></div>
-    <button class="dark-redo" id="darkRedo" hidden>Пройти інтерв'ю знову</button>
+    <button class="dark-redo" id="darkRedo" data-i18n="dark_redo" hidden>Пройти інтерв'ю знову</button>
   </div>
 
   <!-- About Me + Interests share one frosted pane (empty bio → gentle nudge). -->
   <div class="section monolith-card" id="aboutSection">
     <div class="mono-block">
-      <div class="sec-title">Про мене</div>
+      <div class="sec-title" data-i18n="about_me">Про мене</div>
       <div class="sec-body" id="bio"></div>
     </div>
     <div class="mono-block" id="interestsBlock" hidden>
-      <div class="sec-title">Інтереси</div>
+      <div class="sec-title" data-i18n="interests">Інтереси</div>
       <div class="chips" id="interests"></div>
     </div>
   </div>
@@ -314,72 +317,72 @@
     <div class="stars-row">
       <span class="stars-ico" aria-hidden="true">🎁</span>
       <div class="stars-info">
-        <div class="stars-sub">💸 +15 ⭐️ за кожного друга (після інтерв'ю)</div>
+        <div class="stars-sub" data-i18n="referral_sub">💸 +15 ⭐️ за кожного друга (після інтерв'ю)</div>
       </div>
-      <button class="btn-primary" id="inviteBtn" style="padding:11px 16px; font-size:14px; white-space:nowrap;">🎁 Запросити</button>
+      <button class="btn-primary" id="inviteBtn" style="padding:11px 16px; font-size:14px; white-space:nowrap;" data-i18n="invite_btn">🎁 Запросити</button>
     </div>
   </div>
 
   <div class="section glass" id="achieveSection">
-    <div class="sec-title grad">🏅 Досягнення</div>
+    <div class="sec-title grad" data-i18n="achievements">🏅 Досягнення</div>
     <div class="achieve-grid" id="achieveGrid"></div>
   </div>
 
   <div class="section glass" id="editSection" hidden>
-    <div class="sec-title">Редагування анкети</div>
+    <div class="sec-title" data-i18n="edit_title">Редагування анкети</div>
     <form class="edit-form" id="editForm">
       <div class="field">
-        <label for="fSeeking">Кого шукаю</label>
+        <label for="fSeeking" data-i18n="f_seeking">Кого шукаю</label>
         <select id="fSeeking">
-          <option value="male">Чоловіка</option>
-          <option value="female">Жінку</option>
-          <option value="any">Неважливо</option>
+          <option value="male" data-i18n="opt_male">Чоловіка</option>
+          <option value="female" data-i18n="opt_female">Жінку</option>
+          <option value="any" data-i18n="opt_any">Неважливо</option>
         </select>
       </div>
       <div class="field">
-        <label for="fGoal">Мета</label>
+        <label for="fGoal" data-i18n="f_goal">Мета</label>
         <select id="fGoal">
-          <option value="longterm">Довготривалі стосунки</option>
-          <option value="fun">Розважитись</option>
-          <option value="situational">По ситуації</option>
+          <option value="longterm" data-i18n="opt_longterm">Довготривалі стосунки</option>
+          <option value="fun" data-i18n="opt_fun">Розважитись</option>
+          <option value="situational" data-i18n="opt_situational">По ситуації</option>
         </select>
       </div>
       <div class="field">
-        <label for="fAge">Вік</label>
+        <label for="fAge" data-i18n="f_age">Вік</label>
         <input id="fAge" type="number" min="18" max="100" inputmode="numeric" />
       </div>
       <div class="field">
-        <label for="fCity">Місто</label>
+        <label for="fCity" data-i18n="f_city">Місто</label>
         <input id="fCity" type="text" maxlength="100" />
       </div>
       <div class="field">
-        <label for="fInterests">Інтереси (через кому)</label>
+        <label for="fInterests" data-i18n="f_interests">Інтереси (через кому)</label>
         <input id="fInterests" type="text" />
       </div>
       <div class="field">
-        <label for="fBio">Про мене</label>
+        <label for="fBio" data-i18n="about_me">Про мене</label>
         <textarea id="fBio" maxlength="600"></textarea>
       </div>
       <div class="save-row">
-        <button type="button" class="btn-glass" id="cancelBtn">Скасувати</button>
-        <button type="submit" class="btn-primary">Зберегти</button>
+        <button type="button" class="btn-glass" id="cancelBtn" data-i18n="cancel">Скасувати</button>
+        <button type="submit" class="btn-primary" data-i18n="save">Зберегти</button>
       </div>
       <div class="save-note" id="saveNote"></div>
     </form>
   </div>
 
   <div class="footer">
-    <a class="foot-link" href="privacy.html">Політика конфіденційності</a>
+    <a class="foot-link" href="privacy.html" data-i18n="privacy_policy">Політика конфіденційності</a>
     <span class="foot-sep" aria-hidden="true">·</span>
-    <button class="foot-link" id="deleteBtn">Видалити акаунт</button>
+    <button class="foot-link" id="deleteBtn" data-i18n="delete_account">Видалити акаунт</button>
   </div>
 
   <input type="file" id="photoInput" accept="image/*" hidden />
 
   <nav class="tab-bar">
-    <a class="tab-item" href="matches.html"><span class="ico">💜</span>Метчі</a>
-    <a class="tab-item" href="chat.html"><span class="ico">💬</span>Чат</a>
-    <a class="tab-item active" href="profile.html"><span class="ico">👤</span>Профіль</a>
+    <a class="tab-item" href="matches.html"><span class="ico">💜</span><span data-i18n="tab_matches">Метчі</span></a>
+    <a class="tab-item" href="chat.html"><span class="ico">💬</span><span data-i18n="tab_chat">Чат</span></a>
+    <a class="tab-item active" href="profile.html"><span class="ico">👤</span><span data-i18n="tab_profile">Профіль</span></a>
   </nav>
 
   <script>
@@ -391,16 +394,19 @@
         try { tg.setHeaderColor && tg.setHeaderColor('bg_color'); } catch(e){}
       }
 
+      var t = SixtioI18n.t;   // localized copy (uk/en/ru) — Task 26
+
       // Goal labels agree with the profile's gender (Task 23): «Відкрита» for
       // women, «Відкритий» for men; the clunky '(-а)' form is only the fallback
-      // for a profile whose gender is somehow unknown.
+      // for a profile whose gender is somehow unknown. The gendered variants
+      // live per-language in the i18n dictionary (English is genderless).
       function goalLabel(goal, gender){
-        if (goal === 'longterm') return 'Шукаю довготривалі стосунки';
-        if (goal === 'fun') return 'Хочу розважитись';
+        if (goal === 'longterm') return t('goal_longterm');
+        if (goal === 'fun') return t('goal_fun');
         if (goal === 'situational') {
-          if (gender === 'female') return 'Відкрита — по ситуації';
-          if (gender === 'male') return 'Відкритий — по ситуації';
-          return 'Відкритий(-а) — по ситуації';
+          if (gender === 'female') return t('goal_situational_f');
+          if (gender === 'male') return t('goal_situational_m');
+          return t('goal_situational_x');
         }
         return '';
       }
@@ -462,7 +468,7 @@
         // About Me always renders; empty bio shows a gentle nudge placeholder.
         var bioEl = document.getElementById('bio');
         if (u.bio) { bioEl.className = 'sec-body'; bioEl.textContent = u.bio; }
-        else { bioEl.className = 'mono-empty'; bioEl.textContent = '💬 Додай пару слів про себе (✎)'; }
+        else { bioEl.className = 'mono-empty'; bioEl.textContent = t('bio_nudge'); }
 
         document.getElementById('starsBalance').textContent = u.starsBalance || 0;
         referralLink = u.referralLink || '';
@@ -483,18 +489,14 @@
 
       // ---- Profile depth + achievements (gamification) --------------------
       var ACHIEVEMENTS = {
-        crystal_empath: { em: '🏆', label: 'Кришталевий Емпат' },
-        master_charisma:{ em: '⚡', label: 'Магістр Харизми' },
-        rock_stability: { em: '🛡️', label: 'Скеля Стабільності' },
-        explorer:       { em: '🪐', label: 'Першовідкривач' },
-        zen_strategist: { em: '🎯', label: 'Дзен-Стратег' }
+        crystal_empath: { em: '🏆', label: t('ach_crystal_empath') },
+        master_charisma:{ em: '⚡', label: t('ach_master_charisma') },
+        rock_stability: { em: '🛡️', label: t('ach_rock_stability') },
+        explorer:       { em: '🪐', label: t('ach_explorer') },
+        zen_strategist: { em: '🎯', label: t('ach_zen_strategist') }
       };
       // Three tricky depth questions — one per +20 step from the base 40% → 100%.
-      var EXTRA_QUESTIONS = [
-        'Що останнім часом змусило тебе передумати про щось важливе?',
-        'Коли ти почуваєшся найбільш собою — і хто поруч у цей момент?',
-        'За що ти вдячний(-а) навіть у складні дні — і чому саме за це?'
-      ];
+      var EXTRA_QUESTIONS = [ t('extra_q_0'), t('extra_q_1'), t('extra_q_2') ];
 
       function renderDepth(u){
         var depth = typeof u.profileDepth === 'number' ? u.profileDepth : 40;
@@ -517,7 +519,7 @@
         if (!keys.length) {
           var ph = document.createElement('div');
           ph.className = 'achieve-empty';
-          ph.textContent = 'Твій психотип формується… відповідай на питання, і бейджі зʼявляться ✨';
+          ph.textContent = t('achieve_empty');
           grid.appendChild(ph);
           return;
         }
@@ -530,15 +532,7 @@
         });
       }
 
-      // ---- Dark Mode (18+) -------------------------------------------------
-      var KINK_LABELS = {
-        dominant:'Домінування', submissive:'Підкорення', switch:'Світч',
-        sensual:'Чуттєвість', passionate:'Пристрасть', romantic:'Романтика',
-        tender:'Ніжність', playful:'Грайливість', experimental:'Експерименти',
-        adventurous:'Авантюрність', curious:'Допитливість', vanilla:'Класика',
-        roleplay:'Рольові ігри', bondage:'Бондаж', voyeur:'Вуаєризм',
-        exhibitionist:'Ексгібіціонізм'
-      };
+      // ---- Dark Mode (18+) — marker labels come from the i18n dictionary ----
 
       function renderDark(u){
         var toggle = document.getElementById('darkToggle');
@@ -553,7 +547,7 @@
           markers.forEach(function(m){
             var chip = document.createElement('span');
             chip.className = 'dark-marker';
-            chip.textContent = KINK_LABELS[m] || m;
+            chip.textContent = SixtioI18n.kink(m);
             wrap.appendChild(chip);
           });
           wrap.hidden = false;
@@ -630,10 +624,10 @@
         e.preventDefault();
         var age = parseInt(document.getElementById('fAge').value, 10);
         if (!(age >= 18 && age <= 100)) {
-          saveNote.textContent = 'Вік має бути від 18 до 100';
+          saveNote.textContent = t('age_range_err');
           return;
         }
-        saveNote.textContent = 'Зберігаю…';
+        saveNote.textContent = t('saving');
         api('/api/profile-info', {
           gender: (current && current.gender) || null,
           seekingGender: document.getElementById('fSeeking').value,
@@ -644,13 +638,13 @@
             .split(',').map(function(s){ return s.trim(); }).filter(Boolean),
           bio: document.getElementById('fBio').value.trim()
         }).then(function(){
-          saveNote.textContent = 'Збережено ✓';
+          saveNote.textContent = t('saved');
           if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.notificationOccurred('success'); } catch(err){} }
           return load();
         }).then(function(){
           setTimeout(function(){ editSection.hidden = true; }, 600);
         }).catch(function(){
-          saveNote.textContent = 'Не вдалося зберегти — спробуй ще раз';
+          saveNote.textContent = t('save_fail');
         });
       });
 
@@ -692,7 +686,7 @@
       document.getElementById('inviteBtn').addEventListener('click', function(){
         if (!referralLink) return;
         if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('medium'); } catch(e){} }
-        var text = 'Приєднуйся до Sixtio — AI знайде тобі справжню пару 💜';
+        var text = t('invite_text');
         // Native Telegram share sheet when inside the app…
         if (tg && tg.openTelegramLink) {
           tg.openTelegramLink(
@@ -704,8 +698,8 @@
         // …otherwise copy the link to the clipboard.
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(referralLink).then(function(){
-            if (tg && tg.showAlert) tg.showAlert('Посилання скопійовано!');
-            else window.alert('Посилання скопійовано!');
+            if (tg && tg.showAlert) tg.showAlert(t('link_copied'));
+            else window.alert(t('link_copied'));
           });
         }
       });
@@ -718,7 +712,7 @@
           window.SixtioPaywall.open({
             initData: initData,
             starsBalance: (current && current.starsBalance) || 0,
-            subtitle: 'Магазин Sixtio — поповни баланс і відкрий Premium 💎',
+            subtitle: t('shop_subtitle'),
             onSuccess: function(){ load().catch(function(){}); }
           });
         }
@@ -752,7 +746,7 @@
           if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.notificationOccurred('success'); } catch(e){} }
           window.location.replace('index.html');
         }).catch(function(){
-          if (tg && tg.showAlert) { tg.showAlert('Не вдалося видалити. Спробуй ще раз.'); }
+          if (tg && tg.showAlert) { tg.showAlert(t('delete_fail')); }
         });
       }
       document.getElementById('deleteBtn').addEventListener('click', function(){
@@ -760,8 +754,7 @@
         // wallet (users.stars_balance dies with the users row — see
         // api/delete-account.js), so the prompt states the exact balance lost.
         var starsBalance = (current && current.starsBalance) || 0;
-        var msg = 'Видалити акаунт назавжди? Твоя анкета, відповіді, метчі, повідомлення й фото буде безповоротно стерто.' +
-          '\n\n⚠️ Увага! Твій поточний баланс (' + starsBalance + ' ⭐️) буде безповоротно анульований без можливості повернення коштів після видалення акаунта.';
+        var msg = t('delete_confirm', { bal: starsBalance });
         if (tg && tg.showConfirm) {
           tg.showConfirm(msg, function(ok){ if (ok) doDelete(); });
         } else if (window.confirm(msg)) {
@@ -770,12 +763,7 @@
       });
 
       // ---- Dark Mode: toggle + first-run AI kink interview -----------------
-      var KINK_QUESTIONS = [
-        'Яка роль тобі ближча в близькості — вести, слідувати чи змінюватись за настроєм?',
-        'Що додає пристрасті саме тобі: ніжність і чуттєвість чи сміливі експерименти?',
-        'Наскільки тобі цікаві рольові ігри, сценарії або легкий бондаж?',
-        'Що для тебе однозначне табу, а до чого ти відкритий(-а) досліджувати з партнером?'
-      ];
+      var KINK_QUESTIONS = [ t('kink_q_0'), t('kink_q_1'), t('kink_q_2'), t('kink_q_3') ];
 
       // Reflect Dark Mode state into cached sixtio_me so every screen agrees.
       function syncDark(active, markers){
@@ -809,15 +797,14 @@
           overlay.className = 'kv-overlay';
           overlay.innerHTML =
             '<div class="kv-sheet">' +
-              '<button class="kv-close" aria-label="Закрити">✕</button>' +
-              '<div class="kv-title">🔥 Анонімне інтерв\'ю</div>' +
+              '<button class="kv-close" aria-label="' + t('close') + '">✕</button>' +
+              '<div class="kv-title">' + t('kv_title') + '</div>' +
               '<div class="kv-step" id="kvStep"></div>' +
               '<div class="kv-q" id="kvQ"></div>' +
-              '<textarea class="kv-a" id="kvA" placeholder="Відповідай вільно, своїми словами…"></textarea>' +
-              '<button class="kv-next" id="kvNext">Далі</button>' +
+              '<textarea class="kv-a" id="kvA" placeholder="' + t('answer_free_ph') + '"></textarea>' +
+              '<button class="kv-next" id="kvNext">' + t('kv_next') + '</button>' +
               '<div class="kv-note" id="kvNote"></div>' +
-              '<div class="kv-priv">Sixtio перетворює відповіді на анонімні теги сумісності. ' +
-              'Твої слова не показуються нікому.</div>' +
+              '<div class="kv-priv">' + t('kv_priv') + '</div>' +
             '</div>';
           document.body.appendChild(overlay);
           requestAnimationFrame(function(){ overlay.classList.add('show'); });
@@ -856,10 +843,10 @@
             setTimeout(function(){ if (overlay.parentNode) overlay.remove(); }, 240);
           }
           function paint(){
-            stepEl.textContent = 'Питання ' + (step + 1) + ' з ' + KINK_QUESTIONS.length;
+            stepEl.textContent = t('kv_step', { n: step + 1, total: KINK_QUESTIONS.length });
             qEl.textContent = KINK_QUESTIONS[step];
             aEl.value = answers[step] || '';
-            nextBtn.textContent = step === KINK_QUESTIONS.length - 1 ? 'Завершити' : 'Далі';
+            nextBtn.textContent = step === KINK_QUESTIONS.length - 1 ? t('kv_finish') : t('kv_next');
             note.textContent = '';
             aEl.focus();
           }
@@ -871,15 +858,15 @@
 
           nextBtn.addEventListener('click', function(){
             var val = aEl.value.trim();
-            if (val.length < 2) { note.textContent = 'Кілька слів — і рушаємо далі 💬'; return; }
+            if (val.length < 2) { note.textContent = t('kv_min'); return; }
             answers[step] = val;
             if (step < KINK_QUESTIONS.length - 1) { step++; paint(); return; }
             // Final: analyse via Gemini and save markers.
             settled = true;
             nextBtn.disabled = true;
-            note.textContent = 'Sixtio аналізує…';
+            note.textContent = t('kv_analyzing');
             var payload = KINK_QUESTIONS
-              .map(function(q, i){ return 'Питання: ' + q + '\nВідповідь: ' + (answers[i] || '') + '\n'; })
+              .map(function(q, i){ return t('kv_q_label') + ': ' + q + '\n' + t('kv_a_label') + ': ' + (answers[i] || '') + '\n'; })
               .join('');
             api('/api/interact', { op: 'submit_kink_interview', answers: payload })
               .then(function(res){
@@ -891,7 +878,7 @@
               .catch(function(){
                 nextBtn.disabled = false;
                 settled = false;
-                note.textContent = 'Не вдалося проаналізувати. Спробуй ще раз.';
+                note.textContent = t('kv_fail');
               });
           });
 
@@ -931,9 +918,9 @@
         var input = document.getElementById('depthInput');
         var note = document.getElementById('depthNote');
         var answer = input.value.trim();
-        if (answer.length < 3) { note.textContent = 'Кілька слів — і профіль стане глибшим 💬'; return; }
+        if (answer.length < 3) { note.textContent = t('depth_min'); return; }
         btn.disabled = true;
-        note.textContent = 'Sixtio запамʼятовує…';
+        note.textContent = t('depth_saving');
         var qid = document.getElementById('depthWidget').dataset.qid || 'extra_deep';
         api('/api/me', { op: 'submit_extra_question', answer: answer, questionId: qid })
           .then(function(res){
@@ -955,12 +942,10 @@
             document.getElementById('starsBalance').textContent = res.starsBalance || 0;
             if (current) renderDepth(current);
             if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.notificationOccurred('success'); } catch(e){} }
-            note.textContent = res.bonusAwarded
-              ? '🎉 Профіль заповнено! +2 ⭐ бонус'
-              : 'Готово ✓ Профіль глибший на +20%';
+            note.textContent = res.bonusAwarded ? t('depth_bonus') : t('depth_done');
           })
           .catch(function(){
-            note.textContent = 'Не вдалося зберегти — спробуй ще раз';
+            note.textContent = t('save_fail');
           })
           .then(function(){ btn.disabled = false; });
       });

@@ -71,6 +71,17 @@ function genderLine(gender) {
   return '';
 }
 
+// --- Output language (Task 26) ----------------------------------------------
+// The user's native Telegram language ('uk' | 'en' | 'ru', resolved by
+// telegram.js resolveLang) drives EVERY user-facing string the model produces.
+// One hard instruction at the end of each system prompt prevents cross-bleed.
+const LANG_NAME = { uk: 'українською', en: 'англійською (English)', ru: 'російською' };
+export function langLine(lang) {
+  const name = LANG_NAME[lang] || LANG_NAME.uk;
+  return 'КРИТИЧНО: увесь текст для користувача пиши ВИКЛЮЧНО ' + name +
+    ' — це рідна мова користувача. Жодного змішування мов у відповіді. ';
+}
+
 // The premium Sixtio persona — shared voice across every AI touch.
 const PERSONA =
   'Ти — Sixtio: ультимативно розумний психолог, коуч і архітектор людських взаємин. ' +
@@ -78,8 +89,8 @@ const PERSONA =
   'психологічний двійник людини. Твій тон — вишуканий, дорогий, преміальний, зі смаком, ' +
   'але теплий і невимушений. Ти читаєш психолінгвістику: не лише що людина каже, а як. ';
 
-/** One short, refined follow-up question (Ukrainian) to the user's answer. */
-export async function generateFollowup(questionText, answerText, gender) {
+/** One short, refined follow-up question (in the user's language). */
+export async function generateFollowup(questionText, answerText, gender, lang) {
   const response = await getClient().messages.create({
     model: MODEL,
     max_tokens: 300,
@@ -87,8 +98,9 @@ export async function generateFollowup(questionText, answerText, gender) {
       PERSONA +
       genderLine(gender) +
       'Користувач щойно відповів. Постав ОДНЕ коротке (до 18 слів) вишукане уточнююче ' +
-      'підпитання українською, звертаючись на «ти», яке йде вглиб — до мотиву, почуття чи ' +
-      'сенсу за відповіддю. Без привітань, без коментарів, без лапок — лише саме питання.',
+      'підпитання, звертаючись на «ти», яке йде вглиб — до мотиву, почуття чи ' +
+      'сенсу за відповіддю. Без привітань, без коментарів, без лапок — лише саме питання. ' +
+      langLine(lang),
     messages: [
       {
         role: 'user',
@@ -109,7 +121,7 @@ export async function generateFollowup(questionText, answerText, gender) {
  * Returns { traits[4-6], vibe, summary, portrait{values,pace,attachment,conflict,closeness} }.
  * `portrait` holds the comparable psychological axes used for matching.
  */
-export async function generateProfile(qaLines, gender) {
+export async function generateProfile(qaLines, gender, lang) {
   const response = await getClient().messages.create({
     model: MODEL,
     max_tokens: 2500,
@@ -117,14 +129,15 @@ export async function generateProfile(qaLines, gender) {
       PERSONA +
       genderLine(gender) +
       'Проаналізуй інтерв\'ю й сформуй зашифрований профіль «Digital Twin». Поверни JSON:\n' +
-      '- traits: 4–6 коротких (1–3 слова) тегів стилю та характеру українською, у правильному роді;\n' +
+      '- traits: 4–6 коротких (1–3 слова) тегів стилю та характеру, у правильному роді;\n' +
       '- vibe: одна вишукана фраза (3–6 слів), що передає загальний вайб людини;\n' +
-      '- summary: рівно 2 преміальних, теплих речення українською від імені Sixtio, звертання на «ти», ' +
+      '- summary: рівно 2 преміальних, теплих речення від імені Sixtio, звертання на «ти», ' +
       'про те, ким ти побачила цю людину;\n' +
       '- portrait: обʼєкт із 5 стислих (1 речення кожне) психологічних осей для зіставлення сумісності: ' +
       'values (що для неї найважливіше), pace (темп і ритм життя), attachment (як любить і прив\'язується), ' +
       'conflict (як поводиться в конфлікті), closeness (що для неї справжня близькість і чого потребує). ' +
-      'Осі пиши нейтрально й точно — вони порівнюватимуться з іншими людьми.',
+      'Осі пиши нейтрально й точно — вони порівнюватимуться з іншими людьми. ' +
+      langLine(lang),
     messages: [{ role: 'user', content: qaLines.join('\n') }],
     output_config: {
       format: {
@@ -173,7 +186,7 @@ export async function generateProfile(qaLines, gender) {
  * Picks the most compatible candidate for `person` from `candidates`.
  * Returns { best: index | -1, score: 1-10, reason: "2 sentences" }.
  */
-export async function scoreCandidates(person, candidates) {
+export async function scoreCandidates(person, candidates, lang) {
   const response = await getClient().messages.create({
     model: MATCH_MODEL,
     // Generous budget: strong models may use adaptive thinking here, which shares
@@ -187,8 +200,9 @@ export async function scoreCandidates(person, candidates) {
       'сумісність темпу життя, взаємодоповнення стилів конфлікту та потреб у близькості. ' +
       'Спільне місто та інтереси — приємний бонус, але не головне. Поверни JSON: best — index ' +
       'найкращого кандидата, або -1 якщо ніхто не пасує по-справжньому; score — сумісність 1–10 ' +
-      '(чесно й вимогливо, не завищуй); reason — рівно 2 вишуканих теплих речення українською, ' +
-      'чому саме ці двоє резонують (звертання «ви», без імен).',
+      '(чесно й вимогливо, не завищуй); reason — рівно 2 вишуканих теплих речення, ' +
+      'чому саме ці двоє резонують (звертання «ви», без імен). ' +
+      langLine(lang),
     messages: [
       {
         role: 'user',

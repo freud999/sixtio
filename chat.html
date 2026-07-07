@@ -6,6 +6,7 @@
 <title>Sixtio — чат</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="i18n.js"></script>
 <script src="theme.js"></script>
 <link rel="stylesheet" href="theme.css" />
 <style>
@@ -53,13 +54,13 @@
 
   <div class="empty glass" id="empty" hidden>
     <span class="spark">💬</span>
-    Тут зʼявляться розмови з твоїми парами. Поки метчів немає — зазирни у <a href="matches.html">Метчі</a> й натисни «Знайти пару».
+    <span data-i18n-html="chat_empty">Тут зʼявляться розмови з твоїми парами. Поки метчів немає — зазирни у <a href="matches.html">Метчі</a> й натисни «Знайти пару».</span>
   </div>
 
   <nav class="tab-bar">
-    <a class="tab-item" href="matches.html"><span class="ico">💜</span>Метчі</a>
-    <a class="tab-item active" href="chat.html"><span class="ico">💬</span>Чат</a>
-    <a class="tab-item" href="profile.html"><span class="ico">👤</span>Профіль</a>
+    <a class="tab-item" href="matches.html"><span class="ico">💜</span><span data-i18n="tab_matches">Метчі</span></a>
+    <a class="tab-item active" href="chat.html"><span class="ico">💬</span><span data-i18n="tab_chat">Чат</span></a>
+    <a class="tab-item" href="profile.html"><span class="ico">👤</span><span data-i18n="tab_profile">Профіль</span></a>
   </nav>
 
   <script>
@@ -71,6 +72,7 @@
         try { tg.setHeaderColor && tg.setHeaderColor('bg_color'); } catch(e){}
       }
       var initData = (tg && tg.initData) || '';
+      var t = SixtioI18n.t;   // localized copy (uk/en/ru) — Task 26
       var listEl = document.getElementById('list');
       var emptyEl = document.getElementById('empty');
 
@@ -108,10 +110,10 @@
 
         var last = document.createElement('div'); last.className = 'c-last';
         if (m.lastMessage && m.lastMessage.text) {
-          last.textContent = (m.lastMessage.mine ? 'Ти: ' : '') + m.lastMessage.text;
+          last.textContent = (m.lastMessage.mine ? t('chat_you') : '') + m.lastMessage.text;
           if (!m.lastMessage.mine) last.classList.add('unseen');
         } else {
-          last.textContent = 'Почніть розмову ✨';
+          last.textContent = t('chat_start');
         }
         main.appendChild(last);
         a.appendChild(main);

@@ -1,0 +1,499 @@
+// Sixtio i18n — native Telegram language localization (Task 26).
+//
+// The app auto-adapts to the user's Telegram interface language, no manual
+// toggle: 'uk' (default), 'en', 'ru'. Any other language_code (es, de, …)
+// gracefully falls back to English; a missing code falls back to Ukrainian.
+//
+// Load this AFTER telegram-web-app.js and BEFORE paywall.js / page scripts.
+// Usage:
+//   SixtioI18n.t('find_btn')                      -> localized string
+//   SixtioI18n.t('kv_step', { n: 1, total: 4 })   -> '{x}' params substituted
+//   SixtioI18n.kink('dominant')                   -> localized kink marker label
+//   <el data-i18n="key">, data-i18n-html, data-i18n-ph (placeholder),
+//   data-i18n-aria (aria-label) — applied automatically on DOMContentLoaded.
+(function () {
+  var D = {
+    // ------------------------------------------------------------- Ukrainian
+    uk: {
+      // tab bar
+      tab_matches: 'Метчі', tab_chat: 'Чат', tab_profile: 'Профіль',
+      close: 'Закрити',
+      // index (welcome)
+      idx_thesis: 'Не свайпи. Знайомства, які справді мають сенс.',
+      idx_hello: 'Привіт, {name}! Готові до справжнього знайомства?',
+      idx_sub: 'Sixtio — розумна сваха. Вона ставить кілька щирих запитань, вивчає, хто ви, і знаходить людину, з якою у вас справжня сумісність.',
+      idx_start: 'Познайомитись із Sixtio',
+      idx_note: '<b>Приватно.</b>&nbsp; Вашого профілю Telegram ніхто не бачить.',
+      privacy_policy: 'Політика конфіденційності',
+      // feed (swipe deck)
+      mystery_title: '🔥 Таємний метч дня',
+      mystery_pct: '{pct}% сумісності',
+      mystery_unlock: '🔓 Розблокувати особу · 10 ⭐',
+      mystery_unlocking: 'Розблокування…',
+      not_enough_stars: 'Недостатньо ⭐',
+      lock_premium: '🔒 Premium',
+      intimate_score: '🔥 Інтимна сумісність:',
+      dark_hint: '🔓 Premium — щоб побачити спільні збіги',
+      act_skip: 'Пропустити', act_like: 'Подобається',
+      feed_empty: '<b>Поки що це всі.</b><br>Онови анкету через «Покращити профіль» — і зазирни згодом, зʼявляться нові люди.',
+      feed_net_error: 'Не вдалося завантажити. Перевір зʼєднання і спробуй ще.',
+      loot_title: '🎁 Скриньки Удачі',
+      loot_sub: 'Ліміт свайпів вичерпано. Спробуй удачу — перша скринька безкоштовна!',
+      loot_first_free: 'Перша скринька — безкоштовно',
+      loot_premium: '💎 Або Premium — безлімітні свайпи',
+      loot_win_swipes: '🎉 +3 безкоштовні свайпи!',
+      loot_win_discount: '🏷️ 30% знижка на Premium!',
+      loot_win_empty: 'Пусто… Спробуй ще завтра!',
+      loot_no_stars: 'Недостатньо ⭐ для ще однієї спроби',
+      loot_try_premium: 'Спробуй Premium нижче ⬇',
+      loot_next: 'Наступна скринька — 5 ⭐ · баланс: {bal} ⭐',
+      // matches
+      find_btn: '🔍 Знайти пару зараз',
+      search_banner: '<b>Sixtio шукає твою пару.</b> Тисни «Знайти пару», щойно захочеш — або чекай, поки зʼявиться хтось особливий.',
+      matches_empty: 'Поки що сумісних вільних кандидатів немає. Онови анкету через «Покращити профіль» — і спробуй ще 💜',
+      row_pct: '{pct}% сумісність',
+      row_meta_fallback: 'ваша пара від Sixtio',
+      row_intimate: '🔥 Інтимна сумісність — {pct}%',
+      pw_locked_subtitle: '🔥 Спільні інтимні маркери приховано. Premium відкриває їх повністю 💎',
+      match_locked_hint: '💎 Premium відкриває спільні інтимні маркери — торкнись, щоб відкрити',
+      // chat list
+      chat_you: 'Ти: ',
+      chat_start: 'Почніть розмову ✨',
+      chat_empty: 'Тут зʼявляться розмови з твоїми парами. Поки метчів немає — зазирни у <a href="matches.html">Метчі</a> й натисни «Знайти пару».',
+      // profile — goal labels (gendered, Task 23)
+      goal_longterm: 'Шукаю довготривалі стосунки',
+      goal_fun: 'Хочу розважитись',
+      goal_situational_f: 'Відкрита — по ситуації',
+      goal_situational_m: 'Відкритий — по ситуації',
+      goal_situational_x: 'Відкритий(-а) — по ситуації',
+      // profile — sections & depth
+      depth_title: 'Глибина профілю',
+      improve_btn: '✨ Покращити профіль із Sixtio',
+      depth_q_default: '🧠 Дозаповни профіль (+20%)',
+      answer_free_ph: 'Відповідай вільно, своїми словами…',
+      depth_submit: 'Відповісти (+20%)',
+      extra_q_0: 'Що останнім часом змусило тебе передумати про щось важливе?',
+      extra_q_1: 'Коли ти почуваєшся найбільш собою — і хто поруч у цей момент?',
+      extra_q_2: 'За що ти вдячний(-а) навіть у складні дні — і чому саме за це?',
+      depth_min: 'Кілька слів — і профіль стане глибшим 💬',
+      depth_saving: 'Sixtio запамʼятовує…',
+      depth_bonus: '🎉 Профіль заповнено! +2 ⭐ бонус',
+      depth_done: 'Готово ✓ Профіль глибший на +20%',
+      about_me: 'Про мене',
+      interests: 'Інтереси',
+      bio_nudge: '💬 Додай пару слів про себе (✎)',
+      referral_sub: '💸 +15 ⭐️ за кожного друга (після інтерв\'ю)',
+      invite_btn: '🎁 Запросити',
+      achievements: '🏅 Досягнення',
+      achieve_empty: 'Твій психотип формується… відповідай на питання, і бейджі зʼявляться ✨',
+      ach_crystal_empath: 'Кришталевий Емпат',
+      ach_master_charisma: 'Магістр Харизми',
+      ach_rock_stability: 'Скеля Стабільності',
+      ach_explorer: 'Першовідкривач',
+      ach_zen_strategist: 'Дзен-Стратег',
+      // profile — Dark Mode (18+)
+      dark_desc: 'Анонімний пошук за інтимною сумісністю. Видно лише тим, хто теж увімкнув Dark Mode.',
+      age_confirm: 'Мені є 18 років',
+      dark_redo: 'Пройти інтерв\'ю знову',
+      kv_title: '🔥 Анонімне інтерв\'ю',
+      kv_step: 'Питання {n} з {total}',
+      kv_next: 'Далі', kv_finish: 'Завершити',
+      kv_min: 'Кілька слів — і рушаємо далі 💬',
+      kv_analyzing: 'Sixtio аналізує…',
+      kv_fail: 'Не вдалося проаналізувати. Спробуй ще раз.',
+      kv_priv: 'Sixtio перетворює відповіді на анонімні теги сумісності. Твої слова не показуються нікому.',
+      kv_q_label: 'Питання', kv_a_label: 'Відповідь',
+      kink_q_0: 'Яка роль тобі ближча в близькості — вести, слідувати чи змінюватись за настроєм?',
+      kink_q_1: 'Що додає пристрасті саме тобі: ніжність і чуттєвість чи сміливі експерименти?',
+      kink_q_2: 'Наскільки тобі цікаві рольові ігри, сценарії або легкий бондаж?',
+      kink_q_3: 'Що для тебе однозначне табу, а до чого ти відкритий(-а) досліджувати з партнером?',
+      // profile — edit form
+      edit_title: 'Редагування анкети',
+      f_seeking: 'Кого шукаю',
+      opt_male: 'Чоловіка', opt_female: 'Жінку', opt_any: 'Неважливо',
+      f_goal: 'Мета',
+      opt_longterm: 'Довготривалі стосунки', opt_fun: 'Розважитись', opt_situational: 'По ситуації',
+      f_age: 'Вік', f_city: 'Місто',
+      f_interests: 'Інтереси (через кому)',
+      cancel: 'Скасувати', save: 'Зберегти',
+      age_range_err: 'Вік має бути від 18 до 100',
+      saving: 'Зберігаю…', saved: 'Збережено ✓',
+      save_fail: 'Не вдалося зберегти — спробуй ще раз',
+      // profile — misc actions
+      delete_account: 'Видалити акаунт',
+      delete_confirm: 'Видалити акаунт назавжди? Твоя анкета, відповіді, метчі, повідомлення й фото буде безповоротно стерто.\n\n⚠️ Увага! Твій поточний баланс ({bal} ⭐️) буде безповоротно анульований без можливості повернення коштів після видалення акаунта.',
+      delete_fail: 'Не вдалося видалити. Спробуй ще раз.',
+      invite_text: 'Приєднуйся до Sixtio — AI знайде тобі справжню пару 💜',
+      link_copied: 'Посилання скопійовано!',
+      shop_subtitle: 'Магазин Sixtio — поповни баланс і відкрий Premium 💎',
+      // kink marker labels (standardized tokens -> local words)
+      kink_dominant: 'Домінування', kink_submissive: 'Підкорення', kink_switch: 'Світч',
+      kink_sensual: 'Чуттєвість', kink_passionate: 'Пристрасть', kink_romantic: 'Романтика',
+      kink_tender: 'Ніжність', kink_playful: 'Грайливість', kink_experimental: 'Експерименти',
+      kink_adventurous: 'Авантюрність', kink_curious: 'Допитливість', kink_vanilla: 'Класика',
+      kink_roleplay: 'Рольові ігри', kink_bondage: 'Бондаж', kink_voyeur: 'Вуаєризм',
+      kink_exhibitionist: 'Ексгібіціонізм',
+      // paywall / Stars shop
+      pw_default_sub: 'Твій ліміт вподобань на сьогодні вичерпано. Обери, як продовжити 💜',
+      pw_balance: 'Баланс:',
+      pw_premium_name: 'Premium · 30 днів',
+      pw_hit: 'ХІТ',
+      pw_b1: '♾️ Безлімітні вподобання',
+      pw_b2: '👁 Фото без розмиття',
+      pw_b3: '🧠 «Чому ви підходите» — без обмежень',
+      pw_b4: '📊 Аналітика Digital Twin',
+      pw_pack_name: '+30 вподобань',
+      pw_pack_note: 'Топ-ап на сьогодні. Фото лишаються розмитими.',
+      pw_deposit_h: 'Поповнити баланс зірками Telegram',
+      pw_tag_popular: 'ПОПУЛЯРНЕ', pw_tag_value: 'ВИГІДНО',
+      pw_invite_q: 'Мало зірок?',
+      pw_invite_u: 'Запроси друзів (+15 ⭐ за кожного)',
+      pw_tg_only: 'Оплата зірками доступна лише в застосунку Telegram.',
+      pw_invoice_prep: 'Готуємо рахунок…',
+      pw_invoice_fail: 'Не вдалося створити рахунок. Спробуй ще раз.',
+      pw_paid: '✅ +{n} ⭐ зараховано на баланс!',
+      pw_pay_fail: 'Оплата не пройшла. Спробуй ще раз.',
+      pw_net_err: 'Помилка мережі. Спробуй ще раз.',
+      pw_processing: 'Обробка…',
+      pw_insufficient_invite: 'Недостатньо зірок — запроси друзів, щоб заробити ⭐',
+      pw_insufficient: 'Недостатньо зірок.',
+      pw_fail: 'Не вдалося. Спробуй ще раз.'
+    },
+    // --------------------------------------------------------------- English
+    en: {
+      tab_matches: 'Matches', tab_chat: 'Chat', tab_profile: 'Profile',
+      close: 'Close',
+      idx_thesis: 'Not swipes. Connections that truly make sense.',
+      idx_hello: 'Hi, {name}! Ready for a real connection?',
+      idx_sub: 'Sixtio is a smart matchmaker. It asks a few sincere questions, learns who you are, and finds someone you are truly compatible with.',
+      idx_start: 'Meet Sixtio',
+      idx_note: '<b>Private.</b>&nbsp; No one sees your Telegram profile.',
+      privacy_policy: 'Privacy Policy',
+      mystery_title: '🔥 Mystery Match of the Day',
+      mystery_pct: '{pct}% compatibility',
+      mystery_unlock: '🔓 Reveal identity · 10 ⭐',
+      mystery_unlocking: 'Unlocking…',
+      not_enough_stars: 'Not enough ⭐',
+      lock_premium: '🔒 Premium',
+      intimate_score: '🔥 Intimate compatibility:',
+      dark_hint: '🔓 Premium — to see your shared matches',
+      act_skip: 'Skip', act_like: 'Like',
+      feed_empty: '<b>That’s everyone for now.</b><br>Update your profile via “Improve profile” — and check back later, new people will appear.',
+      feed_net_error: 'Couldn’t load. Check your connection and try again.',
+      loot_title: '🎁 Lucky Boxes',
+      loot_sub: 'You’re out of swipes. Try your luck — the first box is free!',
+      loot_first_free: 'First box — free',
+      loot_premium: '💎 Or Premium — unlimited swipes',
+      loot_win_swipes: '🎉 +3 free swipes!',
+      loot_win_discount: '🏷️ 30% off Premium!',
+      loot_win_empty: 'Empty… Try again tomorrow!',
+      loot_no_stars: 'Not enough ⭐ for another try',
+      loot_try_premium: 'Try Premium below ⬇',
+      loot_next: 'Next box — 5 ⭐ · balance: {bal} ⭐',
+      find_btn: '🔍 Find a match now',
+      search_banner: '<b>Sixtio is searching for your match.</b> Tap “Find a match” whenever you like — or wait until someone special appears.',
+      matches_empty: 'No compatible candidates available yet. Update your profile via “Improve profile” — and try again 💜',
+      row_pct: '{pct}% compatibility',
+      row_meta_fallback: 'your Sixtio match',
+      row_intimate: '🔥 Intimate compatibility — {pct}%',
+      pw_locked_subtitle: '🔥 Your shared intimate markers are hidden. Premium reveals them in full 💎',
+      match_locked_hint: '💎 Premium reveals your shared intimate markers — tap to unlock',
+      chat_you: 'You: ',
+      chat_start: 'Start the conversation ✨',
+      chat_empty: 'Conversations with your matches will appear here. No matches yet — open <a href="matches.html">Matches</a> and tap “Find a match”.',
+      goal_longterm: 'Looking for a long-term relationship',
+      goal_fun: 'Here to have fun',
+      goal_situational_f: 'Open — depends on the vibe',
+      goal_situational_m: 'Open — depends on the vibe',
+      goal_situational_x: 'Open — depends on the vibe',
+      depth_title: 'Profile depth',
+      improve_btn: '✨ Improve your profile with Sixtio',
+      depth_q_default: '🧠 Complete your profile (+20%)',
+      answer_free_ph: 'Answer freely, in your own words…',
+      depth_submit: 'Answer (+20%)',
+      extra_q_0: 'What made you change your mind about something important recently?',
+      extra_q_1: 'When do you feel most like yourself — and who is beside you in that moment?',
+      extra_q_2: 'What are you grateful for even on hard days — and why that in particular?',
+      depth_min: 'A few words — and your profile gets deeper 💬',
+      depth_saving: 'Sixtio is memorizing…',
+      depth_bonus: '🎉 Profile complete! +2 ⭐ bonus',
+      depth_done: 'Done ✓ Your profile is +20% deeper',
+      about_me: 'About me',
+      interests: 'Interests',
+      bio_nudge: '💬 Add a few words about yourself (✎)',
+      referral_sub: '💸 +15 ⭐️ for every friend (after their interview)',
+      invite_btn: '🎁 Invite',
+      achievements: '🏅 Achievements',
+      achieve_empty: 'Your psych profile is taking shape… answer questions and badges will appear ✨',
+      ach_crystal_empath: 'Crystal Empath',
+      ach_master_charisma: 'Charisma Master',
+      ach_rock_stability: 'Rock of Stability',
+      ach_explorer: 'Pioneer',
+      ach_zen_strategist: 'Zen Strategist',
+      dark_desc: 'Anonymous search by intimate compatibility. Visible only to those who also turned on Dark Mode.',
+      age_confirm: 'I am 18 or older',
+      dark_redo: 'Retake the interview',
+      kv_title: '🔥 Anonymous interview',
+      kv_step: 'Question {n} of {total}',
+      kv_next: 'Next', kv_finish: 'Finish',
+      kv_min: 'A few words — and we move on 💬',
+      kv_analyzing: 'Sixtio is analyzing…',
+      kv_fail: 'Couldn’t analyze. Try again.',
+      kv_priv: 'Sixtio turns your answers into anonymous compatibility tags. Your words are never shown to anyone.',
+      kv_q_label: 'Question', kv_a_label: 'Answer',
+      kink_q_0: 'Which role feels closer to you in intimacy — leading, following, or switching with the mood?',
+      kink_q_1: 'What adds passion for you: tenderness and sensuality, or bold experiments?',
+      kink_q_2: 'How interested are you in roleplay, scenarios, or light bondage?',
+      kink_q_3: 'What is a definite taboo for you, and what are you open to exploring with a partner?',
+      edit_title: 'Edit profile',
+      f_seeking: 'Who I’m looking for',
+      opt_male: 'A man', opt_female: 'A woman', opt_any: 'Doesn’t matter',
+      f_goal: 'Goal',
+      opt_longterm: 'Long-term relationship', opt_fun: 'Have fun', opt_situational: 'Depends',
+      f_age: 'Age', f_city: 'City',
+      f_interests: 'Interests (comma-separated)',
+      cancel: 'Cancel', save: 'Save',
+      age_range_err: 'Age must be between 18 and 100',
+      saving: 'Saving…', saved: 'Saved ✓',
+      save_fail: 'Couldn’t save — try again',
+      delete_account: 'Delete account',
+      delete_confirm: 'Delete your account forever? Your profile, answers, matches, messages and photos will be erased irreversibly.\n\n⚠️ Warning! Your current balance ({bal} ⭐️) will be irrevocably forfeited with no refund once the account is deleted.',
+      delete_fail: 'Couldn’t delete. Try again.',
+      invite_text: 'Join Sixtio — AI will find you a real match 💜',
+      link_copied: 'Link copied!',
+      shop_subtitle: 'Sixtio shop — top up your balance and unlock Premium 💎',
+      kink_dominant: 'Dominant', kink_submissive: 'Submissive', kink_switch: 'Switch',
+      kink_sensual: 'Sensual', kink_passionate: 'Passionate', kink_romantic: 'Romantic',
+      kink_tender: 'Tender', kink_playful: 'Playful', kink_experimental: 'Experimental',
+      kink_adventurous: 'Adventurous', kink_curious: 'Curious', kink_vanilla: 'Vanilla',
+      kink_roleplay: 'Roleplay', kink_bondage: 'Bondage', kink_voyeur: 'Voyeur',
+      kink_exhibitionist: 'Exhibitionist',
+      pw_default_sub: 'You’ve used today’s likes. Choose how to continue 💜',
+      pw_balance: 'Balance:',
+      pw_premium_name: 'Premium · 30 days',
+      pw_hit: 'HOT',
+      pw_b1: '♾️ Unlimited likes',
+      pw_b2: '👁 Photos without blur',
+      pw_b3: '🧠 “Why you match” — unlimited',
+      pw_b4: '📊 Digital Twin analytics',
+      pw_pack_name: '+30 likes',
+      pw_pack_note: 'A top-up for today. Photos stay blurred.',
+      pw_deposit_h: 'Top up with Telegram Stars',
+      pw_tag_popular: 'POPULAR', pw_tag_value: 'BEST VALUE',
+      pw_invite_q: 'Short on Stars?',
+      pw_invite_u: 'Invite friends (+15 ⭐ each)',
+      pw_tg_only: 'Stars payments are available only in the Telegram app.',
+      pw_invoice_prep: 'Preparing the invoice…',
+      pw_invoice_fail: 'Couldn’t create the invoice. Try again.',
+      pw_paid: '✅ +{n} ⭐ added to your balance!',
+      pw_pay_fail: 'Payment didn’t go through. Try again.',
+      pw_net_err: 'Network error. Try again.',
+      pw_processing: 'Processing…',
+      pw_insufficient_invite: 'Not enough Stars — invite friends to earn ⭐',
+      pw_insufficient: 'Not enough Stars.',
+      pw_fail: 'Didn’t work. Try again.'
+    },
+    // --------------------------------------------------------------- Russian
+    ru: {
+      tab_matches: 'Мэтчи', tab_chat: 'Чат', tab_profile: 'Профиль',
+      close: 'Закрыть',
+      idx_thesis: 'Не свайпы. Знакомства, которые действительно имеют смысл.',
+      idx_hello: 'Привет, {name}! Готовы к настоящему знакомству?',
+      idx_sub: 'Sixtio — умная сваха. Она задаёт несколько искренних вопросов, изучает, кто вы, и находит человека, с которым у вас настоящая совместимость.',
+      idx_start: 'Познакомиться с Sixtio',
+      idx_note: '<b>Приватно.</b>&nbsp; Ваш профиль Telegram никто не видит.',
+      privacy_policy: 'Политика конфиденциальности',
+      mystery_title: '🔥 Тайный мэтч дня',
+      mystery_pct: '{pct}% совместимости',
+      mystery_unlock: '🔓 Разблокировать личность · 10 ⭐',
+      mystery_unlocking: 'Разблокировка…',
+      not_enough_stars: 'Недостаточно ⭐',
+      lock_premium: '🔒 Premium',
+      intimate_score: '🔥 Интимная совместимость:',
+      dark_hint: '🔓 Premium — чтобы увидеть общие совпадения',
+      act_skip: 'Пропустить', act_like: 'Нравится',
+      feed_empty: '<b>Пока что это все.</b><br>Обнови анкету через «Улучшить профиль» — и загляни позже, появятся новые люди.',
+      feed_net_error: 'Не удалось загрузить. Проверь соединение и попробуй ещё раз.',
+      loot_title: '🎁 Сундучки Удачи',
+      loot_sub: 'Лимит свайпов исчерпан. Испытай удачу — первый сундучок бесплатный!',
+      loot_first_free: 'Первый сундучок — бесплатно',
+      loot_premium: '💎 Или Premium — безлимитные свайпы',
+      loot_win_swipes: '🎉 +3 бесплатных свайпа!',
+      loot_win_discount: '🏷️ Скидка 30% на Premium!',
+      loot_win_empty: 'Пусто… Попробуй ещё завтра!',
+      loot_no_stars: 'Недостаточно ⭐ ещё для одной попытки',
+      loot_try_premium: 'Попробуй Premium ниже ⬇',
+      loot_next: 'Следующий сундучок — 5 ⭐ · баланс: {bal} ⭐',
+      find_btn: '🔍 Найти пару сейчас',
+      search_banner: '<b>Sixtio ищет твою пару.</b> Жми «Найти пару», когда захочешь — или жди, пока появится кто-то особенный.',
+      matches_empty: 'Пока совместимых свободных кандидатов нет. Обнови анкету через «Улучшить профиль» — и попробуй ещё 💜',
+      row_pct: '{pct}% совместимость',
+      row_meta_fallback: 'ваша пара от Sixtio',
+      row_intimate: '🔥 Интимная совместимость — {pct}%',
+      pw_locked_subtitle: '🔥 Общие интимные маркеры скрыты. Premium открывает их полностью 💎',
+      match_locked_hint: '💎 Premium открывает общие интимные маркеры — коснись, чтобы открыть',
+      chat_you: 'Ты: ',
+      chat_start: 'Начните разговор ✨',
+      chat_empty: 'Здесь появятся разговоры с твоими парами. Пока мэтчей нет — загляни в <a href="matches.html">Мэтчи</a> и нажми «Найти пару».',
+      goal_longterm: 'Ищу долгосрочные отношения',
+      goal_fun: 'Хочу развлечься',
+      goal_situational_f: 'Открыта — по ситуации',
+      goal_situational_m: 'Открыт — по ситуации',
+      goal_situational_x: 'Открыт(а) — по ситуации',
+      depth_title: 'Глубина профиля',
+      improve_btn: '✨ Улучшить профиль с Sixtio',
+      depth_q_default: '🧠 Дозаполни профиль (+20%)',
+      answer_free_ph: 'Отвечай свободно, своими словами…',
+      depth_submit: 'Ответить (+20%)',
+      extra_q_0: 'Что в последнее время заставило тебя передумать о чём-то важном?',
+      extra_q_1: 'Когда ты чувствуешь себя наиболее собой — и кто рядом в этот момент?',
+      extra_q_2: 'За что ты благодарен(-на) даже в трудные дни — и почему именно за это?',
+      depth_min: 'Пару слов — и профиль станет глубже 💬',
+      depth_saving: 'Sixtio запоминает…',
+      depth_bonus: '🎉 Профиль заполнен! +2 ⭐ бонус',
+      depth_done: 'Готово ✓ Профиль глубже на +20%',
+      about_me: 'Обо мне',
+      interests: 'Интересы',
+      bio_nudge: '💬 Добавь пару слов о себе (✎)',
+      referral_sub: '💸 +15 ⭐️ за каждого друга (после интервью)',
+      invite_btn: '🎁 Пригласить',
+      achievements: '🏅 Достижения',
+      achieve_empty: 'Твой психотип формируется… отвечай на вопросы, и бейджи появятся ✨',
+      ach_crystal_empath: 'Хрустальный Эмпат',
+      ach_master_charisma: 'Магистр Харизмы',
+      ach_rock_stability: 'Скала Стабильности',
+      ach_explorer: 'Первооткрыватель',
+      ach_zen_strategist: 'Дзен-Стратег',
+      dark_desc: 'Анонимный поиск по интимной совместимости. Видно только тем, кто тоже включил Dark Mode.',
+      age_confirm: 'Мне есть 18 лет',
+      dark_redo: 'Пройти интервью заново',
+      kv_title: '🔥 Анонимное интервью',
+      kv_step: 'Вопрос {n} из {total}',
+      kv_next: 'Далее', kv_finish: 'Завершить',
+      kv_min: 'Пару слов — и двигаемся дальше 💬',
+      kv_analyzing: 'Sixtio анализирует…',
+      kv_fail: 'Не удалось проанализировать. Попробуй ещё раз.',
+      kv_priv: 'Sixtio превращает ответы в анонимные теги совместимости. Твои слова никому не показываются.',
+      kv_q_label: 'Вопрос', kv_a_label: 'Ответ',
+      kink_q_0: 'Какая роль тебе ближе в близости — вести, следовать или меняться по настроению?',
+      kink_q_1: 'Что добавляет страсти именно тебе: нежность и чувственность или смелые эксперименты?',
+      kink_q_2: 'Насколько тебе интересны ролевые игры, сценарии или лёгкий бондаж?',
+      kink_q_3: 'Что для тебя однозначное табу, а что ты открыт(а) исследовать с партнёром?',
+      edit_title: 'Редактирование анкеты',
+      f_seeking: 'Кого ищу',
+      opt_male: 'Мужчину', opt_female: 'Женщину', opt_any: 'Неважно',
+      f_goal: 'Цель',
+      opt_longterm: 'Долгосрочные отношения', opt_fun: 'Развлечься', opt_situational: 'По ситуации',
+      f_age: 'Возраст', f_city: 'Город',
+      f_interests: 'Интересы (через запятую)',
+      cancel: 'Отмена', save: 'Сохранить',
+      age_range_err: 'Возраст должен быть от 18 до 100',
+      saving: 'Сохраняю…', saved: 'Сохранено ✓',
+      save_fail: 'Не удалось сохранить — попробуй ещё раз',
+      delete_account: 'Удалить аккаунт',
+      delete_confirm: 'Удалить аккаунт навсегда? Твоя анкета, ответы, мэтчи, сообщения и фото будут безвозвратно стёрты.\n\n⚠️ Внимание! Твой текущий баланс ({bal} ⭐️) будет безвозвратно аннулирован без возможности возврата средств после удаления аккаунта.',
+      delete_fail: 'Не удалось удалить. Попробуй ещё раз.',
+      invite_text: 'Присоединяйся к Sixtio — AI найдёт тебе настоящую пару 💜',
+      link_copied: 'Ссылка скопирована!',
+      shop_subtitle: 'Магазин Sixtio — пополни баланс и открой Premium 💎',
+      kink_dominant: 'Доминирование', kink_submissive: 'Подчинение', kink_switch: 'Свитч',
+      kink_sensual: 'Чувственность', kink_passionate: 'Страсть', kink_romantic: 'Романтика',
+      kink_tender: 'Нежность', kink_playful: 'Игривость', kink_experimental: 'Эксперименты',
+      kink_adventurous: 'Авантюрность', kink_curious: 'Любопытство', kink_vanilla: 'Классика',
+      kink_roleplay: 'Ролевые игры', kink_bondage: 'Бондаж', kink_voyeur: 'Вуайеризм',
+      kink_exhibitionist: 'Эксгибиционизм',
+      pw_default_sub: 'Твой лимит симпатий на сегодня исчерпан. Выбери, как продолжить 💜',
+      pw_balance: 'Баланс:',
+      pw_premium_name: 'Premium · 30 дней',
+      pw_hit: 'ХИТ',
+      pw_b1: '♾️ Безлимитные симпатии',
+      pw_b2: '👁 Фото без размытия',
+      pw_b3: '🧠 «Почему вы подходите» — без ограничений',
+      pw_b4: '📊 Аналитика Digital Twin',
+      pw_pack_name: '+30 симпатий',
+      pw_pack_note: 'Топ-ап на сегодня. Фото остаются размытыми.',
+      pw_deposit_h: 'Пополнить баланс звёздами Telegram',
+      pw_tag_popular: 'ПОПУЛЯРНОЕ', pw_tag_value: 'ВЫГОДНО',
+      pw_invite_q: 'Мало звёзд?',
+      pw_invite_u: 'Пригласи друзей (+15 ⭐ за каждого)',
+      pw_tg_only: 'Оплата звёздами доступна только в приложении Telegram.',
+      pw_invoice_prep: 'Готовим счёт…',
+      pw_invoice_fail: 'Не удалось создать счёт. Попробуй ещё раз.',
+      pw_paid: '✅ +{n} ⭐ зачислено на баланс!',
+      pw_pay_fail: 'Оплата не прошла. Попробуй ещё раз.',
+      pw_net_err: 'Ошибка сети. Попробуй ещё раз.',
+      pw_processing: 'Обработка…',
+      pw_insufficient_invite: 'Недостаточно звёзд — пригласи друзей, чтобы заработать ⭐',
+      pw_insufficient: 'Недостаточно звёзд.',
+      pw_fail: 'Не получилось. Попробуй ещё раз.'
+    }
+  };
+
+  // Detect the user's native Telegram interface language.
+  // uk -> uk; ru/be -> ru; any other real code (es, de, …) -> en; missing -> uk.
+  function detect() {
+    var code = '';
+    try {
+      var w = window.Telegram && window.Telegram.WebApp;
+      code = (w && w.initDataUnsafe && w.initDataUnsafe.user &&
+              w.initDataUnsafe.user.language_code) || '';
+    } catch (e) {}
+    code = String(code).toLowerCase().split('-')[0];
+    if (!code) return 'uk';
+    if (code === 'uk') return 'uk';
+    if (code === 'ru' || code === 'be') return 'ru';
+    return 'en';
+  }
+
+  var lang = detect();
+  try { document.documentElement.lang = lang; } catch (e) {}
+
+  // t('key') / t('key', {n: 3}) — falls back en -> uk -> the key itself,
+  // so a missing translation can never blank the UI.
+  function t(key, params) {
+    var s = (D[lang] && D[lang][key]);
+    if (s === undefined) s = D.uk[key];
+    if (s === undefined) return key;
+    if (params) {
+      for (var k in params) {
+        if (Object.prototype.hasOwnProperty.call(params, k)) {
+          s = s.split('{' + k + '}').join(String(params[k]));
+        }
+      }
+    }
+    return s;
+  }
+
+  // Localized label for a standardized kink marker token; unknown tokens pass
+  // through verbatim (server vocabulary may grow ahead of the client).
+  function kink(marker) {
+    var v = t('kink_' + marker);
+    return v === 'kink_' + marker ? marker : v;
+  }
+
+  // Rewrites all annotated static nodes under `root` (default: whole document).
+  //   data-i18n       -> textContent
+  //   data-i18n-html  -> innerHTML (trusted dictionary markup only)
+  //   data-i18n-ph    -> placeholder attribute
+  //   data-i18n-aria  -> aria-label attribute
+  function apply(root) {
+    root = root || document;
+    var i, els;
+    els = root.querySelectorAll('[data-i18n]');
+    for (i = 0; i < els.length; i++) els[i].textContent = t(els[i].getAttribute('data-i18n'));
+    els = root.querySelectorAll('[data-i18n-html]');
+    for (i = 0; i < els.length; i++) els[i].innerHTML = t(els[i].getAttribute('data-i18n-html'));
+    els = root.querySelectorAll('[data-i18n-ph]');
+    for (i = 0; i < els.length; i++) els[i].setAttribute('placeholder', t(els[i].getAttribute('data-i18n-ph')));
+    els = root.querySelectorAll('[data-i18n-aria]');
+    for (i = 0; i < els.length; i++) els[i].setAttribute('aria-label', t(els[i].getAttribute('data-i18n-aria')));
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () { apply(document); });
+  } else {
+    apply(document);
+  }
+
+  window.SixtioI18n = { lang: lang, t: t, kink: kink, apply: apply };
+})();

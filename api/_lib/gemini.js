@@ -33,15 +33,25 @@ function genderLine(gender) {
   return '';
 }
 
-/** One short, warm follow-up question (Ukrainian) to the user's answer. */
-export async function generateFollowup(questionText, answerText, gender) {
+// Output language (Task 26) — mirrors claude.js langLine: one hard instruction
+// so every user-facing string is generated in the user's native language.
+const LANG_NAME = { uk: 'українською', en: 'англійською (English)', ru: 'російською' };
+function langLine(lang) {
+  const name = LANG_NAME[lang] || LANG_NAME.uk;
+  return 'КРИТИЧНО: увесь текст для користувача пиши ВИКЛЮЧНО ' + name +
+    ' — це рідна мова користувача. Жодного змішування мов у відповіді. ';
+}
+
+/** One short, warm follow-up question (in the user's language) to the answer. */
+export async function generateFollowup(questionText, answerText, gender, lang) {
   const prompt =
     'Ти — Sixtio: ультимативно розумний психолог і архітектор взаємин. Тон — вишуканий, ' +
     'преміальний, зі смаком, але теплий. Ти читаєш психолінгвістику відповідей. ' +
     genderLine(gender) +
     'Користувач щойно відповів. Постав ОДНЕ коротке (до 18 слів) вишукане уточнююче ' +
-    'підпитання українською, звертаючись на «ти», яке йде вглиб — до мотиву, почуття чи ' +
-    'сенсу за відповіддю. Без привітань, без коментарів, без лапок — лише саме питання.\n\n' +
+    'підпитання, звертаючись на «ти», яке йде вглиб — до мотиву, почуття чи ' +
+    'сенсу за відповіддю. Без привітань, без коментарів, без лапок — лише саме питання. ' +
+    langLine(lang) + '\n\n' +
     `Твоє запитання: ${questionText}\n` +
     `Відповідь користувача: ${answerText}`;
   const text = await callGemini(prompt, {
@@ -58,7 +68,7 @@ export async function generateFollowup(questionText, answerText, gender) {
  * traits = a profiles row (trait_* numbers + traits_json labels); kink = markers[]
  * (already gated to [] by the caller unless the match is a mutual intimate opt-in).
  */
-export async function generateWhyFactor(me, partner) {
+export async function generateWhyFactor(me, partner, lang) {
   const OCEAN = {
     trait_openness: 'відкритість',
     trait_conscientiousness: 'сумлінність',
@@ -85,12 +95,13 @@ export async function generateWhyFactor(me, partner) {
     genderLine(me.gender) +
     'Проаналізуй два психологічні профілі за моделлю Big Five (OCEAN)' +
     (intimate ? ' та їхні інтимні маркери' : '') +
-    '. Напиши ОДИН захопливий, глибоко аналітичний абзац (4–6 речень) українською, ' +
+    '. Напиши ОДИН захопливий, глибоко аналітичний абзац (4–6 речень), ' +
     'звертаючись на «ти», який пояснює САМЕ ЧОМУ ви двоє ' +
     (intimate ? 'психологічно та інтимно ' : 'психологічно ') +
     'підходите одне одному — назви конкретні риси, що резонують або доповнюють одна одну, ' +
     'і чому саме це створює справжнє притягання. Тон — вишуканий, преміальний, інтригуючий, ' +
-    'теплий. Без списків, без заголовків, без лапок — лише живий, плинний текст.\n\n' +
+    'теплий. Без списків, без заголовків, без лапок — лише живий, плинний текст. ' +
+    langLine(lang) + '\n\n' +
     `Твій профіль: ${traitLine(me.traits)}.` + (intimate ? ` Інтимні маркери: ${myKink}.` : '') + '\n' +
     `Профіль ${partnerName}: ${traitLine(partner.traits)}.` + (intimate ? ` Інтимні маркери: ${theirKink}.` : '');
 

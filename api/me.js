@@ -1,4 +1,4 @@
-import { resolveUser } from './_lib/telegram.js';
+import { resolveUser, resolveLang } from './_lib/telegram.js';
 import { getSupabase, getMatchesFor } from './_lib/supabase.js';
 import { buildReferralLink } from './_lib/referrals.js';
 import { entitlements, likesLeftForClient, intimateCompatibility } from './_lib/entitlements.js';
@@ -110,7 +110,10 @@ export default async function handler(req, res) {
       console.error('compatibility rpc failed:', compatError.message);
     }
 
-    // Build a public card for every match this user holds.
+    // Build a public card for every match this user holds. The viewer's native
+    // Telegram language (Task 26) localizes the rare server-side fallbacks.
+    const lang = resolveLang(tgUser);
+    const NAME_FALLBACK = { uk: 'Хтось особливий', en: 'Someone special', ru: 'Кто-то особенный' };
     const rows = await getMatchesFor(user.id);
     const darkOn = !!user.dark_mode_active;
     const matches = [];
@@ -146,7 +149,7 @@ export default async function handler(req, res) {
           ? { text: lm.text, mine: lm.sender_id === user.id, createdAt: lm.created_at }
           : null,
         partner: {
-          name: (partner.name || '').split(' ')[0] || 'Хтось особливий',
+          name: (partner.name || '').split(' ')[0] || NAME_FALLBACK[lang] || NAME_FALLBACK.uk,
           age: partner.age,
           city: partner.city,
           goal: partner.goal,

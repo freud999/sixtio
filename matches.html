@@ -6,6 +6,7 @@
 <title>Sixtio — метчі</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="i18n.js"></script>
 <script src="theme.js"></script>
 <script src="paywall.js"></script>
 <link rel="stylesheet" href="theme.css" />
@@ -86,22 +87,22 @@
   <div class="bg-aura one" aria-hidden="true"></div>
   <div class="bg-aura two" aria-hidden="true"></div>
 
-  <button class="btn-primary find-btn" id="findBtn">🔍 Знайти пару зараз</button>
+  <button class="btn-primary find-btn" id="findBtn" data-i18n="find_btn">🔍 Знайти пару зараз</button>
 
   <div class="search-banner glass" id="searchBanner" hidden>
     <div class="pulse" aria-hidden="true"></div>
-    <div class="txt"><b>Sixtio шукає твою пару.</b> Тисни «Знайти пару», щойно захочеш — або чекай, поки зʼявиться хтось особливий.</div>
+    <div class="txt" data-i18n-html="search_banner"><b>Sixtio шукає твою пару.</b> Тисни «Знайти пару», щойно захочеш — або чекай, поки зʼявиться хтось особливий.</div>
   </div>
-  <div class="hint-empty glass" id="emptyHint" hidden>
+  <div class="hint-empty glass" id="emptyHint" data-i18n="matches_empty" hidden>
     Поки що сумісних вільних кандидатів немає. Онови анкету через «Покращити профіль» — і спробуй ще 💜
   </div>
 
   <div class="match-list" id="matchList"></div>
 
   <nav class="tab-bar">
-    <a class="tab-item active" href="matches.html"><span class="ico">💜</span>Метчі</a>
-    <a class="tab-item" href="chat.html"><span class="ico">💬</span>Чат</a>
-    <a class="tab-item" href="profile.html"><span class="ico">👤</span>Профіль</a>
+    <a class="tab-item active" href="matches.html"><span class="ico">💜</span><span data-i18n="tab_matches">Метчі</span></a>
+    <a class="tab-item" href="chat.html"><span class="ico">💬</span><span data-i18n="tab_chat">Чат</span></a>
+    <a class="tab-item" href="profile.html"><span class="ico">👤</span><span data-i18n="tab_profile">Профіль</span></a>
   </nav>
 
   <script>
@@ -113,6 +114,7 @@
         try { tg.setHeaderColor && tg.setHeaderColor('bg_color'); } catch(e){}
       }
       var initData = (tg && tg.initData) || '';
+      var t = SixtioI18n.t;   // localized copy (uk/en/ru) — Task 26
 
       var listEl = document.getElementById('matchList');
       var banner = document.getElementById('searchBanner');
@@ -152,7 +154,7 @@
         nm.textContent = pt.name + (pt.age ? ', ' + pt.age : '');
         main.appendChild(nm);
         var meta = document.createElement('div'); meta.className = 'row-meta';
-        meta.textContent = (pt.city ? '📍 ' + pt.city : '') || 'ваша пара від Sixtio';
+        meta.textContent = (pt.city ? '📍 ' + pt.city : '') || t('row_meta_fallback');
         main.appendChild(meta);
         // EVERY card carries the percentage pill — Big Five math % when present,
         // else the AI 1–10 score rescaled (7/10 → 70%), else an explicit 0%.
@@ -160,21 +162,22 @@
         var pctVal = (typeof m.compatibility === 'number') ? m.compatibility
           : (typeof m.score === 'number' && m.score > 0 ? Math.round(m.score * 10) : 0);
         var pct = document.createElement('div'); pct.className = 'row-pct';
-        pct.textContent = pctVal + '% сумісність';
+        pct.textContent = t('row_pct', { pct: pctVal });
         main.appendChild(pct);
         // Dark Mode (18+): the server includes this ONLY when both sides opted
         // in — same flame styling language as the feed card's intimate block.
         if (m.darkMode && typeof m.intimateCompatibility === 'number') {
           var dk = document.createElement('div'); dk.className = 'row-dark';
           var ds = document.createElement('span'); ds.className = 'row-dark-score';
-          ds.textContent = '🔥 Інтимна сумісність — ' + m.intimateCompatibility + '%';
+          ds.textContent = t('row_intimate', { pct: m.intimateCompatibility });
           dk.appendChild(ds);
           var tagWrap = document.createElement('span');
           tagWrap.className = 'row-dark-tags' + (m.intimateTagsBlurred ? ' blurred' : '');
           var tagList = m.intimateTagsBlurred ? ['••••', '•••'] : (m.intimateTags || []).slice(0, 3);
-          tagList.forEach(function(t){
+          tagList.forEach(function(tag){
             var s = document.createElement('span'); s.className = 'row-dark-tag';
-            s.textContent = t; tagWrap.appendChild(s);
+            s.textContent = m.intimateTagsBlurred ? tag : SixtioI18n.kink(tag);
+            tagWrap.appendChild(s);
           });
           if (tagList.length) dk.appendChild(tagWrap);
           // Locked state deep-links straight into the Stars shop with Premium
@@ -187,7 +190,7 @@
               if (window.SixtioPaywall) {
                 window.SixtioPaywall.open({
                   initData: initData, starsBalance: starsBal, highlight: 'premium',
-                  subtitle: '🔥 Спільні інтимні маркери приховано. Premium відкриває їх повністю 💎',
+                  subtitle: t('pw_locked_subtitle'),
                   onSuccess: function(){ window.location.reload(); }
                 });
               }

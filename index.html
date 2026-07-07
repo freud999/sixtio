@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Sixtio</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="i18n.js"></script>
 <script src="theme.js"></script>
 <link rel="stylesheet" href="theme.css" />
 <style>
@@ -64,16 +65,16 @@
       <div class="dot b"></div>
     </div>
     <h1 class="wordmark led grad-text">Sixtio</h1>
-    <p class="thesis" id="thesis">Не свайпи. Знайомства, які справді мають сенс.</p>
+    <p class="thesis" id="thesis" data-i18n="idx_thesis">Не свайпи. Знайомства, які справді мають сенс.</p>
     <div class="sub-card glass">
-      <span id="sub">Sixtio — розумна сваха. Вона ставить кілька щирих запитань, вивчає, хто ви, і знаходить людину, з якою у вас справжня сумісність.</span>
+      <span id="sub" data-i18n="idx_sub">Sixtio — розумна сваха. Вона ставить кілька щирих запитань, вивчає, хто ви, і знаходить людину, з якою у вас справжня сумісність.</span>
     </div>
   </div>
 
   <div class="bottom">
-    <button class="btn-primary" id="start" style="width:100%;">Познайомитись із Sixtio</button>
-    <p class="note"><b>Приватно.</b>&nbsp; Вашого профілю Telegram ніхто не бачить.</p>
-    <p class="note" style="margin-top:6px;"><a href="privacy.html" style="color:var(--hint);">Політика конфіденційності</a></p>
+    <button class="btn-primary" id="start" style="width:100%;" data-i18n="idx_start">Познайомитись із Sixtio</button>
+    <p class="note" data-i18n-html="idx_note"><b>Приватно.</b>&nbsp; Вашого профілю Telegram ніхто не бачить.</p>
+    <p class="note" style="margin-top:6px;"><a href="privacy.html" style="color:var(--hint);" data-i18n="privacy_policy">Політика конфіденційності</a></p>
   </div>
 
   <script>
@@ -86,7 +87,11 @@
         // personal greeting if Telegram shares a first name
         var name = tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.first_name;
         if (name) {
-          document.getElementById('thesis').textContent = 'Привіт, ' + name + '! Готові до справжнього знайомства?';
+          var thesis = document.getElementById('thesis');
+          // Drop the static key first — the DOMContentLoaded i18n pass must not
+          // overwrite the personal greeting back to the generic thesis line.
+          thesis.removeAttribute('data-i18n');
+          thesis.textContent = SixtioI18n.t('idx_hello', { name: name });
         }
       }
       document.getElementById('start').addEventListener('click', function(){

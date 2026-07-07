@@ -46,6 +46,22 @@ export function getStartParam(initData) {
 }
 
 /**
+ * Maps the user's native Telegram interface language to a supported app
+ * language (Task 26). language_code arrives inside the HMAC-signed initData
+ * user object, so it's server-trustworthy — no extra client field needed.
+ * uk -> uk; ru/be -> ru; any other real code (es, de, …) -> en; missing -> uk.
+ */
+export function resolveLang(tgUser) {
+  const code = String((tgUser && tgUser.language_code) || '')
+    .toLowerCase()
+    .split('-')[0];
+  if (!code) return 'uk';
+  if (code === 'uk') return 'uk';
+  if (code === 'ru' || code === 'be') return 'ru';
+  return 'en';
+}
+
+/**
  * Resolves the Telegram user from initData.
  * ALLOW_FAKE_AUTH=1 is a local-dev escape hatch (never set it on Vercel):
  * real initData is still preferred, but a stub user is returned without it.

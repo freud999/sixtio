@@ -9,11 +9,19 @@
 
   // Real Telegram Stars top-up packs (Task 19). Ids MUST match STAR_PACKS in
   // api/interact.js; the actual price/credit is enforced server-side.
+  // Tags are i18n dictionary keys (Task 26), resolved at open() time.
   var STAR_PACKS = [
     { id: 'pack_50',  stars: 50 },
-    { id: 'pack_100', stars: 100, tag: 'ПОПУЛЯРНЕ' },
-    { id: 'pack_250', stars: 250, tag: 'ВИГІДНО' },
+    { id: 'pack_100', stars: 100, tagKey: 'pw_tag_popular' },
+    { id: 'pack_250', stars: 250, tagKey: 'pw_tag_value' },
   ];
+
+  // Localized copy via SixtioI18n (i18n.js loads before this file on every
+  // page that uses the paywall); the raw key is the last-resort fallback.
+  function t(key, params) {
+    return (window.SixtioI18n && window.SixtioI18n.t)
+      ? window.SixtioI18n.t(key, params) : key;
+  }
 
   var CSS =
     '.pw-overlay{position:fixed;inset:0;z-index:1000;display:flex;align-items:flex-end;' +
@@ -103,41 +111,42 @@
     var initData = opts.initData || (tg() && tg().initData) || '';
     var balance = opts.starsBalance || 0;
     // Caller-supplied context line (shop vs swipe-limit) — defaults to the limit copy.
-    var subtitle = opts.subtitle || 'Твій ліміт вподобань на сьогодні вичерпано. Обери, як продовжити 💜';
+    var subtitle = opts.subtitle || t('pw_default_sub');
 
     var overlay = document.createElement('div');
     overlay.className = 'pw-overlay';
     overlay.innerHTML =
       '<div class="pw-sheet glass">' +
-        '<button class="pw-close" aria-label="Закрити">✕</button>' +
+        '<button class="pw-close" aria-label="' + t('close') + '">✕</button>' +
         '<div class="pw-title led grad-text">SIXTIO PREMIUM</div>' +
         '<div class="pw-sub">' + subtitle + '</div>' +
-        '<div class="pw-bal">Баланс: <b>' + balance + ' ⭐</b></div>' +
+        '<div class="pw-bal">' + t('pw_balance') + ' <b>' + balance + ' ⭐</b></div>' +
         '<button class="pw-opt pw-premium" data-item="premium">' +
-          '<div class="pw-opt-head"><span class="pw-opt-name">Premium · 30 днів<span class="pw-tag">ХІТ</span></span>' +
+          '<div class="pw-opt-head"><span class="pw-opt-name">' + t('pw_premium_name') +
+          '<span class="pw-tag">' + t('pw_hit') + '</span></span>' +
           '<span class="pw-price">150 ⭐</span></div>' +
           '<ul class="pw-benefits">' +
-            '<li>♾️ Безлімітні вподобання</li>' +
-            '<li>👁 Фото без розмиття</li>' +
-            '<li>🧠 «Чому ви підходите» — без обмежень</li>' +
-            '<li>📊 Аналітика Digital Twin</li>' +
+            '<li>' + t('pw_b1') + '</li>' +
+            '<li>' + t('pw_b2') + '</li>' +
+            '<li>' + t('pw_b3') + '</li>' +
+            '<li>' + t('pw_b4') + '</li>' +
           '</ul>' +
         '</button>' +
         '<button class="pw-opt" data-item="swipe_pack">' +
-          '<div class="pw-opt-head"><span class="pw-opt-name">+30 вподобань</span>' +
+          '<div class="pw-opt-head"><span class="pw-opt-name">' + t('pw_pack_name') + '</span>' +
           '<span class="pw-price">10 ⭐</span></div>' +
-          '<div class="pw-opt-note">Топ-ап на сьогодні. Фото лишаються розмитими.</div>' +
+          '<div class="pw-opt-note">' + t('pw_pack_note') + '</div>' +
         '</button>' +
-        '<div class="pw-deposit-h">Поповнити баланс зірками Telegram</div>' +
+        '<div class="pw-deposit-h">' + t('pw_deposit_h') + '</div>' +
         '<div class="pw-deps">' +
           STAR_PACKS.map(function (p) {
             return '<button class="pw-dep" data-pack="' + p.id + '" data-stars="' + p.stars + '">' +
-              (p.tag ? '<span class="pw-dep-tag">' + p.tag + '</span>' : '') +
+              (p.tagKey ? '<span class="pw-dep-tag">' + t(p.tagKey) + '</span>' : '') +
               '<div class="pw-dep-amt">+' + p.stars + ' ⭐</div>' +
             '</button>';
           }).join('') +
         '</div>' +
-        '<div class="pw-invite">Мало зірок? <u id="pwInvite">Запроси друзів (+15 ⭐ за кожного)</u></div>' +
+        '<div class="pw-invite">' + t('pw_invite_q') + ' <u id="pwInvite">' + t('pw_invite_u') + '</u></div>' +
         '<div class="pw-note" id="pwNote"></div>' +
       '</div>';
     document.body.appendChild(overlay);
@@ -189,15 +198,15 @@
     Array.prototype.forEach.call(overlay.querySelectorAll('.pw-dep'), function (btn) {
       btn.addEventListener('click', function () {
         if (busy) return;
-        var t = tg();
-        if (!t || typeof t.openInvoice !== 'function') {
-          note.textContent = 'Оплата зірками доступна лише в застосунку Telegram.';
+        var twa = tg();   // NOT `t` — that's the i18n lookup in this module
+        if (!twa || typeof twa.openInvoice !== 'function') {
+          note.textContent = t('pw_tg_only');
           return;
         }
         var packId = btn.getAttribute('data-pack');
         var stars = parseInt(btn.getAttribute('data-stars'), 10) || 0;
         busy = true;
-        note.textContent = 'Готуємо рахунок…';
+        note.textContent = t('pw_invoice_prep');
         haptic('medium');
         fetch('/api/interact', {
           method: 'POST',
@@ -206,26 +215,26 @@
         }).then(function (r) { return r.json(); }).then(function (res) {
           busy = false;
           if (!res || !res.ok || !res.invoiceLink) {
-            note.textContent = 'Не вдалося створити рахунок. Спробуй ще раз.';
+            note.textContent = t('pw_invoice_fail');
             return;
           }
           note.textContent = '';
-          t.openInvoice(res.invoiceLink, function (status) {
+          twa.openInvoice(res.invoiceLink, function (status) {
             if (status === 'paid') {
               notify('success');
               balance += stars; updateBal();
-              note.textContent = '✅ +' + stars + ' ⭐ зараховано на баланс!';
+              note.textContent = t('pw_paid', { n: stars });
               try { console.info('[Sixtio] Stars deposit paid:', packId, '(+' + stars + ' ⭐)'); } catch (e) {}
               reconcileDeposit(stars);
             } else if (status === 'failed') {
-              note.textContent = 'Оплата не пройшла. Спробуй ще раз.';
+              note.textContent = t('pw_pay_fail');
             } else {
               note.textContent = '';   // cancelled / pending — no-op
             }
           });
         }).catch(function () {
           busy = false;
-          note.textContent = 'Помилка мережі. Спробуй ще раз.';
+          note.textContent = t('pw_net_err');
         });
       });
     });
@@ -236,11 +245,11 @@
         var item = btn.getAttribute('data-item');
         var price = item === 'premium' ? PREMIUM_PRICE : PACK_PRICE;
         if (balance < price) {
-          note.textContent = 'Недостатньо зірок — запроси друзів, щоб заробити ⭐';
+          note.textContent = t('pw_insufficient_invite');
           return;
         }
         busy = true;
-        note.textContent = 'Обробка…';
+        note.textContent = t('pw_processing');
         haptic('medium');
         fetch('/api/interact', {
           method: 'POST',
@@ -251,7 +260,7 @@
           if (!res || !res.ok) {
             if (res && typeof res.starsBalance === 'number') { balance = res.starsBalance; updateBal(); }
             note.textContent = (res && res.reason === 'insufficient')
-              ? 'Недостатньо зірок.' : 'Не вдалося. Спробуй ще раз.';
+              ? t('pw_insufficient') : t('pw_fail');
             return;
           }
           notify('success');
@@ -277,7 +286,7 @@
           if (opts.onSuccess) opts.onSuccess(res);
         }).catch(function () {
           busy = false;
-          note.textContent = 'Помилка мережі. Спробуй ще раз.';
+          note.textContent = t('pw_net_err');
         });
       });
     });

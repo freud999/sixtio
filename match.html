@@ -6,6 +6,7 @@
 <title>Sixtio — наш метч</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="i18n.js"></script>
 <script src="theme.js"></script>
 <script src="paywall.js"></script>
 <link rel="stylesheet" href="theme.css" />
@@ -222,7 +223,7 @@
           }
           if (m.intimateTagsBlurred) {
             var h = document.createElement('div'); h.className = 'dark-hint';
-            h.textContent = '💎 Premium відкриває спільні інтимні маркери — торкнись, щоб відкрити';
+            h.textContent = SixtioI18n.t('match_locked_hint');
             box.appendChild(h);
             // Deep-link the locked box into the Stars shop, Premium first.
             box.classList.add('locked');
@@ -231,7 +232,7 @@
               if (window.SixtioPaywall) {
                 window.SixtioPaywall.open({
                   initData: initData, starsBalance: starsBal, highlight: 'premium',
-                  subtitle: '🔥 Спільні інтимні маркери приховано. Premium відкриває їх повністю 💎',
+                  subtitle: SixtioI18n.t('pw_locked_subtitle'),
                   onSuccess: function(){ window.location.reload(); }
                 });
               }

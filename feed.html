@@ -6,6 +6,7 @@
 <title>Sixtio — знайти пару</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="i18n.js"></script>
 <script src="theme.js"></script>
 <script src="paywall.js"></script>
 <link rel="stylesheet" href="theme.css" />
@@ -189,10 +190,10 @@
   <div class="mystery" id="mysteryCard" hidden>
     <div class="mystery-orb" id="mysteryOrb"><span class="q">?</span></div>
     <div class="mystery-body">
-      <div class="mystery-title">🔥 Таємний метч дня</div>
+      <div class="mystery-title" data-i18n="mystery_title">🔥 Таємний метч дня</div>
       <div class="mystery-pct" id="mysteryPct">— % сумісності</div>
       <div class="mystery-name" id="mysteryName" hidden></div>
-      <button class="mystery-btn" id="mysteryBtn">🔓 Розблокувати особу · 10 ⭐</button>
+      <button class="mystery-btn" id="mysteryBtn" data-i18n="mystery_unlock">🔓 Розблокувати особу · 10 ⭐</button>
     </div>
   </div>
 
@@ -201,15 +202,15 @@
   </div>
 
   <div class="actions" id="actions" hidden>
-    <button class="act nope" id="nopeBtn" aria-label="Пропустити">✕</button>
-    <button class="act like" id="likeBtn" aria-label="Подобається">💜</button>
+    <button class="act nope" id="nopeBtn" data-i18n-aria="act_skip" aria-label="Пропустити">✕</button>
+    <button class="act like" id="likeBtn" data-i18n-aria="act_like" aria-label="Подобається">💜</button>
   </div>
 
   <div class="loot-back" id="lootBack">
     <div class="loot-sheet">
       <div class="loot-h">
-        <div class="t">🎁 Скриньки Удачі</div>
-        <div class="s" id="lootSub">Ліміт свайпів вичерпано. Спробуй удачу — перша скринька безкоштовна!</div>
+        <div class="t" data-i18n="loot_title">🎁 Скриньки Удачі</div>
+        <div class="s" id="lootSub" data-i18n="loot_sub">Ліміт свайпів вичерпано. Спробуй удачу — перша скринька безкоштовна!</div>
       </div>
       <div class="loot-boxes" id="lootBoxes">
         <button class="loot-box" data-i="0">🎁</button>
@@ -218,17 +219,17 @@
       </div>
       <div class="loot-result" id="lootResult"></div>
       <div class="loot-actions">
-        <div class="loot-cost" id="lootCost">Перша скринька — безкоштовно</div>
-        <button class="loot-premium" id="lootPremium">💎 Або Premium — безлімітні свайпи</button>
-        <button class="loot-close" id="lootClose">Закрити</button>
+        <div class="loot-cost" id="lootCost" data-i18n="loot_first_free">Перша скринька — безкоштовно</div>
+        <button class="loot-premium" id="lootPremium" data-i18n="loot_premium">💎 Або Premium — безлімітні свайпи</button>
+        <button class="loot-close" id="lootClose" data-i18n="close">Закрити</button>
       </div>
     </div>
   </div>
 
   <nav class="tab-bar">
-    <a class="tab-item active" href="matches.html"><span class="ico">💜</span>Метчі</a>
-    <a class="tab-item" href="chat.html"><span class="ico">💬</span>Чат</a>
-    <a class="tab-item" href="profile.html"><span class="ico">👤</span>Профіль</a>
+    <a class="tab-item active" href="matches.html"><span class="ico">💜</span><span data-i18n="tab_matches">Метчі</span></a>
+    <a class="tab-item" href="chat.html"><span class="ico">💬</span><span data-i18n="tab_chat">Чат</span></a>
+    <a class="tab-item" href="profile.html"><span class="ico">👤</span><span data-i18n="tab_profile">Профіль</span></a>
   </nav>
 
   <script>
@@ -240,16 +241,8 @@
         try { tg.setHeaderColor && tg.setHeaderColor('bg_color'); } catch(e){}
       }
       var initData = (tg && tg.initData) || '';
-
-      // Ukrainian labels for the standardized kink markers (Dark Mode 18+).
-      var KINK_LABELS = {
-        dominant:'Домінування', submissive:'Підкорення', switch:'Світч',
-        sensual:'Чуттєвість', passionate:'Пристрасть', romantic:'Романтика',
-        tender:'Ніжність', playful:'Грайливість', experimental:'Експерименти',
-        adventurous:'Авантюрність', curious:'Допитливість', vanilla:'Класика',
-        roleplay:'Рольові ігри', bondage:'Бондаж', voyeur:'Вуаєризм',
-        exhibitionist:'Ексгібіціонізм'
-      };
+      // Localized UI copy + kink-marker labels (uk/en/ru) — Task 26.
+      var t = SixtioI18n.t, kinkLabel = SixtioI18n.kink;
 
       // Gender tint from the cached profile (feed doesn't carry it).
       try {
@@ -301,7 +294,7 @@
 
         if (!premium && c.photoUrl) {
           var lock = document.createElement('div');
-          lock.className = 'lock'; lock.textContent = '🔒 Premium';
+          lock.className = 'lock'; lock.textContent = t('lock_premium');
           el.appendChild(lock);
         }
 
@@ -324,21 +317,21 @@
         if (c.darkMode) {
           var dm = document.createElement('div'); dm.className = 'card-dark';
           var ds = document.createElement('div'); ds.className = 'dark-score';
-          ds.innerHTML = '🔥 Інтимна сумісність: <b>' + (c.intimateCompatibility || 0) + '%</b>';
+          ds.innerHTML = t('intimate_score') + ' <b>' + (c.intimateCompatibility || 0) + '%</b>';
           dm.appendChild(ds);
           // Premium males & females get the real matching tags. Free males get
           // an empty array (withheld server-side) + the locked upsell nudge.
           if (c.intimateTags && c.intimateTags.length) {
             var dt = document.createElement('div'); dt.className = 'dark-tags';
-            c.intimateTags.slice(0, 4).forEach(function(t){
+            c.intimateTags.slice(0, 4).forEach(function(tag){
               var chip = document.createElement('span'); chip.className = 'dark-tag';
-              chip.textContent = KINK_LABELS[t] || t;
+              chip.textContent = kinkLabel(tag);
               dt.appendChild(chip);
             });
             dm.appendChild(dt);
           } else if (c.intimateTagsBlurred) {
             var dh = document.createElement('div'); dh.className = 'dark-hint';
-            dh.textContent = '🔓 Premium — щоб побачити спільні збіги';
+            dh.textContent = t('dark_hint');
             dm.appendChild(dh);
           }
           info.appendChild(dm);
@@ -364,7 +357,7 @@
       function showEmpty(){
         deckEl.innerHTML =
           '<div class="state"><div class="emo">💜</div>' +
-          '<div class="txt"><b>Поки що це всі.</b><br>Онови анкету через «Покращити профіль» — і зазирни згодом, зʼявляться нові люди.</div></div>';
+          '<div class="txt">' + t('feed_empty') + '</div></div>';
         actionsEl.hidden = true;
       }
 
@@ -522,7 +515,7 @@
           if (!deck.length) {
             deckEl.innerHTML =
               '<div class="state"><div class="emo">📡</div>' +
-              '<div class="txt">Не вдалося завантажити. Перевір зʼєднання і спробуй ще.</div></div>';
+              '<div class="txt">' + t('feed_net_error') + '</div></div>';
           }
         });
       }
@@ -547,7 +540,7 @@
         mystery = m || null;
         if (!mystery) { mysteryCard.hidden = true; return; }
         mysteryCard.hidden = false;
-        var pct = (mystery.compatibility == null ? '—' : mystery.compatibility) + '% сумісності';
+        var pct = t('mystery_pct', { pct: (mystery.compatibility == null ? '—' : mystery.compatibility) });
         mysteryPct.innerHTML = '<b>' + pct + '</b>';
         if (mystery.unlocked) {
           mysteryOrb.innerHTML = '';
@@ -565,20 +558,20 @@
           mysteryOrb.innerHTML = '<span class="q">?</span>';
           mysteryName.hidden = true;
           mysteryBtn.hidden = false; mysteryBtn.disabled = false;
-          mysteryBtn.textContent = '🔓 Розблокувати особу · 10 ⭐';
+          mysteryBtn.textContent = t('mystery_unlock');
         }
       }
 
       mysteryBtn.addEventListener('click', function(){
         if (mysteryBusy || !mystery || mystery.unlocked) return;
         if (starsBalance() < 10) { haptic('rigid'); openPaywall(); return; }   // top up first
-        mysteryBusy = true; mysteryBtn.disabled = true; mysteryBtn.textContent = 'Розблокування…';
+        mysteryBusy = true; mysteryBtn.disabled = true; mysteryBtn.textContent = t('mystery_unlocking');
         api('/api/interact', { op: 'unlock_mystery_match' }).then(function(res){
           mysteryBusy = false;
           if (!res || !res.ok) {
             mysteryBtn.disabled = false;
-            if (res && res.reason === 'insufficient') { mysteryBtn.textContent = 'Недостатньо ⭐'; openPaywall(); }
-            else mysteryBtn.textContent = '🔓 Розблокувати особу · 10 ⭐';
+            if (res && res.reason === 'insufficient') { mysteryBtn.textContent = t('not_enough_stars'); openPaywall(); }
+            else mysteryBtn.textContent = t('mystery_unlock');
             return;
           }
           if (typeof res.starsBalance === 'number') persistStars(res.starsBalance);
@@ -586,7 +579,7 @@
           haptic('heavy');
         }).catch(function(){
           mysteryBusy = false; mysteryBtn.disabled = false;
-          mysteryBtn.textContent = '🔓 Розблокувати особу · 10 ⭐';
+          mysteryBtn.textContent = t('mystery_unlock');
         });
       });
 
@@ -596,9 +589,9 @@
       var lootResult = document.getElementById('lootResult');
       var lootCost   = document.getElementById('lootCost');
       var LOOT_LABELS = {
-        '+3_swipes':   '🎉 +3 безкоштовні свайпи!',
-        'discount_30': '🏷️ 30% знижка на Premium!',
-        'empty':       'Пусто… Спробуй ще завтра!'
+        '+3_swipes':   t('loot_win_swipes'),
+        'discount_30': t('loot_win_discount'),
+        'empty':       t('loot_win_empty')
       };
 
       function openLootboxModal(){
@@ -608,7 +601,7 @@
         Array.prototype.forEach.call(lootBoxesEl.children, function(b){
           b.className = 'loot-box'; b.textContent = '🎁'; b.disabled = false;
         });
-        lootCost.textContent = 'Перша скринька — безкоштовно';
+        lootCost.textContent = t('loot_first_free');
         lootBack.classList.add('show');
       }
       function closeLootbox(){ lootOpen = false; lootBack.classList.remove('show'); }
@@ -620,9 +613,9 @@
           api('/api/interact', { op: 'open_lootbox' }).then(function(res){
             lootBusy = false; box.classList.remove('opening');
             if (!res || !res.ok) {   // out of Stars for another paid open
-              lootResult.textContent = 'Недостатньо ⭐ для ще однієї спроби';
+              lootResult.textContent = t('loot_no_stars');
               lootResult.className = 'loot-result';
-              lootCost.textContent = 'Спробуй Premium нижче ⬇';
+              lootCost.textContent = t('loot_try_premium');
               return;
             }
             if (typeof res.starsBalance === 'number') persistStars(res.starsBalance);
@@ -643,7 +636,7 @@
                   JSON.stringify({ pct: 30, day: new Date().toISOString().slice(0, 10) }));
               } catch(e){}
             }
-            lootCost.textContent = 'Наступна скринька — 5 ⭐ · баланс: ' + starsBalance() + ' ⭐';
+            lootCost.textContent = t('loot_next', { bal: starsBalance() });
           }).catch(function(){ lootBusy = false; box.classList.remove('opening'); });
         });
       });

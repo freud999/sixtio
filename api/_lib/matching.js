@@ -36,8 +36,13 @@ const PROFILE_COLS = 'traits_json, vibe, summary_text, portrait_json';
  * excludes anyone already paired with this user or already at their match cap,
  * lets Claude pick the most compatible one, records it and notifies both.
  * People may hold several matches — this can be called repeatedly over time.
+ *
+ * `lang` (Task 26): the triggering user's native Telegram language — the AI
+ * writes the match reason in it. The reason is shared with the partner, so a
+ * cross-language pair sees it in the initiator's language (known limitation:
+ * per-user reasons would need a schema change).
  */
-export async function runMatching(userId) {
+export async function runMatching(userId, lang = 'uk') {
   const supabase = getSupabase();
 
   const { data: me, error: meError } = await supabase
@@ -91,7 +96,8 @@ export async function runMatching(userId) {
 
   const verdict = await scoreCandidates(
     describe(me, myProfile),
-    shortlist.map((e, index) => ({ index, ...describe(e.user, e.profile) }))
+    shortlist.map((e, index) => ({ index, ...describe(e.user, e.profile) })),
+    lang
   );
   if (!verdict || verdict.best < 0 || verdict.best >= shortlist.length) return null;
   if (verdict.score < MIN_SCORE) return null;

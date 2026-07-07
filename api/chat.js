@@ -1,4 +1,4 @@
-import { resolveUser } from './_lib/telegram.js';
+import { resolveUser, resolveLang } from './_lib/telegram.js';
 import {
   getSupabase, findUserId, resolveMatchForUser,
   getShareState, setShareConsent,
@@ -77,11 +77,13 @@ async function list(res, tgUser, body) {
     createdAt: m.created_at,
   }));
 
+  const NAME_FALLBACK = { uk: 'Твоя пара', en: 'Your match', ru: 'Твоя пара' };
   return res.status(200).json({
     hasMatch: true,
     matchId: match.matchId,
     partner: {
-      name: (partner && (partner.name || '').split(' ')[0]) || 'Твоя пара',
+      name: (partner && (partner.name || '').split(' ')[0]) ||
+        NAME_FALLBACK[resolveLang(tgUser)] || NAME_FALLBACK.uk,
       photoUrl: partner ? partner.photo_url : null,
     },
     messages,
@@ -215,13 +217,15 @@ async function whyFactor(res, tgUser, body) {
     .from('profiles').select(PCOLS).eq('user_id', match.partnerId).maybeSingle();
 
   // Intimate markers only on a MUTUAL Dark Mode opt-in — otherwise withheld.
+  // The paragraph is generated in the requesting user's native language (Task 26).
   const mutualIntimate = !!(me.dark_mode_active && partner && partner.dark_mode_active);
   const text = await generateWhyFactor(
     { gender: me.gender, traits: myProfile, kink: mutualIntimate ? me.kink_markers : [] },
     {
       name: partner && partner.name, gender: partner && partner.gender,
       traits: partnerProfile, kink: mutualIntimate ? (partner && partner.kink_markers) : [],
-    }
+    },
+    resolveLang(tgUser)
   );
 
   // Settle after a successful generation (premium reveals free). For free males:

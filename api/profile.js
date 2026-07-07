@@ -1,4 +1,4 @@
-import { resolveUser, getStartParam } from './_lib/telegram.js';
+import { resolveUser, getStartParam, resolveLang } from './_lib/telegram.js';
 import { getSupabase, upsertUser } from './_lib/supabase.js';
 import { generateProfile } from './_lib/claude.js';
 import { questionLabel } from './_lib/questions.js';
@@ -38,7 +38,9 @@ export default async function handler(req, res) {
     const qaLines = rows.map(
       (r) => `Питання: ${questionLabel(r.question_id)}\nВідповідь: ${r.answer_text}\n`
     );
-    const profile = await generateProfile(qaLines, userRow ? userRow.gender : null);
+    // Digital Twin traits/vibe/summary in the user's native language (Task 26).
+    const lang = resolveLang(tgUser);
+    const profile = await generateProfile(qaLines, userRow ? userRow.gender : null, lang);
 
     const { error: upsertError } = await supabase.from('profiles').upsert(
       {
@@ -66,7 +68,7 @@ export default async function handler(req, res) {
     // Instant matchmaking: try to pair this user right after their profile is ready.
     // Never let matching (or its bot notifications) fail the profile response.
     try {
-      await runMatching(userId);
+      await runMatching(userId, lang);
     } catch (matchError) {
       console.error('matching failed:', matchError.message);
     }
