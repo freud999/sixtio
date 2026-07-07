@@ -6,7 +6,16 @@ import {
   MYSTERY_UNLOCK_PRICE, LOOTBOX_PRICE,
 } from './_lib/entitlements.js';
 import { processKinkInterview } from './_lib/kink.js';
-import { notifyInstantMatch } from './_lib/bot.js';
+import { notifyInstantMatch, callBot } from './_lib/bot.js';
+
+// Real Telegram Stars top-up packs (Task 19). Server-authoritative so the client
+// can never forge the price/amount: buying pack P pays P.stars Telegram Stars
+// (currency XTR) and credits the same number to the in-app wallet on payment.
+const STAR_PACKS = {
+  pack_50:  { stars: 50,  title: 'Sixtio · 50 ⭐',  label: 'Поповнення балансу · 50 ⭐' },
+  pack_100: { stars: 100, title: 'Sixtio · 100 ⭐', label: 'Поповнення балансу · 100 ⭐' },
+  pack_250: { stars: 250, title: 'Sixtio · 250 ⭐', label: 'Поповнення балансу · 250 ⭐' },
+};
 
 // Chance-based lootbox reward table. Rolled server-side so the client can't
 // bias the odds: 40% +3 swipes, 20% a 30% Premium discount, 40% nothing.
@@ -46,6 +55,7 @@ export default async function handler(req, res) {
     }
 
     const op = body.op || (body.item ? 'purchase' : 'swipe');
+    if (op === 'create_stars_invoice') return createStarsInvoice(res, tgUser, body);
     if (op === 'purchase') return purchase(req, res, tgUser, body);
     if (op === 'toggle_dark_mode') return toggleDarkMode(res, tgUser, body);
     if (op === 'submit_kink_interview') return submitKinkInterview(res, tgUser, body);
@@ -202,6 +212,40 @@ async function purchase(req, res, tgUser, body) {
     likesLeft: likesLeftForClient(ent),
     blur: ent.blur,
   });
+}
+
+// --- Create Stars invoice (real top-up) ---------------------------------
+// Builds a one-off Telegram Stars invoice link for a top-up pack and hands it to
+// the client, which opens it with Telegram.WebApp.openInvoice. The wallet is NOT
+// credited here — crediting happens ONLY on the signed successful_payment webhook
+// (api/_lib/analytics.js), so a user can never self-credit by hitting this route.
+//   * currency:       'XTR'  (Telegram Stars — the only accepted token)
+//   * provider_token: ''     (MUST be empty for Stars)
+//   * prices:         [{ amount }] where amount is the whole number of Stars
+//   * payload:        'deposit:<userId>:<packId>' — echoed back on payment so the
+//                     webhook can attribute the credit to the right buyer.
+async function createStarsInvoice(res, tgUser, body) {
+  const packId = typeof body.packId === 'string' ? body.packId : '';
+  const pack = STAR_PACKS[packId];
+  if (!pack) return res.status(400).json({ error: 'unknown packId' });
+
+  const userId = await findUserId(tgUser.id);
+  if (!userId) return res.status(200).json({ ok: false });
+
+  try {
+    const invoiceLink = await callBot('createInvoiceLink', {
+      title: pack.title,
+      description: `Поповнення балансу Sixtio на ${pack.stars} ⭐. Оплата зірками Telegram.`,
+      payload: `deposit:${userId}:${packId}`,
+      provider_token: '',                                   // empty = Telegram Stars
+      currency: 'XTR',
+      prices: [{ label: pack.label, amount: pack.stars }],  // XTR amount = whole Stars
+    });
+    return res.status(200).json({ ok: true, invoiceLink, packId, stars: pack.stars });
+  } catch (e) {
+    console.error('createInvoiceLink failed:', e.message);
+    return res.status(502).json({ ok: false, error: 'invoice_failed' });
+  }
 }
 
 // --- Dark Mode toggle ---------------------------------------------------

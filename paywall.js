@@ -7,6 +7,14 @@
   var PACK_PRICE = 10;
   var injected = false;
 
+  // Real Telegram Stars top-up packs (Task 19). Ids MUST match STAR_PACKS in
+  // api/interact.js; the actual price/credit is enforced server-side.
+  var STAR_PACKS = [
+    { id: 'pack_50',  stars: 50 },
+    { id: 'pack_100', stars: 100, tag: 'ПОПУЛЯРНЕ' },
+    { id: 'pack_250', stars: 250, tag: 'ВИГІДНО' },
+  ];
+
   var CSS =
     '.pw-overlay{position:fixed;inset:0;z-index:1000;display:flex;align-items:flex-end;' +
     'justify-content:center;background:rgba(6,4,16,.55);-webkit-backdrop-filter:blur(6px);' +
@@ -42,7 +50,22 @@
     '.pw-opt-note{font-size:12.5px;color:var(--hint);margin-top:6px;line-height:1.45;}' +
     '.pw-invite{font-size:12.5px;color:var(--hint);text-align:center;margin-top:14px;}' +
     '.pw-invite u{color:var(--neon-b);cursor:pointer;text-decoration:none;}' +
-    '.pw-note{font-size:12.5px;color:var(--neon-b);text-align:center;min-height:16px;margin-top:10px;}';
+    '.pw-note{font-size:12.5px;color:var(--neon-b);text-align:center;min-height:16px;margin-top:10px;}' +
+    // --- Real Stars top-up packs (Task 19) ---
+    '.pw-deposit-h{font-size:11px;letter-spacing:.14em;color:var(--hint);text-align:center;' +
+    'margin-top:18px;text-transform:uppercase;}' +
+    '.pw-packs{display:flex;gap:8px;margin-top:10px;}' +
+    '.pw-pack{flex:1;position:relative;padding:14px 8px;border-radius:18px;cursor:pointer;' +
+    'font-family:inherit;color:var(--text);text-align:center;' +
+    'background:var(--faux-glass);transition:transform .12s ease;' +
+    'border:1px solid color-mix(in srgb, var(--neon-b) 40%, transparent);' +
+    'box-shadow:0 10px 30px -18px color-mix(in srgb, var(--neon-b) 80%, transparent);}' +
+    '.pw-pack:active{transform:scale(.96);}' +
+    '.pw-pack-amt{font-size:17px;font-weight:800;color:var(--neon-b);}' +
+    '.pw-pack-sub{font-size:10.5px;color:var(--hint);margin-top:3px;}' +
+    '.pw-pack-tag{position:absolute;top:-8px;left:50%;transform:translateX(-50%);' +
+    'padding:2px 7px;border-radius:999px;font-size:9px;font-weight:800;letter-spacing:.05em;' +
+    'white-space:nowrap;background:var(--neon-b);color:#04121a;}';
 
   function injectStyle() {
     if (injected) return;
@@ -93,6 +116,16 @@
           '<span class="pw-price">10 ⭐</span></div>' +
           '<div class="pw-opt-note">Топ-ап на сьогодні. Фото лишаються розмитими.</div>' +
         '</button>' +
+        '<div class="pw-deposit-h">Поповнити баланс зірками Telegram</div>' +
+        '<div class="pw-packs">' +
+          STAR_PACKS.map(function (p) {
+            return '<button class="pw-pack" data-pack="' + p.id + '" data-stars="' + p.stars + '">' +
+              (p.tag ? '<span class="pw-pack-tag">' + p.tag + '</span>' : '') +
+              '<div class="pw-pack-amt">+' + p.stars + ' ⭐</div>' +
+              '<div class="pw-pack-sub">' + p.stars + ' XTR</div>' +
+            '</button>';
+          }).join('') +
+        '</div>' +
         '<div class="pw-invite">Мало зірок? <u id="pwInvite">Запроси друзів (+15 ⭐ за кожного)</u></div>' +
         '<div class="pw-note" id="pwNote"></div>' +
       '</div>';
@@ -113,6 +146,66 @@
     overlay.querySelector('#pwInvite').addEventListener('click', function () {
       close();
       window.location.href = 'profile.html';   // referral system lives on the profile
+    });
+
+    // --- Real Stars top-up via Telegram.WebApp.openInvoice (Task 19) --------
+    // Fetch a fresh invoice link from the server, open Telegram's native Stars
+    // sheet, and on 'paid' optimistically reflect the credit (the webhook applies
+    // it server-side moments later, so we also reconcile from /api/me shortly after).
+    function reconcileDeposit(added) {
+      // Immediate optimistic bump of any on-page wallet badge (profile header).
+      try {
+        var el = document.getElementById('starsBalance');
+        if (el) el.textContent = (parseInt(el.textContent, 10) || 0) + added;
+      } catch (e) {}
+      // Authoritative refresh once the webhook has had time to land.
+      setTimeout(function () {
+        if (opts.onSuccess) { try { opts.onSuccess({ ok: true, deposit: true, starsAdded: added }); } catch (e) {} }
+      }, 2500);
+    }
+
+    Array.prototype.forEach.call(overlay.querySelectorAll('.pw-pack'), function (btn) {
+      btn.addEventListener('click', function () {
+        if (busy) return;
+        var t = tg();
+        if (!t || typeof t.openInvoice !== 'function') {
+          note.textContent = 'Оплата зірками доступна лише в застосунку Telegram.';
+          return;
+        }
+        var packId = btn.getAttribute('data-pack');
+        var stars = parseInt(btn.getAttribute('data-stars'), 10) || 0;
+        busy = true;
+        note.textContent = 'Готуємо рахунок…';
+        haptic('medium');
+        fetch('/api/interact', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ op: 'create_stars_invoice', initData: initData, packId: packId }),
+        }).then(function (r) { return r.json(); }).then(function (res) {
+          busy = false;
+          if (!res || !res.ok || !res.invoiceLink) {
+            note.textContent = 'Не вдалося створити рахунок. Спробуй ще раз.';
+            return;
+          }
+          note.textContent = '';
+          t.openInvoice(res.invoiceLink, function (status) {
+            if (status === 'paid') {
+              notify('success');
+              balance += stars; updateBal();
+              note.textContent = '✅ +' + stars + ' ⭐ зараховано на баланс!';
+              try { console.info('[Sixtio] Stars deposit paid:', packId, '(+' + stars + ' ⭐)'); } catch (e) {}
+              reconcileDeposit(stars);
+            } else if (status === 'failed') {
+              note.textContent = 'Оплата не пройшла. Спробуй ще раз.';
+            } else {
+              note.textContent = '';   // cancelled / pending — no-op
+            }
+          });
+        }).catch(function () {
+          busy = false;
+          note.textContent = 'Помилка мережі. Спробуй ще раз.';
+        });
+      });
     });
 
     Array.prototype.forEach.call(overlay.querySelectorAll('.pw-opt'), function (btn) {

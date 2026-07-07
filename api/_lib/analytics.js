@@ -33,6 +33,22 @@ export async function handleTelegramUpdate(req, res, update) {
     const cb = update.callback_query;
     const msg = update.message;
 
+    // --- Telegram Stars payments (Task 19) -------------------------------
+    // The bot webhook points here, so Stars checkout updates arrive on this path.
+    // pre_checkout_query MUST be answered ok:true within 10s or Telegram voids the
+    // payment; successful_payment then credits the wallet. Both are handled before
+    // the owner /stats logic and are open to every user (not owner-gated).
+    if (update.pre_checkout_query) {
+      await callBot('answerPreCheckoutQuery', {
+        pre_checkout_query_id: update.pre_checkout_query.id, ok: true,
+      }).catch((e) => console.error('answerPreCheckoutQuery failed:', e.message));
+      return res.status(200).json({ ok: true });
+    }
+    if (msg && msg.successful_payment) {
+      await creditSuccessfulPayment(msg);
+      return res.status(200).json({ ok: true });
+    }
+
     if (cb && typeof cb.data === 'string' && cb.data.startsWith('stats:')) {
       if (!isOwner(cb.from)) {
         console.log('Stats callback but ID mismatch:', cb.from && cb.from.id, 'vs env:', OWNER_TELEGRAM_ID);
@@ -59,6 +75,46 @@ export async function handleTelegramUpdate(req, res, update) {
   } catch (e) {
     console.error('analytics update failed:', e.message);
     return res.status(200).json({ ok: true });       // never make Telegram retry
+  }
+}
+
+// --- Stars deposit crediting (Task 19) -----------------------------------
+// Credits a wallet from a Telegram Stars payment. The amount of Stars credited is
+// taken from Telegram's own total_amount (never trusted from the client), and the
+// buyer is identified by both the authenticated `from.id` and the userId embedded
+// in the invoice payload. Crediting runs through credit_stars_deposit, which is
+// idempotent on telegram_payment_charge_id — so a redelivered webhook is a silent
+// no-op and can never double-credit real money. Never throws (always 200 upstream).
+async function creditSuccessfulPayment(msg) {
+  try {
+    const sp = msg.successful_payment;
+    const payload = String(sp.invoice_payload || '');
+    const parts = payload.split(':');            // deposit:<userId>:<packId>
+    if (parts[0] !== 'deposit') return;          // not ours — ignore
+
+    const userId = parts[1] || null;
+    const tgId = msg.from && msg.from.id;
+    const stars = Number(sp.total_amount || 0);  // XTR total = whole Stars paid
+    const charge = sp.telegram_payment_charge_id;
+    if (!tgId || !stars || !charge) {
+      console.error('successful_payment missing fields:', { tg: !!tgId, stars, charge: !!charge });
+      return;
+    }
+
+    const supabase = getSupabase();
+    const { data: newBalance, error } = await supabase.rpc('credit_stars_deposit', {
+      p_charge: charge, p_user: userId, p_tg: tgId, p_stars: stars, p_payload: payload,
+    });
+    if (error) throw error;
+
+    if (newBalance === null || newBalance === undefined) {
+      // Duplicate webhook for an already-processed charge — expected, harmless.
+      console.log('Stars deposit already processed (idempotent no-op):', charge);
+    } else {
+      console.info('[Sixtio] Stars deposit credited:', stars, '⭐ → balance', newBalance);
+    }
+  } catch (e) {
+    console.error('successful_payment credit failed:', e.message);
   }
 }
 
