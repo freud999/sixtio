@@ -17,8 +17,6 @@
   body > *{ position:relative; z-index:1; }
   .bg-dots, .bg-aura{ z-index:0; }
 
-  .page-title{ font-size:15px; letter-spacing:.12em; }
-
   /* empty / searching state */
   .search-banner{ display:flex; align-items:center; gap:12px; width:100%; max-width:460px;
     padding:14px 16px; }
@@ -33,9 +31,11 @@
 
   /* compact match list */
   .match-list{ width:100%; max-width:460px; display:flex; flex-direction:column; gap:10px; }
+  /* Rows are <a> elements — explicitly strip link styling so name/age, city and
+     the vibe line read as premium card typography, never underlined hyperlinks. */
   .match-row{ display:flex; align-items:center; gap:12px; width:100%; text-align:left;
     padding:11px 12px; border-radius:20px; cursor:pointer; font-family:inherit; color:var(--text);
-    transition:transform .12s ease; }
+    text-decoration:none; transition:transform .12s ease; }
   .match-row:active{ transform:scale(.985); }
   .row-ava{ width:56px; height:56px; border-radius:50%; object-fit:cover; flex-shrink:0;
     border:2px solid transparent; background:
@@ -46,7 +46,8 @@
     background:var(--faux-glass); border:1px solid var(--glass-border); color:var(--hint); }
   .row-main{ flex:1; min-width:0; }
   .row-top{ display:flex; align-items:baseline; gap:8px; }
-  .row-name{ font-size:16px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .row-name{ font-size:16px; font-weight:700; letter-spacing:.01em;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .row-score{ flex-shrink:0; font-size:11px; font-weight:800; letter-spacing:.04em;
     color:var(--a1); }
   /* Big Five compatibility pill */
@@ -79,8 +80,6 @@
   <div class="bg-dots" aria-hidden="true"></div>
   <div class="bg-aura one" aria-hidden="true"></div>
   <div class="bg-aura two" aria-hidden="true"></div>
-
-  <div class="page-title led grad-text">МЕТЧІ</div>
 
   <button class="btn-primary find-btn" id="findBtn">🔍 Знайти пару зараз</button>
 

@@ -18,7 +18,6 @@
   body > *{ position:relative; z-index:1; }
   .bg-dots, .bg-aura{ z-index:0; }
 
-  .page-title{ font-size:15px; letter-spacing:.12em; }
 
   /* head */
   .profile-head{ position:relative; width:100%; max-width:440px;
@@ -236,7 +235,6 @@
     <span class="sb-star" aria-hidden="true">⭐️</span><b id="starsBalance">0</b>
   </a>
 
-  <div class="page-title led grad-text">МІЙ ПРОФІЛЬ</div>
 
   <div class="profile-head">
     <button class="edit-gear" id="editBtn" aria-label="Редагувати анкету">⚙️</button>
@@ -392,11 +390,19 @@
         try { tg.setHeaderColor && tg.setHeaderColor('bg_color'); } catch(e){}
       }
 
-      var GOALS = {
-        longterm: 'Шукаю довготривалі стосунки',
-        fun: 'Хочу розважитись',
-        situational: 'Відкритий(-а) — по ситуації'
-      };
+      // Goal labels agree with the profile's gender (Task 23): «Відкрита» for
+      // women, «Відкритий» for men; the clunky '(-а)' form is only the fallback
+      // for a profile whose gender is somehow unknown.
+      function goalLabel(goal, gender){
+        if (goal === 'longterm') return 'Шукаю довготривалі стосунки';
+        if (goal === 'fun') return 'Хочу розважитись';
+        if (goal === 'situational') {
+          if (gender === 'female') return 'Відкрита — по ситуації';
+          if (gender === 'male') return 'Відкритий — по ситуації';
+          return 'Відкритий(-а) — по ситуації';
+        }
+        return '';
+      }
       var initData = (tg && tg.initData) || '';
       var current = null; // last known user fields
       var referralLink = ''; // this user's shareable invite link
@@ -444,8 +450,9 @@
         document.getElementById('meta').textContent = u.city ? '📍 ' + u.city : '';
 
         var badge = document.getElementById('goalBadge');
-        if (u.goal && GOALS[u.goal]) {
-          badge.textContent = GOALS[u.goal];
+        var goalText = goalLabel(u.goal, u.gender);
+        if (goalText) {
+          badge.textContent = goalText;
           badge.hidden = false;
         } else {
           badge.hidden = true;
@@ -748,7 +755,12 @@
         });
       }
       document.getElementById('deleteBtn').addEventListener('click', function(){
-        var msg = 'Видалити акаунт назавжди? Твоя анкета, відповіді, метчі, повідомлення й фото буде безповоротно стерто.';
+        // Informed consent (Task 23): deletion hard-forfeits the spendable ⭐
+        // wallet (users.stars_balance dies with the users row — see
+        // api/delete-account.js), so the prompt states the exact balance lost.
+        var starsBalance = (current && current.starsBalance) || 0;
+        var msg = 'Видалити акаунт назавжди? Твоя анкета, відповіді, метчі, повідомлення й фото буде безповоротно стерто.' +
+          '\n\n⚠️ Увага! Твій поточний баланс (' + starsBalance + ' ⭐️) буде безповоротно анульований без можливості повернення коштів після видалення акаунта.';
         if (tg && tg.showConfirm) {
           tg.showConfirm(msg, function(ok){ if (ok) doDelete(); });
         } else if (window.confirm(msg)) {

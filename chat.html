@@ -17,12 +17,11 @@
   body > *{ position:relative; z-index:1; }
   .bg-dots, .bg-aura{ z-index:0; }
 
-  .page-title{ font-size:15px; letter-spacing:.12em; }
-
   .list{ width:100%; max-width:460px; display:flex; flex-direction:column; gap:10px; }
+  /* Conversation rows are <a> elements — never render as underlined hyperlinks. */
   .conv{ display:flex; align-items:center; gap:12px; width:100%; text-align:left;
     padding:11px 12px; border-radius:20px; cursor:pointer; font-family:inherit; color:var(--text);
-    transition:transform .12s ease; }
+    text-decoration:none; transition:transform .12s ease; }
   .conv:active{ transform:scale(.985); }
   .c-ava{ width:56px; height:56px; border-radius:50%; object-fit:cover; flex-shrink:0;
     border:2px solid transparent; background:
@@ -48,8 +47,6 @@
   <div class="bg-dots" aria-hidden="true"></div>
   <div class="bg-aura one" aria-hidden="true"></div>
   <div class="bg-aura two" aria-hidden="true"></div>
-
-  <div class="page-title led grad-text">ЧАТ</div>
 
   <div class="list" id="list"></div>
 

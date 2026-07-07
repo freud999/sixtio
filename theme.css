@@ -65,6 +65,10 @@ html[data-gender="male"]{
 
 *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
 [hidden]{ display:none !important; }
+/* Links never look like raw hyperlinked HTML: cards/rows rendered as <a> (match
+   list, chat list) inherit the premium text color with no underline. Intentional
+   links restyle themselves (.tab-item, .empty a, .foot-link, .stars-badge). */
+a{ color:inherit; text-decoration:none; }
 html{ height:100%; }
 body{
   background:var(--bg-grad); background-attachment:fixed;
