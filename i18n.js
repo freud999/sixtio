@@ -10,7 +10,8 @@
 //   SixtioI18n.t('kv_step', { n: 1, total: 4 })   -> '{x}' params substituted
 //   SixtioI18n.kink('dominant')                   -> localized kink marker label
 //   <el data-i18n="key">, data-i18n-html, data-i18n-ph (placeholder),
-//   data-i18n-aria (aria-label) — applied automatically on DOMContentLoaded.
+//   data-i18n-aria (aria-label), data-i18n-alt (img alt) — applied
+//   automatically on DOMContentLoaded.
 (function () {
   var D = {
     // ------------------------------------------------------------- Ukrainian
@@ -28,6 +29,7 @@
       // feed (swipe deck)
       mystery_title: '🔥 Таємний метч дня',
       mystery_pct: '{pct}% сумісності',
+      mystery_pct_ph: '— % сумісності',
       mystery_unlock: '🔓 Розблокувати особу · 10 ⭐',
       mystery_unlocking: 'Розблокування…',
       not_enough_stars: 'Недостатньо ⭐',
@@ -56,6 +58,26 @@
       row_intimate: '🔥 Інтимна сумісність — {pct}%',
       pw_locked_subtitle: '🔥 Спільні інтимні маркери приховано. Premium відкриває їх повністю 💎',
       match_locked_hint: '💎 Premium відкриває спільні інтимні маркери — торкнись, щоб відкрити',
+      // match page (Task 27)
+      mt_back: '‹ Назад', aria_back: 'Назад',
+      mt_headline: '✨ ВАШ МЕТЧ',
+      mt_photo_alt: 'Фото пари',
+      mt_reason_lbl: 'Чому ви пасуєте',
+      mt_traits: 'Характер',
+      mt_bio: 'Про людину',
+      mt_dark: '🔥 Інтимна сумісність',
+      mt_why_btn: '🧠 Чому ми підходимо один одному?',
+      mt_write_btn: 'Написати повідомлення 💬',
+      mt_intimate_line: '🔥 Ваша інтимна сумісність — {pct}%',
+      // The Why Factor overlay (match page)
+      wf_title: '🧠 Чому ви підходите',
+      wf_analyzing: 'Sixtio аналізує вашу сумісність…',
+      wf_free_note: 'Перше розкриття на сьогодні — безкоштовне. Наступні — за Stars.',
+      wf_teaser: 'Ваша глибинна сумісність за пʼятьма осями особистості вже прорахована — щирість, темп життя, спосіб прив\'язаності та ще кілька несподіваних збігів чекають на тебе…',
+      wf_unlock: 'Розблокувати за Stars · {price} ⭐',
+      wf_shop_subtitle: 'Замало зірок, щоб розблокувати розкриття. Поповни баланс 💎',
+      wf_insufficient: 'Недостатньо зірок (потрібно 10 ⭐). Запроси друзів, щоб отримати більше.',
+      wf_fail: 'Не вдалося згенерувати. Спробуй ще раз.',
       // chat list
       chat_you: 'Ти: ',
       chat_start: 'Почніть розмову ✨',
@@ -109,6 +131,8 @@
       kink_q_3: 'Що для тебе однозначне табу, а до чого ти відкритий(-а) досліджувати з партнером?',
       // profile — edit form
       edit_title: 'Редагування анкети',
+      aria_shop: 'Магазин Stars', aria_edit: 'Редагувати анкету',
+      aria_photo: 'Змінити фото', alt_profile_photo: 'Фото профілю',
       f_seeking: 'Кого шукаю',
       opt_male: 'Чоловіка', opt_female: 'Жінку', opt_any: 'Неважливо',
       f_goal: 'Мета',
@@ -171,6 +195,7 @@
       privacy_policy: 'Privacy Policy',
       mystery_title: '🔥 Mystery Match of the Day',
       mystery_pct: '{pct}% compatibility',
+      mystery_pct_ph: '— % compatibility',
       mystery_unlock: '🔓 Reveal identity · 10 ⭐',
       mystery_unlocking: 'Unlocking…',
       not_enough_stars: 'Not enough ⭐',
@@ -198,6 +223,24 @@
       row_intimate: '🔥 Intimate compatibility — {pct}%',
       pw_locked_subtitle: '🔥 Your shared intimate markers are hidden. Premium reveals them in full 💎',
       match_locked_hint: '💎 Premium reveals your shared intimate markers — tap to unlock',
+      mt_back: '‹ Back', aria_back: 'Back',
+      mt_headline: '✨ YOUR MATCH',
+      mt_photo_alt: 'Match photo',
+      mt_reason_lbl: 'Why you fit together',
+      mt_traits: 'Personality',
+      mt_bio: 'About them',
+      mt_dark: '🔥 Intimate compatibility',
+      mt_why_btn: '🧠 Why do we match each other?',
+      mt_write_btn: 'Send a message 💬',
+      mt_intimate_line: '🔥 Your intimate compatibility — {pct}%',
+      wf_title: '🧠 Why you match',
+      wf_analyzing: 'Sixtio is analyzing your compatibility…',
+      wf_free_note: 'Today’s first reveal is free. The next ones cost Stars.',
+      wf_teaser: 'Your deep compatibility across five personality axes is already computed — sincerity, pace of life, attachment style and a few unexpected overlaps are waiting for you…',
+      wf_unlock: 'Unlock with Stars · {price} ⭐',
+      wf_shop_subtitle: 'Not enough Stars to unlock the reveal. Top up your balance 💎',
+      wf_insufficient: 'Not enough Stars (10 ⭐ needed). Invite friends to earn more.',
+      wf_fail: 'Couldn’t generate. Try again.',
       chat_you: 'You: ',
       chat_start: 'Start the conversation ✨',
       chat_empty: 'Conversations with your matches will appear here. No matches yet — open <a href="matches.html">Matches</a> and tap “Find a match”.',
@@ -246,6 +289,8 @@
       kink_q_2: 'How interested are you in roleplay, scenarios, or light bondage?',
       kink_q_3: 'What is a definite taboo for you, and what are you open to exploring with a partner?',
       edit_title: 'Edit profile',
+      aria_shop: 'Stars shop', aria_edit: 'Edit profile',
+      aria_photo: 'Change photo', alt_profile_photo: 'Profile photo',
       f_seeking: 'Who I’m looking for',
       opt_male: 'A man', opt_female: 'A woman', opt_any: 'Doesn’t matter',
       f_goal: 'Goal',
@@ -305,6 +350,7 @@
       privacy_policy: 'Политика конфиденциальности',
       mystery_title: '🔥 Тайный мэтч дня',
       mystery_pct: '{pct}% совместимости',
+      mystery_pct_ph: '— % совместимости',
       mystery_unlock: '🔓 Разблокировать личность · 10 ⭐',
       mystery_unlocking: 'Разблокировка…',
       not_enough_stars: 'Недостаточно ⭐',
@@ -332,6 +378,24 @@
       row_intimate: '🔥 Интимная совместимость — {pct}%',
       pw_locked_subtitle: '🔥 Общие интимные маркеры скрыты. Premium открывает их полностью 💎',
       match_locked_hint: '💎 Premium открывает общие интимные маркеры — коснись, чтобы открыть',
+      mt_back: '‹ Назад', aria_back: 'Назад',
+      mt_headline: '✨ ВАШ МЭТЧ',
+      mt_photo_alt: 'Фото пары',
+      mt_reason_lbl: 'Почему вы подходите',
+      mt_traits: 'Характер',
+      mt_bio: 'О человеке',
+      mt_dark: '🔥 Интимная совместимость',
+      mt_why_btn: '🧠 Почему мы подходим друг другу?',
+      mt_write_btn: 'Написать сообщение 💬',
+      mt_intimate_line: '🔥 Ваша интимная совместимость — {pct}%',
+      wf_title: '🧠 Почему вы подходите',
+      wf_analyzing: 'Sixtio анализирует вашу совместимость…',
+      wf_free_note: 'Первое раскрытие на сегодня — бесплатное. Следующие — за Stars.',
+      wf_teaser: 'Ваша глубинная совместимость по пяти осям личности уже просчитана — искренность, темп жизни, стиль привязанности и ещё несколько неожиданных совпадений ждут тебя…',
+      wf_unlock: 'Разблокировать за Stars · {price} ⭐',
+      wf_shop_subtitle: 'Маловато звёзд, чтобы разблокировать раскрытие. Пополни баланс 💎',
+      wf_insufficient: 'Недостаточно звёзд (нужно 10 ⭐). Пригласи друзей, чтобы получить больше.',
+      wf_fail: 'Не удалось сгенерировать. Попробуй ещё раз.',
       chat_you: 'Ты: ',
       chat_start: 'Начните разговор ✨',
       chat_empty: 'Здесь появятся разговоры с твоими парами. Пока мэтчей нет — загляни в <a href="matches.html">Мэтчи</a> и нажми «Найти пару».',
@@ -380,6 +444,8 @@
       kink_q_2: 'Насколько тебе интересны ролевые игры, сценарии или лёгкий бондаж?',
       kink_q_3: 'Что для тебя однозначное табу, а что ты открыт(а) исследовать с партнёром?',
       edit_title: 'Редактирование анкеты',
+      aria_shop: 'Магазин Stars', aria_edit: 'Редактировать анкету',
+      aria_photo: 'Изменить фото', alt_profile_photo: 'Фото профиля',
       f_seeking: 'Кого ищу',
       opt_male: 'Мужчину', opt_female: 'Женщину', opt_any: 'Неважно',
       f_goal: 'Цель',
@@ -476,6 +542,7 @@
   //   data-i18n-html  -> innerHTML (trusted dictionary markup only)
   //   data-i18n-ph    -> placeholder attribute
   //   data-i18n-aria  -> aria-label attribute
+  //   data-i18n-alt   -> alt attribute (images)
   function apply(root) {
     root = root || document;
     var i, els;
@@ -487,6 +554,8 @@
     for (i = 0; i < els.length; i++) els[i].setAttribute('placeholder', t(els[i].getAttribute('data-i18n-ph')));
     els = root.querySelectorAll('[data-i18n-aria]');
     for (i = 0; i < els.length; i++) els[i].setAttribute('aria-label', t(els[i].getAttribute('data-i18n-aria')));
+    els = root.querySelectorAll('[data-i18n-alt]');
+    for (i = 0; i < els.length; i++) els[i].setAttribute('alt', t(els[i].getAttribute('data-i18n-alt')));
   }
 
   if (document.readyState === 'loading') {

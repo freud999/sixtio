@@ -133,34 +133,34 @@
   <div class="bg-aura two" aria-hidden="true"></div>
 
   <div class="top-bar">
-    <button class="back" id="back" aria-label="Назад">‹ Назад</button>
+    <button class="back" id="back" data-i18n="mt_back" data-i18n-aria="aria_back" aria-label="Назад">‹ Назад</button>
   </div>
 
   <div class="match-card" id="card" hidden>
-    <div class="headline led">✨ ВАШ МЕТЧ</div>
+    <div class="headline led" data-i18n="mt_headline">✨ ВАШ МЕТЧ</div>
     <div class="ava-wrap">
-      <img class="ava" id="photo" alt="Фото пари" hidden />
+      <img class="ava" id="photo" data-i18n-alt="mt_photo_alt" alt="Фото пари" hidden />
       <div class="ava-ph" id="photoPh">🙂</div>
     </div>
     <div class="name" id="name"></div>
     <div class="meta" id="meta"></div>
     <div class="vibe" id="vibe" hidden></div>
     <div class="reason">
-      <span class="lbl">Чому ви пасуєте</span>
+      <span class="lbl" data-i18n="mt_reason_lbl">Чому ви пасуєте</span>
       <span id="reason"></span>
     </div>
-    <div class="sub" id="traitsLbl" hidden>Характер</div>
+    <div class="sub" id="traitsLbl" data-i18n="mt_traits" hidden>Характер</div>
     <div class="chips" id="traits"></div>
-    <div class="sub" id="interestsLbl" hidden>Інтереси</div>
+    <div class="sub" id="interestsLbl" data-i18n="interests" hidden>Інтереси</div>
     <div class="chips" id="interests"></div>
-    <div class="sub" id="bioLbl" hidden>Про людину</div>
+    <div class="sub" id="bioLbl" data-i18n="mt_bio" hidden>Про людину</div>
     <div class="bio" id="bio"></div>
-    <div class="sub" id="darkLbl" hidden>🔥 Інтимна сумісність</div>
+    <div class="sub" id="darkLbl" data-i18n="mt_dark" hidden>🔥 Інтимна сумісність</div>
     <div class="dark-box" id="darkBox" hidden></div>
   </div>
 
-  <button class="why-btn" id="whyBtn" hidden>🧠 Чому ми підходимо один одному?</button>
-  <button class="write-btn" id="writeBtn" hidden>Написати повідомлення 💬</button>
+  <button class="why-btn" id="whyBtn" data-i18n="mt_why_btn" hidden>🧠 Чому ми підходимо один одному?</button>
+  <button class="write-btn" id="writeBtn" data-i18n="mt_write_btn" hidden>Написати повідомлення 💬</button>
 
   <script>
     (function(){
@@ -172,6 +172,7 @@
         if (tg.BackButton) { try { tg.BackButton.show(); tg.BackButton.onClick(goBack); } catch(e){} }
       }
       var initData = (tg && tg.initData) || '';
+      var t = SixtioI18n.t;
       var matchId = new URLSearchParams(window.location.search).get('match') || null;
       var starsBal = 0;   // wallet balance for the paywall sheet, set from /api/me
 
@@ -209,15 +210,15 @@
           var box = document.getElementById('darkBox');
           box.innerHTML = '';
           var sc = document.createElement('div'); sc.className = 'dark-score';
-          sc.textContent = '🔥 Ваша інтимна сумісність — ' + m.intimateCompatibility + '%';
+          sc.textContent = t('mt_intimate_line', { pct: m.intimateCompatibility });
           box.appendChild(sc);
           var tagList = m.intimateTagsBlurred ? ['••••', '•••', '••••'] : (m.intimateTags || []);
           if (tagList.length) {
             var tw = document.createElement('div');
             tw.className = 'dark-tags' + (m.intimateTagsBlurred ? ' blurred' : '');
-            tagList.forEach(function(t){
+            tagList.forEach(function(tag){
               var s = document.createElement('span'); s.className = 'dark-tag';
-              s.textContent = t; tw.appendChild(s);
+              s.textContent = tag; tw.appendChild(s);
             });
             box.appendChild(tw);
           }
@@ -257,7 +258,7 @@
         why.hidden = false;
         why.addEventListener('click', function(){
           if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('medium'); } catch(e){} }
-          openWhyFactor(m.matchId, (pt.name || '').split(' ')[0] || 'вами');
+          openWhyFactor(m.matchId);
         });
       }
 
@@ -287,15 +288,15 @@
         }).catch(function(){ /* offline — cached shown */ });
 
       // ---- The Why Factor: fetch + glowing overlay with a typing reveal ------
-      function openWhyFactor(mId, name){
+      function openWhyFactor(mId){
         var overlay = document.createElement('div');
         overlay.className = 'why-overlay';
         overlay.innerHTML =
           '<div class="why-sheet">' +
-            '<button class="why-close" aria-label="Закрити">✕</button>' +
-            '<div class="why-title">🧠 Чому ви підходите</div>' +
+            '<button class="why-close" aria-label="' + t('close') + '">✕</button>' +
+            '<div class="why-title">' + t('wf_title') + '</div>' +
             '<div class="why-body" id="whyText"><span class="caret"></span></div>' +
-            '<div class="why-note" id="whyNote">Sixtio аналізує вашу сумісність…</div>' +
+            '<div class="why-note" id="whyNote">' + t('wf_analyzing') + '</div>' +
           '</div>';
         document.body.appendChild(overlay);
         requestAnimationFrame(function(){ overlay.classList.add('show'); });
@@ -331,20 +332,20 @@
         function showLocked(price){
           if (typeTimer) clearInterval(typeTimer);
           sheet.classList.add('locked');
-          note.textContent = 'Перше розкриття на сьогодні — безкоштовне. Наступні — за Stars.';
+          note.textContent = t('wf_free_note');
           bodyEl.innerHTML =
             '<div class="why-lockwrap">' +
-              '<div class="why-blur">Ваша глибинна сумісність за пʼятьма осями особистості вже прорахована — щирість, темп життя, спосіб прив\'язаності та ще кілька несподіваних збігів чекають на тебе…</div>' +
+              '<div class="why-blur">' + t('wf_teaser') + '</div>' +
               '<div class="why-lockcta">' +
                 '<div class="why-lockstar" aria-hidden="true">⭐️</div>' +
-                '<button class="why-unlock" id="whyUnlock">Розблокувати за Stars · ' + price + ' ⭐</button>' +
+                '<button class="why-unlock" id="whyUnlock">' + t('wf_unlock', { price: price }) + '</button>' +
               '</div>' +
             '</div>';
           overlay.querySelector('#whyUnlock').addEventListener('click', function(){
             if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('medium'); } catch(e){} }
             sheet.classList.remove('locked');
             bodyEl.innerHTML = '<span class="caret"></span>';
-            note.textContent = 'Розблокування…';
+            note.textContent = t('mystery_unlocking');
             requestReveal(true);
           });
         }
@@ -354,12 +355,12 @@
           if (window.SixtioPaywall) {
             window.SixtioPaywall.open({
               initData: initData, starsBalance: balance || 0,
-              subtitle: 'Замало зірок, щоб розблокувати розкриття. Поповни баланс 💎',
+              subtitle: t('wf_shop_subtitle'),
               onSuccess: function(){ note.textContent = ''; requestReveal(true); }
             });
           } else {
             bodyEl.textContent = '';
-            note.textContent = 'Недостатньо зірок (потрібно 10 ⭐). Запроси друзів, щоб отримати більше.';
+            note.textContent = t('wf_insufficient');
           }
         }
 
@@ -379,11 +380,11 @@
               openShop(res.starsBalance || 0);
             } else {
               bodyEl.textContent = '';
-              note.textContent = 'Не вдалося згенерувати. Спробуй ще раз.';
+              note.textContent = t('wf_fail');
             }
           }).catch(function(){
             bodyEl.textContent = '';
-            note.textContent = 'Не вдалося згенерувати. Спробуй ще раз.';
+            note.textContent = t('wf_fail');
           });
         }
 
