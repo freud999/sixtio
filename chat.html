@@ -31,7 +31,8 @@
     align-items:center; justify-content:center; font-size:26px;
     background:var(--faux-glass); border:1px solid var(--glass-border); color:var(--hint); }
   .c-main{ flex:1; min-width:0; }
-  .c-name{ font-size:16px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  /* Name+age always render in full — wrap instead of ellipsing (Task 25). */
+  .c-name{ font-size:16px; font-weight:700; line-height:1.25; overflow-wrap:break-word; }
   .c-last{ font-size:13px; color:var(--hint); margin-top:2px; white-space:nowrap;
     overflow:hidden; text-overflow:ellipsis; }
   .c-last.unseen{ color:var(--text); font-weight:600; }

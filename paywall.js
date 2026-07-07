@@ -45,6 +45,10 @@
     '.pw-premium{color:#fff;border:1px solid color-mix(in srgb, var(--neon-p) 55%, transparent);' +
     'background:linear-gradient(135deg, color-mix(in srgb, var(--neon-p) 80%, #000), var(--neon-p));' +
     'box-shadow:0 14px 40px -14px color-mix(in srgb, var(--neon-p) 70%, transparent);}' +
+    // Attention pulse when the sheet was opened as a Premium upsell (highlight:'premium')
+    '.pw-premium.pw-hi{animation:pwHi 1.6s ease-in-out 3;}' +
+    '@keyframes pwHi{0%,100%{box-shadow:0 14px 40px -14px color-mix(in srgb, var(--neon-p) 70%, transparent);}' +
+    '50%{box-shadow:0 0 34px 0 color-mix(in srgb, var(--neon-p) 85%, transparent);transform:scale(1.015);}}' +
     '.pw-tag{display:inline-block;margin-left:8px;padding:2px 8px;border-radius:999px;' +
     'font-size:10px;font-weight:800;letter-spacing:.06em;vertical-align:middle;' +
     'background:rgba(255,255,255,.22);color:#fff;}' +
@@ -137,6 +141,12 @@
         '<div class="pw-note" id="pwNote"></div>' +
       '</div>';
     document.body.appendChild(overlay);
+    // Premium-focused entry (e.g. tapping a locked intimate block): pulse the
+    // Premium option so the eye lands on the unlock path first.
+    if (opts.highlight === 'premium') {
+      var prem = overlay.querySelector('.pw-premium');
+      if (prem) prem.classList.add('pw-hi');
+    }
     // Lock background scroll while the sheet is open (restored on close). The
     // sheet itself scrolls via its own overflow-y (see .pw-sheet CSS).
     var prevBodyOverflow = document.body.style.overflow;

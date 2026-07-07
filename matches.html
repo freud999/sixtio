@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="theme.js"></script>
+<script src="paywall.js"></script>
 <link rel="stylesheet" href="theme.css" />
 <style>
   body{
@@ -45,27 +46,19 @@
     align-items:center; justify-content:center; font-size:26px;
     background:var(--faux-glass); border:1px solid var(--glass-border); color:var(--hint); }
   .row-main{ flex:1; min-width:0; }
-  .row-top{ display:flex; align-items:baseline; gap:8px; }
-  .row-name{ font-size:16px; font-weight:700; letter-spacing:.01em;
-    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  /* Name+age must ALWAYS render in full — the % pill lives on its own line below
+     the city, so the name owns the full row width and wraps instead of ellipsing. */
+  .row-name{ font-size:16px; font-weight:700; letter-spacing:.01em; line-height:1.25;
+    overflow-wrap:break-word; }
   .row-score{ flex-shrink:0; font-size:11px; font-weight:800; letter-spacing:.04em;
     color:var(--a1); }
-  /* Big Five compatibility pill */
-  .row-pct{ flex-shrink:0; font-size:11px; font-weight:800; letter-spacing:.02em;
-    color:#fff; padding:2px 8px; border-radius:999px;
+  /* Big Five compatibility pill — sits under the city line */
+  .row-pct{ display:inline-block; font-size:11px; font-weight:800; letter-spacing:.02em;
+    color:#fff; padding:2px 8px; border-radius:999px; margin-top:5px;
     background:linear-gradient(120deg, var(--a2), var(--a1));
     box-shadow:0 2px 8px -2px var(--glow); }
   .row-meta{ font-size:12px; color:var(--hint); margin-top:1px; white-space:nowrap;
     overflow:hidden; text-overflow:ellipsis; }
-  /* Shared-value callout: an accent left-rail makes the "why you match" line
-     (e.g. «Ви обидва цінуєте щирість») read as a highlighted value, not filler. */
-  .row-vibe{ font-size:14px; font-weight:400; color:#E0E0E0;
-    font-family:'Inter','Roboto',-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-    line-height:1.45; margin-top:7px; padding:8px 12px 8px 13px; border-radius:12px;
-    font-style:normal; text-decoration:none;
-    background:rgba(255,255,255,.05); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
-    border:1px solid rgba(255,255,255,.08);
-    border-left:3px solid color-mix(in srgb, var(--accent-current) 75%, transparent); }
   .row-chev{ flex-shrink:0; font-size:22px; color:var(--a1); opacity:.7; }
   /* Dark Mode (18+) intimate line — same flame language as the feed card */
   .row-dark{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:7px;
@@ -75,6 +68,8 @@
   .row-dark-score{ font-size:12.5px; font-weight:800; color:#ffd9cf; }
   .row-dark-tags{ display:flex; flex-wrap:wrap; gap:6px; }
   .row-dark-tags.blurred{ filter:blur(4px); opacity:.85; pointer-events:none; }
+  /* Locked (blurred) intimate block is itself a tap target → Stars shop */
+  .row-dark.locked{ cursor:pointer; }
   .row-dark-tag{ font-size:10.5px; font-weight:700; padding:3px 8px; border-radius:999px; color:#fff;
     background:rgba(255,120,90,.28); border:1px solid rgba(255,150,110,.5); }
 
@@ -153,29 +148,20 @@
 
         var main = document.createElement('div');
         main.className = 'row-main';
-        var top = document.createElement('div'); top.className = 'row-top';
         var nm = document.createElement('div'); nm.className = 'row-name';
         nm.textContent = pt.name + (pt.age ? ', ' + pt.age : '');
-        top.appendChild(nm);
+        main.appendChild(nm);
+        var meta = document.createElement('div'); meta.className = 'row-meta';
+        meta.textContent = (pt.city ? '📍 ' + pt.city : '') || 'ваша пара від Sixtio';
+        main.appendChild(meta);
         // EVERY card carries the percentage pill — Big Five math % when present,
         // else the AI 1–10 score rescaled (7/10 → 70%), else an explicit 0%.
-        // A missing/zero score renders as «0% сумісність», never a hidden badge,
-        // so the metric reads consistently across the whole list (Task 24).
+        // Sits on its own line under the city so the name never truncates.
         var pctVal = (typeof m.compatibility === 'number') ? m.compatibility
           : (typeof m.score === 'number' && m.score > 0 ? Math.round(m.score * 10) : 0);
         var pct = document.createElement('div'); pct.className = 'row-pct';
         pct.textContent = pctVal + '% сумісність';
-        top.appendChild(pct);
-        main.appendChild(top);
-        var meta = document.createElement('div'); meta.className = 'row-meta';
-        meta.textContent = (pt.city ? '📍 ' + pt.city : '') || 'ваша пара від Sixtio';
-        main.appendChild(meta);
-        var vibe = pt.vibe || m.reason || '';
-        if (vibe) {
-          var vb = document.createElement('div'); vb.className = 'row-vibe';
-          vb.textContent = vibe;
-          main.appendChild(vb);
-        }
+        main.appendChild(pct);
         // Dark Mode (18+): the server includes this ONLY when both sides opted
         // in — same flame styling language as the feed card's intimate block.
         if (m.darkMode && typeof m.intimateCompatibility === 'number') {
@@ -191,6 +177,22 @@
             s.textContent = t; tagWrap.appendChild(s);
           });
           if (tagList.length) dk.appendChild(tagWrap);
+          // Locked state deep-links straight into the Stars shop with Premium
+          // front-and-center — the blur is an upsell, not just a blocker.
+          if (m.intimateTagsBlurred) {
+            dk.classList.add('locked');
+            dk.addEventListener('click', function(e){
+              e.preventDefault(); e.stopPropagation();   // row is an <a> → don't navigate
+              if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('medium'); } catch(err){} }
+              if (window.SixtioPaywall) {
+                window.SixtioPaywall.open({
+                  initData: initData, starsBalance: starsBal, highlight: 'premium',
+                  subtitle: '🔥 Спільні інтимні маркери приховано. Premium відкриває їх повністю 💎',
+                  onSuccess: function(){ window.location.reload(); }
+                });
+              }
+            });
+          }
           main.appendChild(dk);
         }
         a.appendChild(main);
@@ -200,10 +202,13 @@
         return a;
       }
 
+      var starsBal = 0;   // wallet balance for the paywall sheet, set on render
+
       function render(me){
         if (me.user && me.user.gender && window.SixtioTheme) {
           window.SixtioTheme.setGender(me.user.gender);
         }
+        if (me.user && typeof me.user.starsBalance === 'number') starsBal = me.user.starsBalance;
         var matches = me.matches || [];
         listEl.innerHTML = '';
         // "Find match" is always available (unlimited matches).
