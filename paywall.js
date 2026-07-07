@@ -19,10 +19,16 @@
     '.pw-overlay{position:fixed;inset:0;z-index:1000;display:flex;align-items:flex-end;' +
     'justify-content:center;background:rgba(6,4,16,.55);-webkit-backdrop-filter:blur(6px);' +
     'backdrop-filter:blur(6px);opacity:0;transition:opacity .22s ease;padding:16px;' +
+    'overscroll-behavior:contain;' +
     'padding-bottom:calc(env(safe-area-inset-bottom) + 16px);}' +
     '.pw-overlay.show{opacity:1;}' +
+    // The SHEET scrolls, never the page behind it: cap its height to the viewport
+    // and own the overflow; overscroll-behavior stops the scroll chaining to the
+    // background (open()/close() also hard-lock <body> scroll as a belt-and-braces).
     '.pw-sheet{width:100%;max-width:440px;border-radius:26px;padding:22px 20px 20px;' +
-    'position:relative;transform:translateY(24px);transition:transform .26s cubic-bezier(.2,.8,.2,1);}' +
+    'position:relative;transform:translateY(24px);transition:transform .26s cubic-bezier(.2,.8,.2,1);' +
+    'max-height:calc(100dvh - 32px - env(safe-area-inset-bottom));overflow-y:auto;' +
+    '-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}' +
     '.pw-overlay.show .pw-sheet{transform:translateY(0);}' +
     '.pw-close{position:absolute;top:14px;right:14px;width:34px;height:34px;border-radius:50%;' +
     'border:1px solid var(--glass-border);background:var(--faux-glass);color:var(--text);' +
@@ -52,18 +58,20 @@
     '.pw-invite u{color:var(--neon-b);cursor:pointer;text-decoration:none;}' +
     '.pw-note{font-size:12.5px;color:var(--neon-b);text-align:center;min-height:16px;margin-top:10px;}' +
     // --- Real Stars top-up packs (Task 19) ---
+    // NOTE: deposit classes are pw-dep* on purpose — the '+30 likes' option button
+    // historically carried a 'pw-pack' class, and sharing that name made the
+    // deposit click-handler (and styling) swallow internal purchases (Task 22).
     '.pw-deposit-h{font-size:11px;letter-spacing:.14em;color:var(--hint);text-align:center;' +
     'margin-top:18px;text-transform:uppercase;}' +
-    '.pw-packs{display:flex;gap:8px;margin-top:10px;}' +
-    '.pw-pack{flex:1;position:relative;padding:14px 8px;border-radius:18px;cursor:pointer;' +
+    '.pw-deps{display:flex;gap:8px;margin-top:10px;}' +
+    '.pw-dep{flex:1;position:relative;padding:14px 8px;border-radius:18px;cursor:pointer;' +
     'font-family:inherit;color:var(--text);text-align:center;' +
     'background:var(--faux-glass);transition:transform .12s ease;' +
     'border:1px solid color-mix(in srgb, var(--neon-b) 40%, transparent);' +
     'box-shadow:0 10px 30px -18px color-mix(in srgb, var(--neon-b) 80%, transparent);}' +
-    '.pw-pack:active{transform:scale(.96);}' +
-    '.pw-pack-amt{font-size:17px;font-weight:800;color:var(--neon-b);}' +
-    '.pw-pack-sub{font-size:10.5px;color:var(--hint);margin-top:3px;}' +
-    '.pw-pack-tag{position:absolute;top:-8px;left:50%;transform:translateX(-50%);' +
+    '.pw-dep:active{transform:scale(.96);}' +
+    '.pw-dep-amt{font-size:17px;font-weight:800;color:var(--neon-b);}' +
+    '.pw-dep-tag{position:absolute;top:-8px;left:50%;transform:translateX(-50%);' +
     'padding:2px 7px;border-radius:999px;font-size:9px;font-weight:800;letter-spacing:.05em;' +
     'white-space:nowrap;background:var(--neon-b);color:#04121a;}';
 
@@ -111,18 +119,17 @@
             '<li>📊 Аналітика Digital Twin</li>' +
           '</ul>' +
         '</button>' +
-        '<button class="pw-opt pw-pack" data-item="swipe_pack">' +
+        '<button class="pw-opt" data-item="swipe_pack">' +
           '<div class="pw-opt-head"><span class="pw-opt-name">+30 вподобань</span>' +
           '<span class="pw-price">10 ⭐</span></div>' +
           '<div class="pw-opt-note">Топ-ап на сьогодні. Фото лишаються розмитими.</div>' +
         '</button>' +
         '<div class="pw-deposit-h">Поповнити баланс зірками Telegram</div>' +
-        '<div class="pw-packs">' +
+        '<div class="pw-deps">' +
           STAR_PACKS.map(function (p) {
-            return '<button class="pw-pack" data-pack="' + p.id + '" data-stars="' + p.stars + '">' +
-              (p.tag ? '<span class="pw-pack-tag">' + p.tag + '</span>' : '') +
-              '<div class="pw-pack-amt">+' + p.stars + ' ⭐</div>' +
-              '<div class="pw-pack-sub">' + p.stars + ' XTR</div>' +
+            return '<button class="pw-dep" data-pack="' + p.id + '" data-stars="' + p.stars + '">' +
+              (p.tag ? '<span class="pw-dep-tag">' + p.tag + '</span>' : '') +
+              '<div class="pw-dep-amt">+' + p.stars + ' ⭐</div>' +
             '</button>';
           }).join('') +
         '</div>' +
@@ -130,12 +137,17 @@
         '<div class="pw-note" id="pwNote"></div>' +
       '</div>';
     document.body.appendChild(overlay);
+    // Lock background scroll while the sheet is open (restored on close). The
+    // sheet itself scrolls via its own overflow-y (see .pw-sheet CSS).
+    var prevBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     requestAnimationFrame(function () { overlay.classList.add('show'); });
 
     var note = overlay.querySelector('#pwNote');
     var busy = false;
 
     function close() {
+      document.body.style.overflow = prevBodyOverflow;
       overlay.classList.remove('show');
       setTimeout(function () { if (overlay.parentNode) overlay.remove(); }, 240);
     }
@@ -164,7 +176,7 @@
       }, 2500);
     }
 
-    Array.prototype.forEach.call(overlay.querySelectorAll('.pw-pack'), function (btn) {
+    Array.prototype.forEach.call(overlay.querySelectorAll('.pw-dep'), function (btn) {
       btn.addEventListener('click', function () {
         if (busy) return;
         var t = tg();
