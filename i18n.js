@@ -709,12 +709,10 @@
     } catch (e) { return ''; }
   }
 
-  // A manual, user-chosen language wins over EVERYTHING. This is the decisive
-  // fix: on Telegram Desktop the signed `language_code` is the ACCOUNT language
-  // (e.g. 'ru') and is NOT changed by the local "Interface Language" setting, so
-  // no auto-signal can ever reveal that the user wants English. An explicit
-  // UA/RU/EN choice, persisted here, is the only reliable source of truth.
-  // Returns '' when the user has never picked (auto-detect then applies).
+  // A manual, user-chosen language (the switcher). Needed only where Telegram
+  // can't express the wanted language — e.g. English on Telegram Desktop, whose
+  // signed `language_code` is the ACCOUNT language ('ru') and never reflects the
+  // local Interface Language toggle. Returns '' when the user never picked.
   function readOverride() {
     try {
       var v = window.localStorage.getItem('sixtio_lang_override');
@@ -723,18 +721,46 @@
     return '';
   }
 
-  // detect() reflects the language the UI should show right now. Priority:
-  //   1) explicit user override (the language switcher) — authoritative,
-  //   2) Telegram's signed language_code (works on mobile, where it tracks the
-  //      app language),
-  //   3) the webview locale, then
-  //   4) 'uk', the home-market default.
+  // detect() decides the active language with Telegram as the PRIMARY authority:
+  //
+  //   1) If Telegram now reports a language DIFFERENT from what it reported at
+  //      the previous launch, the user changed their Telegram language — honor
+  //      it immediately and drop any stale manual override. (This is what makes
+  //      the switcher pill always follow the Telegram setting when it changes.)
+  //   2) Otherwise a manual override wins — the only way English survives on
+  //      Telegram Desktop, where Telegram keeps reporting 'ru' no matter what.
+  //   3) Otherwise follow Telegram's current language,
+  //   4) then the webview locale, then 'uk' (home-market default).
+  //
+  // The last-seen Telegram language is remembered in localStorage so a real
+  // Telegram-side language change can be distinguished from a mere re-launch.
   function detect() {
+    var tgLang = '';
+    var raw = readTelegramCode();
+    if (raw) tgLang = normalize(raw);
+
+    var seen = '';
+    try { seen = window.localStorage.getItem('sixtio_lang_tg_seen') || ''; } catch (e) {}
+
+    if (tgLang) {
+      if (seen && tgLang !== seen) {
+        // Telegram's language changed since last launch -> user changed it there.
+        try { window.localStorage.setItem('sixtio_lang_tg_seen', tgLang); } catch (e) {}
+        try { window.localStorage.removeItem('sixtio_lang_override'); } catch (e) {}
+        return tgLang;
+      }
+      if (!seen) {
+        // First readable Telegram language: remember it, but keep any existing
+        // manual override (so a persisted English choice isn't wiped on upgrade).
+        try { window.localStorage.setItem('sixtio_lang_tg_seen', tgLang); } catch (e) {}
+      }
+    }
+
     var ov = readOverride();
     if (ov) return ov;
-    var code = readTelegramCode();
-    if (!code) code = readBrowserCode();
-    return normalize(code);
+
+    if (tgLang) return tgLang;
+    return normalize(readBrowserCode());
   }
 
   var lang = detect();
@@ -836,7 +862,7 @@
   // Any element with [data-lang-switch] is turned into a UA/RU/EN segmented
   // control. Self-contained: styles are injected once, so a page only needs the
   // empty host element. Reusable across every screen.
-  var SWITCH_OPTS = [['uk', 'UA'], ['ru', 'RU'], ['en', 'EN']];
+  var SWITCH_OPTS = [['ru', 'RU'], ['uk', 'UA'], ['en', 'EN']];
   function injectSwitchStyle() {
     if (document.getElementById('sx-lang-style')) return;
     var css =
