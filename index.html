@@ -77,6 +77,41 @@
     <p class="note" style="margin-top:6px;"><a href="privacy.html" style="color:var(--hint);" data-i18n="privacy_policy">Політика конфіденційності</a></p>
   </div>
 
+  <!-- TEMP DIAG (Task 33) — remove after language ground-truth is captured -->
+  <div id="langdiag" style="position:fixed;top:0;left:0;right:0;z-index:99999;
+    background:#000;color:#0f0;font:11px/1.5 monospace;padding:6px 8px;
+    white-space:pre-wrap;word-break:break-all;"></div>
+
+  <script>
+    // TEMP DIAG (Task 33): dump the raw language signals from THIS device so we
+    // can see what Telegram actually sends for an English interface. Remove later.
+    (function(){
+      try {
+        var w = window.Telegram && window.Telegram.WebApp;
+        var uiCode = '', rawCode = '';
+        try { uiCode = (w && w.initDataUnsafe && w.initDataUnsafe.user && w.initDataUnsafe.user.language_code) || ''; } catch(e){}
+        try {
+          if (w && w.initData) {
+            var ru = new URLSearchParams(w.initData).get('user');
+            if (ru) { var p = JSON.parse(ru); rawCode = (p && p.language_code) || ''; }
+          }
+        } catch(e){}
+        var nav = window.navigator || {};
+        var lines = [
+          'initDataUnsafe.language_code = "' + uiCode + '"',
+          'initData.user.language_code  = "' + rawCode + '"',
+          'navigator.language           = "' + (nav.language || '') + '"',
+          'navigator.languages          = "' + ((nav.languages && nav.languages.join(',')) || '') + '"',
+          'SixtioI18n.lang (computed)   = "' + (window.SixtioI18n && window.SixtioI18n.lang) + '"'
+        ];
+        document.getElementById('langdiag').textContent = lines.join('\n');
+      } catch(e) {
+        var d = document.getElementById('langdiag');
+        if (d) d.textContent = 'diag error: ' + e;
+      }
+    })();
+  </script>
+
   <script>
     (function(){
       var tg = window.Telegram && window.Telegram.WebApp;
