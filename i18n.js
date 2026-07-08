@@ -693,9 +693,32 @@
     return '';
   }
 
-  // detect() is pure: it reflects the CURRENT Telegram language every time it is
-  // called. '' (Telegram silent) falls back to 'uk', the home-market default.
-  function detect() { return normalize(readTelegramCode()); }
+  // The webview's own locale — the decisive fallback for ENGLISH users. Telegram
+  // omits `language_code` for its DEFAULT interface language (English): uk/ru
+  // accounts get an explicit 'uk'/'ru', but an English account frequently sends
+  // an EMPTY code. Reading only Telegram then mapped that blank to 'uk', so the
+  // UI stayed Ukrainian no matter how the user set Telegram to English — the exact
+  // asymmetry reported (uk/ru switch, en never does). navigator.language reflects
+  // the OS/Telegram English locale, recovering 'en' when Telegram itself is silent.
+  function readBrowserCode() {
+    try {
+      var n = window.navigator;
+      if (!n) return '';
+      if (n.languages && n.languages.length) return n.languages[0];
+      return n.language || n.userLanguage || '';
+    } catch (e) { return ''; }
+  }
+
+  // detect() is pure: it reflects the CURRENT interface language every time it is
+  // called. Telegram's signed language_code is authoritative; only when Telegram
+  // is genuinely silent ('') do we consult the browser locale, so an English
+  // account (blank Telegram code) resolves to 'en' instead of collapsing to 'uk'.
+  // Everything still empty -> 'uk', the home-market default.
+  function detect() {
+    var code = readTelegramCode();
+    if (!code) code = readBrowserCode();
+    return normalize(code);
+  }
 
   var lang = detect();
   try { document.documentElement.lang = lang; } catch (e) {}
