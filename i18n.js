@@ -655,24 +655,51 @@
     }
   };
 
-  // Detect the user's native Telegram interface language.
-  // uk -> uk; ru/be -> ru; any other real code (es, de, …) -> en; missing -> uk.
-  function detect() {
-    var code = '';
-    try {
-      var w = window.Telegram && window.Telegram.WebApp;
-      code = (w && w.initDataUnsafe && w.initDataUnsafe.user &&
-              w.initDataUnsafe.user.language_code) || '';
-    } catch (e) {}
-    code = String(code).toLowerCase().split('-')[0];
+  // Map a raw IETF code to a supported app language. Identical contract to the
+  // server's resolveLang() in api/_lib/telegram.js — keep them in lock-step.
+  //   uk -> uk; ru/be -> ru; any other real code (es, de, …) -> en; ''/missing -> uk.
+  function normalize(raw) {
+    var code = String(raw || '').toLowerCase().split('-')[0];
     if (!code) return 'uk';
     if (code === 'uk') return 'uk';
     if (code === 'ru' || code === 'be') return 'ru';
     return 'en';
   }
 
+  // Pull language_code STRICTLY from the live Telegram SDK — never from a DB or
+  // localStorage cache. Two independent sources are probed so a client that
+  // hasn't populated initDataUnsafe yet still resolves from the raw initData
+  // query string (both are freshly injected by telegram-web-app.js each launch):
+  //   1) window.Telegram.WebApp.initDataUnsafe.user.language_code
+  //   2) the `user` param parsed out of window.Telegram.WebApp.initData
+  // Returns '' when Telegram genuinely exposes nothing (guest / not-in-Telegram).
+  function readTelegramCode() {
+    var w;
+    try { w = window.Telegram && window.Telegram.WebApp; } catch (e) { w = null; }
+    if (!w) return '';
+    try {
+      var u = w.initDataUnsafe && w.initDataUnsafe.user;
+      if (u && u.language_code) return u.language_code;
+    } catch (e) {}
+    try {
+      if (w.initData) {
+        var raw = new URLSearchParams(w.initData).get('user');
+        if (raw) {
+          var parsed = JSON.parse(raw);
+          if (parsed && parsed.language_code) return parsed.language_code;
+        }
+      }
+    } catch (e) {}
+    return '';
+  }
+
+  // detect() is pure: it reflects the CURRENT Telegram language every time it is
+  // called. '' (Telegram silent) falls back to 'uk', the home-market default.
+  function detect() { return normalize(readTelegramCode()); }
+
   var lang = detect();
   try { document.documentElement.lang = lang; } catch (e) {}
+  try { window.localStorage.setItem('sixtio_lang', lang); } catch (e) {}
 
   // t('key') / t('key', {n: 3}) — falls back en -> uk -> the key itself,
   // so a missing translation can never blank the UI.
@@ -718,11 +745,44 @@
     for (i = 0; i < els.length; i++) els[i].setAttribute('alt', t(els[i].getAttribute('data-i18n-alt')));
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function () { apply(document); });
-  } else {
+  // Re-derive the language from the live Telegram SDK and, if it changed since
+  // the frozen initial value, hot-swap the whole UI. This defeats two failure
+  // modes at once:
+  //   • the freeze-race — initDataUnsafe not yet populated when the IIFE first
+  //     ran, so `lang` locked to the 'uk' fallback and never recovered;
+  //   • a stale interface — the user switched Telegram language mid-session.
+  // Because t()/kink() close over the outer `lang`, updating it here instantly
+  // re-localizes every subsequent call; apply() repaints the static nodes and a
+  // 'sixtio:langchange' event lets pages redraw any dynamic (API-driven) content.
+  function refresh() {
+    var next = detect();
+    if (next === lang) return false;
+    lang = next;
+    api.lang = next;
+    try { document.documentElement.lang = next; } catch (e) {}
+    try { window.localStorage.setItem('sixtio_lang', next); } catch (e) {}
     apply(document);
+    try { window.dispatchEvent(new CustomEvent('sixtio:langchange', { detail: next })); } catch (e) {}
+    return true;
   }
 
-  window.SixtioI18n = { lang: lang, t: t, kink: kink, apply: apply };
+  var api = { lang: lang, t: t, kink: kink, apply: apply, detect: detect, refresh: refresh };
+  window.SixtioI18n = api;
+
+  // Apply as early as possible, then re-verify at every point the Telegram SDK
+  // could have finished (or changed) its init data: on DOM ready, and once the
+  // WebApp reports ready(). This is the cache-bust sweep the lifecycle needs.
+  function sweep() { apply(document); refresh(); }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', sweep);
+  } else {
+    sweep();
+  }
+  try {
+    var wa = window.Telegram && window.Telegram.WebApp;
+    if (wa && typeof wa.ready === 'function') {
+      var origReady = wa.ready.bind(wa);
+      wa.ready = function () { var r = origReady(); refresh(); return r; };
+    }
+  } catch (e) {}
 })();
