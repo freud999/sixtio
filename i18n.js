@@ -709,12 +709,29 @@
     } catch (e) { return ''; }
   }
 
-  // detect() is pure: it reflects the CURRENT interface language every time it is
-  // called. Telegram's signed language_code is authoritative; only when Telegram
-  // is genuinely silent ('') do we consult the browser locale, so an English
-  // account (blank Telegram code) resolves to 'en' instead of collapsing to 'uk'.
-  // Everything still empty -> 'uk', the home-market default.
+  // A manual, user-chosen language wins over EVERYTHING. This is the decisive
+  // fix: on Telegram Desktop the signed `language_code` is the ACCOUNT language
+  // (e.g. 'ru') and is NOT changed by the local "Interface Language" setting, so
+  // no auto-signal can ever reveal that the user wants English. An explicit
+  // UA/RU/EN choice, persisted here, is the only reliable source of truth.
+  // Returns '' when the user has never picked (auto-detect then applies).
+  function readOverride() {
+    try {
+      var v = window.localStorage.getItem('sixtio_lang_override');
+      if (v === 'uk' || v === 'ru' || v === 'en') return v;
+    } catch (e) {}
+    return '';
+  }
+
+  // detect() reflects the language the UI should show right now. Priority:
+  //   1) explicit user override (the language switcher) — authoritative,
+  //   2) Telegram's signed language_code (works on mobile, where it tracks the
+  //      app language),
+  //   3) the webview locale, then
+  //   4) 'uk', the home-market default.
   function detect() {
+    var ov = readOverride();
+    if (ov) return ov;
     var code = readTelegramCode();
     if (!code) code = readBrowserCode();
     return normalize(code);
@@ -790,17 +807,96 @@
     try { document.documentElement.lang = next; } catch (e) {}
     try { window.localStorage.setItem('sixtio_lang', next); } catch (e) {}
     apply(document);
+    syncSwitchers();
     try { window.dispatchEvent(new CustomEvent('sixtio:langchange', { detail: next })); } catch (e) {}
     return true;
   }
 
-  var api = { lang: lang, t: t, kink: kink, apply: apply, detect: detect, refresh: refresh };
+  // Persist an explicit user choice and hot-swap the UI immediately. Called by
+  // the language switcher. Stores the override so it survives reloads and beats
+  // auto-detection forever after (until changed). Re-localizes every static node
+  // and fires 'sixtio:langchange' so dynamic (API-driven) pages redraw too.
+  function setLang(next) {
+    if (next !== 'uk' && next !== 'ru' && next !== 'en') return false;
+    try { window.localStorage.setItem('sixtio_lang_override', next); } catch (e) {}
+    var changed = next !== lang;
+    lang = next;
+    api.lang = next;
+    try { document.documentElement.lang = next; } catch (e) {}
+    try { window.localStorage.setItem('sixtio_lang', next); } catch (e) {}
+    apply(document);
+    syncSwitchers();
+    if (changed) {
+      try { window.dispatchEvent(new CustomEvent('sixtio:langchange', { detail: next })); } catch (e) {}
+    }
+    return changed;
+  }
+
+  // --- Language switcher widget -------------------------------------------
+  // Any element with [data-lang-switch] is turned into a UA/RU/EN segmented
+  // control. Self-contained: styles are injected once, so a page only needs the
+  // empty host element. Reusable across every screen.
+  var SWITCH_OPTS = [['uk', 'UA'], ['ru', 'RU'], ['en', 'EN']];
+  function injectSwitchStyle() {
+    if (document.getElementById('sx-lang-style')) return;
+    var css =
+      '[data-lang-switch]{display:inline-flex;gap:2px;padding:3px;border-radius:999px;' +
+      'background:rgba(127,127,127,.14);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);}' +
+      '.sx-lang-btn{appearance:none;border:0;cursor:pointer;font:600 12px/1 inherit;' +
+      'letter-spacing:.3px;padding:6px 11px;border-radius:999px;color:var(--hint,#8b8b93);' +
+      'background:transparent;transition:color .18s ease,background .18s ease;}' +
+      '.sx-lang-btn.is-active{color:#fff;background:var(--a1,#7c4dff);' +
+      'box-shadow:0 2px 10px -2px var(--glow,rgba(124,77,255,.5));}';
+    var st = document.createElement('style');
+    st.id = 'sx-lang-style';
+    st.textContent = css;
+    (document.head || document.documentElement).appendChild(st);
+  }
+  function syncSwitchers() {
+    var btns = document.querySelectorAll('.sx-lang-btn');
+    for (var i = 0; i < btns.length; i++) {
+      var on = btns[i].getAttribute('data-lang-opt') === lang;
+      btns[i].setAttribute('aria-pressed', on ? 'true' : 'false');
+      if (on) btns[i].classList.add('is-active'); else btns[i].classList.remove('is-active');
+    }
+  }
+  function mountSwitchers() {
+    var hosts = document.querySelectorAll('[data-lang-switch]');
+    if (!hosts.length) return;
+    injectSwitchStyle();
+    for (var h = 0; h < hosts.length; h++) {
+      var host = hosts[h];
+      if (host.getAttribute('data-lang-mounted')) continue;
+      host.setAttribute('data-lang-mounted', '1');
+      host.setAttribute('role', 'group');
+      host.setAttribute('aria-label', 'Language');
+      host.innerHTML = '';
+      for (var o = 0; o < SWITCH_OPTS.length; o++) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'sx-lang-btn';
+        b.setAttribute('data-lang-opt', SWITCH_OPTS[o][0]);
+        b.textContent = SWITCH_OPTS[o][1];
+        (function (code) {
+          b.addEventListener('click', function () {
+            var tg = window.Telegram && window.Telegram.WebApp;
+            if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.selectionChanged(); } catch (e) {} }
+            setLang(code);
+          });
+        })(SWITCH_OPTS[o][0]);
+        host.appendChild(b);
+      }
+    }
+    syncSwitchers();
+  }
+
+  var api = { lang: lang, t: t, kink: kink, apply: apply, detect: detect, refresh: refresh, setLang: setLang, mountSwitchers: mountSwitchers };
   window.SixtioI18n = api;
 
   // Apply as early as possible, then re-verify at every point the Telegram SDK
   // could have finished (or changed) its init data: on DOM ready, and once the
   // WebApp reports ready(). This is the cache-bust sweep the lifecycle needs.
-  function sweep() { apply(document); refresh(); }
+  function sweep() { apply(document); refresh(); mountSwitchers(); }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', sweep);
   } else {
