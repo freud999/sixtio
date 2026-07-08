@@ -701,10 +701,15 @@
   try { document.documentElement.lang = lang; } catch (e) {}
   try { window.localStorage.setItem('sixtio_lang', lang); } catch (e) {}
 
-  // t('key') / t('key', {n: 3}) — falls back en -> uk -> the key itself,
-  // so a missing translation can never blank the UI.
+  // t('key') / t('key', {n: 3}) — resolves the active language first, then falls
+  // back to ENGLISH (the universal international layer), then Ukrainian, then the
+  // key itself. English is tried before Ukrainian on purpose: an 'en' user with a
+  // (hypothetically) missing key must never be dumped back into Ukrainian — that
+  // was the exact "English silently reverts to UK" failure this fixes. A missing
+  // translation can still never blank the UI.
   function t(key, params) {
     var s = (D[lang] && D[lang][key]);
+    if (s === undefined) s = D.en[key];
     if (s === undefined) s = D.uk[key];
     if (s === undefined) return key;
     if (params) {
