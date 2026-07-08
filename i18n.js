@@ -709,13 +709,43 @@
     } catch (e) { return ''; }
   }
 
+  // The signed Telegram user id, probed the same two ways as the language code.
+  // Used to NAMESPACE our localStorage per account: on Telegram Web (desktop
+  // browser) every account shares one origin and therefore one localStorage, so
+  // an un-namespaced override/seen from account A would leak into account B when
+  // you switch accounts. Keying by id isolates each account. Returns '' when no
+  // id is available (guest / not in Telegram) — then a single global key is used.
+  function readUserId() {
+    var w;
+    try { w = window.Telegram && window.Telegram.WebApp; } catch (e) { w = null; }
+    if (!w) return '';
+    try {
+      var u = w.initDataUnsafe && w.initDataUnsafe.user;
+      if (u && u.id) return String(u.id);
+    } catch (e) {}
+    try {
+      if (w.initData) {
+        var raw = new URLSearchParams(w.initData).get('user');
+        if (raw) {
+          var parsed = JSON.parse(raw);
+          if (parsed && parsed.id) return String(parsed.id);
+        }
+      }
+    } catch (e) {}
+    return '';
+  }
+  function lsKey(base) {
+    var uid = readUserId();
+    return uid ? (base + '_' + uid) : base;
+  }
+
   // A manual, user-chosen language (the switcher). Needed only where Telegram
   // can't express the wanted language — e.g. English on Telegram Desktop, whose
   // signed `language_code` is the ACCOUNT language ('ru') and never reflects the
   // local Interface Language toggle. Returns '' when the user never picked.
   function readOverride() {
     try {
-      var v = window.localStorage.getItem('sixtio_lang_override');
+      var v = window.localStorage.getItem(lsKey('sixtio_lang_override'));
       if (v === 'uk' || v === 'ru' || v === 'en') return v;
     } catch (e) {}
     return '';
@@ -739,20 +769,21 @@
     var raw = readTelegramCode();
     if (raw) tgLang = normalize(raw);
 
+    var seenKey = lsKey('sixtio_lang_tg_seen');
     var seen = '';
-    try { seen = window.localStorage.getItem('sixtio_lang_tg_seen') || ''; } catch (e) {}
+    try { seen = window.localStorage.getItem(seenKey) || ''; } catch (e) {}
 
     if (tgLang) {
       if (seen && tgLang !== seen) {
         // Telegram's language changed since last launch -> user changed it there.
-        try { window.localStorage.setItem('sixtio_lang_tg_seen', tgLang); } catch (e) {}
-        try { window.localStorage.removeItem('sixtio_lang_override'); } catch (e) {}
+        try { window.localStorage.setItem(seenKey, tgLang); } catch (e) {}
+        try { window.localStorage.removeItem(lsKey('sixtio_lang_override')); } catch (e) {}
         return tgLang;
       }
       if (!seen) {
         // First readable Telegram language: remember it, but keep any existing
         // manual override (so a persisted English choice isn't wiped on upgrade).
-        try { window.localStorage.setItem('sixtio_lang_tg_seen', tgLang); } catch (e) {}
+        try { window.localStorage.setItem(seenKey, tgLang); } catch (e) {}
       }
     }
 
@@ -844,7 +875,7 @@
   // and fires 'sixtio:langchange' so dynamic (API-driven) pages redraw too.
   function setLang(next) {
     if (next !== 'uk' && next !== 'ru' && next !== 'en') return false;
-    try { window.localStorage.setItem('sixtio_lang_override', next); } catch (e) {}
+    try { window.localStorage.setItem(lsKey('sixtio_lang_override'), next); } catch (e) {}
     var changed = next !== lang;
     lang = next;
     api.lang = next;
