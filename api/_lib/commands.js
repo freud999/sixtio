@@ -326,13 +326,14 @@ async function tryOwnerReply(msg) {
 
   const targetId = Number(m[1]);
   // The reply body is whatever the owner types; only the framing label is ours.
-  // The recipient's language isn't carried out of band here, so the label uses a
-  // fixed set (Ukrainian) — the substance is the owner's own words.
-  const label = T.uk.reply_from_team;
+  // Recover the recipient's language from the "🌐 <lang>" line embedded in the
+  // forwarded feedback, so the label + button are in THEIR language (uk fallback).
+  const langMatch = src.text.match(/🌐\s*(uk|ru|en)/i);
+  const t = T[(langMatch && langMatch[1].toLowerCase()) || 'uk'] || T.uk;
   await callBot('sendMessage', {
     chat_id: targetId,
-    text: `${label}\n\n${reply}`,
-    reply_markup: openKeyboard(T.uk),
+    text: `${t.reply_from_team}\n\n${reply}`,
+    reply_markup: openKeyboard(t),
   }).then(() => {
     return callBot('sendMessage', { chat_id: msg.chat.id, text: '✅ Відповідь надіслано.' });
   }).catch((e) => {

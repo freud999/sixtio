@@ -1,4 +1,4 @@
-import { getSupabase, pairExists, getHiddenUserIds } from './supabase.js';
+import { getSupabase, getHiddenUserIds, getMatchesFor } from './supabase.js';
 import { scoreCandidates } from './claude.js';
 import { notifyMatchBoth } from './bot.js';
 
@@ -60,33 +60,53 @@ export async function runMatching(userId, lang = 'uk') {
     .maybeSingle();
   if (!myProfile) return null;
 
-  const { data: candidates, error: candError } = await supabase
+  // Prefilter at the DB (gender + age window + not mass-reported) so we never
+  // pull the whole user table — critical once a partner-network drives growth.
+  // The their-side seeking / goal / block / already-paired checks then run in
+  // memory on the much smaller reduced set.
+  let candQuery = supabase
     .from('users')
-    .select('id, telegram_id, name, tg_username, gender, seeking_gender, goal, age, city, interests, bio, photo_url, language_code, shadow_hidden')
-    .neq('id', userId);
+    .select('id, telegram_id, name, tg_username, gender, seeking_gender, goal, age, city, interests, bio, photo_url, language_code')
+    .neq('id', userId)
+    .eq('shadow_hidden', false)
+    .gte('age', me.age - MAX_AGE_GAP)
+    .lte('age', me.age + MAX_AGE_GAP);
+  if (me.seeking_gender !== 'any') candQuery = candQuery.eq('gender', me.seeking_gender);
+  const { data: candidates, error: candError } = await candQuery;
   if (candError) throw candError;
 
-  // Never pair across a block (either direction) or with a mass-reported user.
+  // One read each (no N+1): my existing match partners + the two-way block set.
+  const pairedIds = new Set();
+  try { for (const m of await getMatchesFor(userId)) pairedIds.add(m.partnerId); }
+  catch (e) { console.error('matching paired-load failed:', e.message); }
   let hidden = new Set();
   try { hidden = await getHiddenUserIds(userId, me.blocked_users); }
   catch (e) { console.error('matching block-filter failed:', e.message); }
 
-  const eligible = [];
+  const prelim = [];
   for (const c of candidates || []) {
-    if (hidden.has(c.id) || c.shadow_hidden) continue;
+    if (hidden.has(c.id) || pairedIds.has(c.id)) continue;  // blocked or already paired
     if (!c.gender || !c.seeking_gender || !c.goal || !c.age) continue;
-    if (me.seeking_gender !== 'any' && c.gender !== me.seeking_gender) continue;
     if (c.seeking_gender !== 'any' && me.gender !== c.seeking_gender) continue;
     if (!(COMPATIBLE_GOALS[me.goal] || []).includes(c.goal)) continue;
-    if (Math.abs(me.age - c.age) > MAX_AGE_GAP) continue;
-    if (await pairExists(userId, c.id)) continue;          // not the same pair twice
-    const { data: cp } = await supabase
-      .from('profiles')
-      .select(PROFILE_COLS)
-      .eq('user_id', c.id)
-      .maybeSingle();
-    if (!cp) continue; // onboarding not finished
-    eligible.push({ user: c, profile: cp });
+    prelim.push(c);
+  }
+  if (!prelim.length) return null;
+
+  // Batch-load the survivors' profiles in ONE query (was one round-trip PER
+  // candidate). Only those with a profile finished onboarding and are eligible.
+  const profById = new Map();
+  const { data: profs, error: profErr } = await supabase
+    .from('profiles')
+    .select(`user_id, ${PROFILE_COLS}`)
+    .in('user_id', prelim.map((c) => c.id));
+  if (profErr) throw profErr;
+  for (const p of profs || []) profById.set(p.user_id, p);
+
+  const eligible = [];
+  for (const c of prelim) {
+    const cp = profById.get(c.id);
+    if (cp) eligible.push({ user: c, profile: cp });
   }
   if (!eligible.length) return null;
 

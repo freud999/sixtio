@@ -1,4 +1,4 @@
-import { resolveUser } from './_lib/telegram.js';
+import { resolveUser, pickLang } from './_lib/telegram.js';
 import { getSupabase, getMatchesFor, getHiddenUserIds } from './_lib/supabase.js';
 import { entitlements, likesLeftForClient, intimateCompatibility } from './_lib/entitlements.js';
 
@@ -24,6 +24,9 @@ export default async function handler(req, res) {
     if (!tgUser) {
       return res.status(401).json({ error: 'Invalid Telegram initData' });
     }
+    const lang = pickLang(req.body && req.body.lang, tgUser);
+    const NAME_FALLBACK = { uk: 'Хтось особливий', en: 'Someone special', ru: 'Кто-то особенный' };
+    const nameFallback = NAME_FALLBACK[lang] || NAME_FALLBACK.uk;
 
     const supabase = getSupabase();
     const { data: me, error: meError } = await supabase
@@ -81,10 +84,17 @@ export default async function handler(req, res) {
       console.error('compatibility rpc failed:', compatError.message);
     }
 
-    const { data: candidates, error: candError } = await supabase
+    // Prefilter at the DB (opposite gender + age window + not mass-reported) so we
+    // never pull the whole user table into the function — essential at scale. The
+    // wildcard 'any' preference skips the gender filter; JS still does final checks.
+    let candQuery = supabase
       .from('users')
-      .select('id, name, gender, seeking_gender, age, city, photo_url, dark_mode_active, kink_markers, shadow_hidden')
-      .neq('id', me.id);
+      .select('id, name, gender, seeking_gender, age, city, photo_url, photo_blur_url, dark_mode_active, kink_markers, shadow_hidden')
+      .neq('id', me.id)
+      .eq('shadow_hidden', false);
+    if (me.seeking_gender && me.seeking_gender !== 'any') candQuery = candQuery.eq('gender', me.seeking_gender);
+    if (me.age) candQuery = candQuery.gte('age', me.age - MAX_AGE_GAP).lte('age', me.age + MAX_AGE_GAP);
+    const { data: candidates, error: candError } = await candQuery;
     if (candError) throw candError;
 
     // Dark Mode (18+) is a mutual, opt-in layer: intimate data is computed ONLY
@@ -105,10 +115,14 @@ export default async function handler(req, res) {
       const hit = compatByUser[c.id];
       const card = {
         userId: c.id,
-        name: (c.name || '').split(' ')[0] || 'Хтось особливий',
+        name: (c.name || '').split(' ')[0] || nameFallback,
         age: c.age,
         city: c.city || '',
-        photoUrl: c.photo_url || '',
+        // Privacy + paywall: free males receive ONLY the pre-blurred thumbnail
+        // (the real photo_url is never on the wire for them). Entitled viewers
+        // (all women + premium males) get the real photo. Legacy profiles with no
+        // blur thumbnail send nothing to free males rather than leak the original.
+        photoUrl: ent.blur ? (c.photo_blur_url || '') : (c.photo_url || ''),
         // 0..100; unscored profiles get 0 so they sort after scored ones.
         compatibility: hit ? hit.score : 0,
         tags: hit ? (hit.tags || []).slice(0, 3) : [],
@@ -150,7 +164,7 @@ export default async function handler(req, res) {
     let mysteryMatch = null;
     if (start === 0) {
       try {
-        mysteryMatch = await resolveMysteryMatch(supabase, me, ranked, compatByUser);
+        mysteryMatch = await resolveMysteryMatch(supabase, me, ranked, compatByUser, nameFallback);
       } catch (mmError) {
         console.error('mystery match failed:', mmError.message);
       }
@@ -182,7 +196,7 @@ export default async function handler(req, res) {
 // isMysteryMatch flag) until the user pays to unlock it, after which the real
 // identity is revealed. `ranked` is the already-filtered, score-sorted deck;
 // `compatByUser` maps userId -> { score, tags }.
-async function resolveMysteryMatch(supabase, me, ranked, compatByUser) {
+async function resolveMysteryMatch(supabase, me, ranked, compatByUser, nameFallback = 'Хтось особливий') {
   const now = Date.now();
   const lastMs = me.last_mystery_match_time ? new Date(me.last_mystery_match_time).getTime() : 0;
   const needRefresh = !lastMs || (now - lastMs) > MYSTERY_REFRESH_MS;
@@ -224,26 +238,19 @@ async function resolveMysteryMatch(supabase, me, ranked, compatByUser) {
     };
   }
 
-  // Unlocked: reveal identity. Prefer the already-built ranked card; fall back
-  // to a direct fetch if this person has since dropped out of the eligible deck.
-  let card = ranked.find((c) => c.userId === targetId);
-  if (!card) {
-    const { data: u } = await supabase
-      .from('users')
-      .select('id, name, age, city, photo_url')
-      .eq('id', targetId)
-      .maybeSingle();
-    if (!u) return null;
-    card = {
-      userId: u.id,
-      name: (u.name || '').split(' ')[0] || 'Хтось особливий',
-      age: u.age, city: u.city || '', photoUrl: u.photo_url || '',
-      tags: hit ? (hit.tags || []).slice(0, 3) : [],
-    };
-  }
+  // Unlocked: reveal identity with the REAL photo — the ranked card only carries
+  // the blurred thumbnail for free males, but an unlocked Mystery Match was paid
+  // for, so fetch photo_url directly.
+  const { data: u } = await supabase
+    .from('users')
+    .select('id, name, age, city, photo_url')
+    .eq('id', targetId)
+    .maybeSingle();
+  if (!u) return null;
   return {
-    userId: card.userId, compatibility, isMysteryMatch: true, unlocked: true,
-    name: card.name, age: card.age, city: card.city, photoUrl: card.photoUrl,
-    tags: card.tags || [],
+    userId: u.id, compatibility, isMysteryMatch: true, unlocked: true,
+    name: (u.name || '').split(' ')[0] || nameFallback,
+    age: u.age, city: u.city || '', photoUrl: u.photo_url || '',
+    tags: hit ? (hit.tags || []).slice(0, 3) : [],
   };
 }

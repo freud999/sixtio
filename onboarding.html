@@ -245,6 +245,20 @@
         return el;
       }
 
+      // Builds a tiny, heavily-blurred JPEG thumbnail from the upload canvas.
+      // Only ~64px of data is emitted, so the original is unrecoverable — the
+      // server serves this (never the real photo) to non-entitled viewers.
+      function makeBlurThumb(srcCanvas){
+        try {
+          var bw = 64, bh = Math.max(1, Math.round(bw * srcCanvas.height / srcCanvas.width));
+          var bc = document.createElement('canvas'); bc.width = bw; bc.height = bh;
+          var bx = bc.getContext('2d');
+          try { bx.filter = 'blur(2px)'; } catch(e){}
+          bx.drawImage(srcCanvas, 0, 0, bw, bh);
+          return bc.toDataURL('image/jpeg', 0.6);
+        } catch(e){ return ''; }
+      }
+
       function addPhotoBubble(dataUrl){
         var el = document.createElement('div');
         el.className = 'bubble photo';
@@ -479,9 +493,12 @@
             canvas.height = Math.round(img.height * scale);
             canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
             var dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+            // Privacy: also make a tiny blurred thumbnail. The server serves ONLY
+            // this to free males, so the real photo never reaches them.
+            var blurUrl = makeBlurThumb(canvas);
             addPhotoBubble(dataUrl);
             var typingEl = startTyping();
-            api('/api/photo', { imageBase64: dataUrl }).then(function(){
+            api('/api/photo', { imageBase64: dataUrl, blurBase64: blurUrl }).then(function(){
               typingEl.remove();
               addBubble(t('ob_photo_ok'), 'bot');
               pIndex++;

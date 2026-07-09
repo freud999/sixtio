@@ -676,12 +676,24 @@
             canvas.height = Math.round(img.height * scale);
             canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
             var dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+            // Privacy: tiny blurred thumbnail; the server serves ONLY this to
+            // free males so the real photo never reaches them.
+            var blurUrl = (function(){
+              try {
+                var bw = 64, bh = Math.max(1, Math.round(bw * canvas.height / canvas.width));
+                var bc = document.createElement('canvas'); bc.width = bw; bc.height = bh;
+                var bx = bc.getContext('2d');
+                try { bx.filter = 'blur(2px)'; } catch(e){}
+                bx.drawImage(canvas, 0, 0, bw, bh);
+                return bc.toDataURL('image/jpeg', 0.6);
+              } catch(e){ return ''; }
+            })();
             // optimistic preview
             var avatar = document.getElementById('avatar');
             avatar.src = dataUrl;
             avatar.hidden = false;
             document.getElementById('avatarPlaceholder').hidden = true;
-            api('/api/photo', { imageBase64: dataUrl }).then(function(){
+            api('/api/photo', { imageBase64: dataUrl, blurBase64: blurUrl }).then(function(){
               if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.notificationOccurred('success'); } catch(err){} }
             }).catch(function(){ /* keep preview; next load shows truth */ });
           };

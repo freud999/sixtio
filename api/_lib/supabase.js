@@ -173,7 +173,7 @@ export async function consumeFeedback(telegramId) {
 export async function deleteUserCascade(userId) {
   const supabase = getSupabase();
   try {
-    await supabase.storage.from('photos').remove([`${userId}.jpg`]);
+    await supabase.storage.from('photos').remove([`${userId}.jpg`, `${userId}_blur.jpg`]);
   } catch (storageError) {
     console.error('photo cleanup failed:', storageError.message);
   }
