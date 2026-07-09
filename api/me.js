@@ -11,22 +11,50 @@ const EXTRA_QUESTION_STEP = 20;
 // The one-time 100%-completion bonus (+2 ⭐) is now credited atomically in the DB
 // (credit_profile_completion_bonus RPC, migration-019), the single source of truth.
 
-// Psychological achievements are derived purely from the user's Big Five vector.
-// Thresholds live here (not in SQL) so they can evolve without a migration; the
-// resulting key set is persisted to users.achievements and refreshed on fetch.
-function computeAchievements(p) {
+// Psychological achievements. Big Five badges are derived from the user's OCEAN
+// vector; thresholds live here (not in SQL) so they can evolve without a
+// migration. Thresholds were loosened (was 80/80/30/85/80) so a solid — not only
+// an extreme — profile earns something and the block rarely stays empty.
+const ACH_RULES = [
+  { key: 'crystal_empath', field: 'trait_agreeableness',    op: 'gt', target: 70 }, // 🏆
+  { key: 'master_charisma', field: 'trait_extraversion',    op: 'gt', target: 70 }, // ⚡
+  { key: 'rock_stability', field: 'trait_neuroticism',      op: 'lt', target: 35 }, // 🛡️
+  { key: 'explorer',       field: 'trait_openness',         op: 'gt', target: 75 }, // 🪐
+  { key: 'zen_strategist', field: 'trait_conscientiousness', op: 'gt', target: 70 }, // 🎯
+];
+
+// `p` = profiles row (trait_* numbers); `user` supplies profile_depth for the
+// completion badge. Returns the earned key set (persisted to users.achievements).
+function computeAchievements(p, user) {
   const out = [];
-  if (!p) return out;
-  const n = (v) => (typeof v === 'number' ? v : null);
-  const ag = n(p.trait_agreeableness), ex = n(p.trait_extraversion),
-        ne = n(p.trait_neuroticism), op = n(p.trait_openness),
-        co = n(p.trait_conscientiousness);
-  if (ag !== null && ag > 80) out.push('crystal_empath');   // 🏆 Кришталевий Емпат
-  if (ex !== null && ex > 80) out.push('master_charisma');  // ⚡ Магістр Харизми
-  if (ne !== null && ne < 30) out.push('rock_stability');   // 🛡️ Скеля Стабільності
-  if (op !== null && op > 85) out.push('explorer');         // 🪐 Першовідкривач
-  if (co !== null && co > 80) out.push('zen_strategist');   // 🎯 Дзен-Стратег
+  if (p) {
+    for (const r of ACH_RULES) {
+      const v = typeof p[r.field] === 'number' ? p[r.field] : null;
+      if (v === null) continue;
+      if ((r.op === 'gt' && v > r.target) || (r.op === 'lt' && v < r.target)) out.push(r.key);
+    }
+  }
+  // 💎 Completion badge — a guaranteed reward for finishing the profile (was tied
+  // to nothing before, so a 100% profile could still show zero badges).
+  if (user && user.profile_depth === 100) out.push('complete_100');
   return out;
+}
+
+// The unearned Big Five badge the user is CLOSEST to, as { key, pct } (pct 0..99),
+// or null. Lets the UI show "almost there" progress instead of an empty block.
+function nearestAchievement(p, earned) {
+  if (!p) return null;
+  let best = null;
+  for (const r of ACH_RULES) {
+    if (earned.includes(r.key)) continue;
+    const v = typeof p[r.field] === 'number' ? p[r.field] : null;
+    if (v === null) continue;
+    // gt: how close from below; lt: how close from above (lower is better).
+    let pct = r.op === 'gt' ? (v / r.target) * 100 : (r.target / Math.max(v, 1)) * 100;
+    pct = Math.max(0, Math.min(99, Math.round(pct)));
+    if (!best || pct > best.pct) best = { key: r.key, pct };
+  }
+  return best;
 }
 
 const sameSet = (a, b) =>
@@ -90,7 +118,8 @@ export default async function handler(req, res) {
 
     // Sync psychological badges from the latest Big Five vector. Persist only
     // when the set actually changed, so a plain fetch stays read-mostly.
-    const achievements = computeAchievements(profile);
+    const achievements = computeAchievements(profile, user);
+    const achievementProgress = nearestAchievement(profile, achievements);
     const storedAchievements = user.achievements || [];
     if (!sameSet(achievements, storedAchievements)) {
       const { error: achError } = await supabase
@@ -224,6 +253,8 @@ export default async function handler(req, res) {
         // Gamification: completeness meter (0..100) + earned psychological badges.
         profileDepth: typeof user.profile_depth === 'number' ? user.profile_depth : BASE_PROFILE_DEPTH,
         achievements,
+        // Nearest unearned Big Five badge ({ key, pct }) for the "almost there" hint.
+        achievementProgress,
       },
       profile: profile
         ? { traits: profile.traits_json || [], vibe: profile.vibe || '', summary: profile.summary_text || '' }

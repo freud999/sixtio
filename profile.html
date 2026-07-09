@@ -156,6 +156,14 @@
     box-shadow:0 0 18px -6px var(--glow), inset 0 0 12px -6px rgba(255,150,240,.6); }
   .achieve-badge .em{ font-size:17px; line-height:1; }
   .achieve-empty{ font-size:13.5px; color:var(--hint); line-height:1.5; }
+  /* "almost there" progress toward the nearest unearned badge */
+  .achieve-next{ flex-basis:100%; margin-top:2px; }
+  .achieve-next-lbl{ font-size:12.5px; font-weight:600; color:var(--hint); margin-bottom:6px; }
+  .achieve-next-bar{ position:relative; width:100%; height:8px; border-radius:999px;
+    overflow:hidden; background:rgba(255,255,255,.08); }
+  .achieve-next-bar span{ position:absolute; inset:0 auto 0 0; border-radius:999px;
+    background:linear-gradient(90deg, rgba(124,58,237,.9), rgba(236,72,153,.9));
+    box-shadow:0 0 12px -3px var(--glow); }
 
   /* ---- Dark Mode (18+) — isolated crimson monolith ---- */
   /* Distinct crimson glass so the 18+ layer never blends with standard sections. */
@@ -492,7 +500,7 @@
 
         renderDark(u);
         renderDepth(u);
-        renderAchievements(u.achievements);
+        renderAchievements(u.achievements, u.achievementProgress);
       }
 
       // ---- Profile depth + achievements (gamification) --------------------
@@ -501,7 +509,8 @@
         master_charisma:{ em: '⚡', label: t('ach_master_charisma') },
         rock_stability: { em: '🛡️', label: t('ach_rock_stability') },
         explorer:       { em: '🪐', label: t('ach_explorer') },
-        zen_strategist: { em: '🎯', label: t('ach_zen_strategist') }
+        zen_strategist: { em: '🎯', label: t('ach_zen_strategist') },
+        complete_100:   { em: '💎', label: t('ach_complete_100') }
       };
       // Three tricky depth questions — one per +20 step from the base 40% → 100%.
       var EXTRA_QUESTIONS = [ t('extra_q_0'), t('extra_q_1'), t('extra_q_2') ];
@@ -520,17 +529,11 @@
         widget.hidden = false;
       }
 
-      function renderAchievements(list){
+      function renderAchievements(list, progress){
         var grid = document.getElementById('achieveGrid');
         grid.innerHTML = '';
         var keys = (list || []).filter(function(k){ return ACHIEVEMENTS[k]; });
-        if (!keys.length) {
-          var ph = document.createElement('div');
-          ph.className = 'achieve-empty';
-          ph.textContent = t('achieve_empty');
-          grid.appendChild(ph);
-          return;
-        }
+
         keys.forEach(function(k){
           var b = ACHIEVEMENTS[k];
           var chip = document.createElement('span');
@@ -538,6 +541,25 @@
           chip.innerHTML = '<span class="em">' + b.em + '</span>' + b.label;
           grid.appendChild(chip);
         });
+
+        // "Almost there" hint for the nearest unearned Big Five badge — so the
+        // block is never a dead end even before any badge is earned.
+        if (progress && ACHIEVEMENTS[progress.key] && typeof progress.pct === 'number') {
+          var b = ACHIEVEMENTS[progress.key];
+          var hint = document.createElement('div');
+          hint.className = 'achieve-next';
+          var pct = Math.max(0, Math.min(99, progress.pct));
+          hint.innerHTML =
+            '<div class="achieve-next-lbl">' + b.em + ' ' +
+              t('achieve_next', { label: b.label, pct: pct }) + '</div>' +
+            '<div class="achieve-next-bar"><span style="width:' + pct + '%"></span></div>';
+          grid.appendChild(hint);
+        } else if (!keys.length) {
+          var ph = document.createElement('div');
+          ph.className = 'achieve-empty';
+          ph.textContent = t('achieve_empty');
+          grid.appendChild(ph);
+        }
       }
 
       // ---- Dark Mode (18+) — marker labels come from the i18n dictionary ----
