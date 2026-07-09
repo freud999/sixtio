@@ -127,6 +127,43 @@ export async function resolveMatchForUser(userId, matchId) {
   return all[0];
 }
 
+// --- Feedback flow (Task 38) ---------------------------------------------
+// A bare "/feedback" arms this flag; the user's next plain message is captured
+// as feedback (no reply-quote needed). Only fires within FEEDBACK_WINDOW_MS.
+export const FEEDBACK_WINDOW_MS = 10 * 60 * 1000;
+
+/** Arms the "awaiting feedback" flag for a registered user (no-op if unknown). */
+export async function armFeedback(telegramId) {
+  const { error } = await getSupabase()
+    .from('users')
+    .update({ feedback_pending_at: new Date().toISOString() })
+    .eq('telegram_id', telegramId);
+  if (error) throw error;
+}
+
+/**
+ * Reads and clears the flag in one shot. Returns true only if it was armed and
+ * still fresh (within FEEDBACK_WINDOW_MS) — so a stale flag never captures an
+ * unrelated message. Always clears, so it can fire at most once per /feedback.
+ */
+export async function consumeFeedback(telegramId) {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('users')
+    .select('feedback_pending_at')
+    .eq('telegram_id', telegramId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data || !data.feedback_pending_at) return false;
+
+  await supabase
+    .from('users')
+    .update({ feedback_pending_at: null })
+    .eq('telegram_id', telegramId);
+
+  return Date.now() - new Date(data.feedback_pending_at).getTime() <= FEEDBACK_WINDOW_MS;
+}
+
 /**
  * Permanently deletes a user and everything tied to them. The foreign keys
  * cascade (answers, profile, matches, messages); the stored photo is removed too.

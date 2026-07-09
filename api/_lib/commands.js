@@ -16,7 +16,7 @@
 // Every reply is localized uk/ru/en via the sender's live Telegram language_code.
 
 import { callBot, botLang } from './bot.js';
-import { findUserId, deleteUserCascade } from './supabase.js';
+import { findUserId, deleteUserCascade, armFeedback, consumeFeedback } from './supabase.js';
 import { buildReferralLink } from './referrals.js';
 
 const APP_URL = process.env.APP_URL || 'https://sixtio.vercel.app';
@@ -268,6 +268,11 @@ export async function handleUserCallback(cb) {
 // flow needs no stored session state.
 async function askForFeedback(msg) {
   const t = d(msg.from && msg.from.language_code);
+  // Arm the DB flag so the user's NEXT plain message counts as feedback even
+  // without a reply-quote (force_reply is easy to miss on Desktop). Best-effort:
+  // if the user isn't registered (no row) or the write fails, the force_reply
+  // path below still works as a fallback.
+  try { await armFeedback(msg.from && msg.from.id); } catch (e) { console.error('armFeedback failed:', e.message); }
   await callBot('sendMessage', {
     chat_id: msg.chat.id, text: t.fb_prompt,
     reply_markup: { force_reply: true, input_field_placeholder: t.fb_placeholder },
@@ -370,6 +375,15 @@ export async function handleUserCommand(msg) {
     if (rest) await forwardFeedback(msg, rest);
     else await askForFeedback(msg);
     return true;
+  }
+
+  // 4) A plain (non-command) message right after a bare /feedback — captured as
+  // feedback via the armed DB flag, so the user doesn't have to reply-quote.
+  if (typeof msg.text === 'string' && msg.text.trim() && !cmd.startsWith('/')) {
+    let armed = false;
+    try { armed = await consumeFeedback(msg.from && msg.from.id); }
+    catch (e) { console.error('consumeFeedback failed:', e.message); }
+    if (armed) { await forwardFeedback(msg, msg.text); return true; }
   }
 
   return false; // not ours — let the caller handle /start, /stats, etc.
