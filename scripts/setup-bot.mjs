@@ -111,7 +111,14 @@ async function run() {
     const langArg = code ? { language_code: code } : {};
     await api('setMyShortDescription', { short_description: SHORT[lang], ...langArg });
     await api('setMyDescription', { description: DESCRIPTION[lang], ...langArg });
+    // Set BOTH the default scope AND all_private_chats. Default is the fallback,
+    // but some Telegram clients (notably Desktop) only render the "/" autocomplete
+    // popup from the all_private_chats scope — without it the list can stay hidden
+    // in 1:1 chats even though getMyCommands (default) returns the commands.
     await api('setMyCommands', { commands: COMMANDS[lang], ...langArg });
+    await api('setMyCommands', {
+      commands: COMMANDS[lang], scope: { type: 'all_private_chats' }, ...langArg,
+    });
     console.log(`OK  short/description/commands -> ${code || 'default(en)'}`);
   }
   console.log('\n✅ Bot profile localized for en (default) / uk / ru.');
