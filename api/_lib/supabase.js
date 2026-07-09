@@ -181,6 +181,60 @@ export async function deleteUserCascade(userId) {
   if (error) throw error;
 }
 
+// --- Block & Report (migration 022) --------------------------------------
+// Blocking is a private, two-way hide. reportUser flags to the owner and, past a
+// threshold of distinct reporters, shadow-hides the target from every feed.
+
+/** Appends target to blocker's blocked_users (atomic, dedup-guarded). */
+export async function blockUser(blockerId, targetId) {
+  const { error } = await getSupabase().rpc('block_user', { blocker: blockerId, target: targetId });
+  if (error) throw error;
+}
+
+/** Removes target from blocker's blocked_users. */
+export async function unblockUser(blockerId, targetId) {
+  const { error } = await getSupabase().rpc('unblock_user', { blocker: blockerId, target: targetId });
+  if (error) throw error;
+}
+
+/** Records a report and auto-hides past `hideThreshold`. Returns distinct-reporter count. */
+export async function reportUser(reporterId, targetId, reason, hideThreshold) {
+  const { data, error } = await getSupabase().rpc('report_user', {
+    reporter: reporterId, target: targetId,
+    reason_text: reason ? String(reason).slice(0, 500) : null,
+    hide_threshold: hideThreshold,
+  });
+  if (error) throw error;
+  return typeof data === 'number' ? data : 0;
+}
+
+/** True if either user has blocked the other (checks both directions in one read). */
+export async function areUsersBlocked(aId, bId) {
+  const { data, error } = await getSupabase()
+    .from('users').select('id, blocked_users').in('id', [aId, bId]);
+  if (error) throw error;
+  for (const r of data || []) {
+    const other = r.id === aId ? bId : aId;
+    if ((r.blocked_users || []).includes(other)) return true;
+  }
+  return false;
+}
+
+/**
+ * The full set of user ids this user must never see (and who must never see
+ * them): everyone THEY blocked, plus everyone who blocked THEM. Pass the caller's
+ * own blocked_users array (already loaded on their row) to save a round-trip.
+ * Shadow-hidden users are filtered separately at the candidate level.
+ */
+export async function getHiddenUserIds(userId, myBlockedList) {
+  const set = new Set(myBlockedList || []);
+  const { data, error } = await getSupabase()
+    .from('users').select('id').contains('blocked_users', [userId]);
+  if (error) throw error;
+  for (const r of data || []) set.add(r.id);
+  return set;
+}
+
 /** Upserts the Telegram user into public.users and returns the row id. */
 export async function upsertUser(tgUser) {
   const name = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ') || null;

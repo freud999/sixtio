@@ -1,5 +1,5 @@
 import { resolveUser } from './_lib/telegram.js';
-import { getSupabase, getMatchesFor } from './_lib/supabase.js';
+import { getSupabase, getMatchesFor, getHiddenUserIds } from './_lib/supabase.js';
 import { entitlements, likesLeftForClient, intimateCompatibility } from './_lib/entitlements.js';
 
 // Recommendation feed for the swipe deck (feed.html). Pure Supabase — no AI.
@@ -28,7 +28,7 @@ export default async function handler(req, res) {
     const supabase = getSupabase();
     const { data: me, error: meError } = await supabase
       .from('users')
-      .select('id, gender, seeking_gender, age, liked_users, disliked_users, premium, premium_until, daily_likes_count, last_like_reset, dark_mode_active, kink_markers, last_mystery_match_id, last_mystery_match_time, mystery_match_unlocked')
+      .select('id, gender, seeking_gender, age, liked_users, disliked_users, blocked_users, premium, premium_until, daily_likes_count, last_like_reset, dark_mode_active, kink_markers, last_mystery_match_id, last_mystery_match_time, mystery_match_unlocked')
       .eq('telegram_id', tgUser.id)
       .maybeSingle();
     if (meError) throw meError;
@@ -55,6 +55,13 @@ export default async function handler(req, res) {
       for (const m of await getMatchesFor(me.id)) seen.add(m.partnerId);
     } catch (e) { console.error('feed match-dedup failed:', e.message); }
 
+    // Block list (two-way): everyone this user blocked AND everyone who blocked
+    // them is removed from the deck. shadow_hidden (mass-reported) users are
+    // filtered per-candidate below.
+    try {
+      for (const id of await getHiddenUserIds(me.id, me.blocked_users)) seen.add(id);
+    } catch (e) { console.error('feed block-dedup failed:', e.message); }
+
     // Big Five ranking + tags, in one RPC. Isolated: if the migration/RPC isn't
     // live yet, the feed still works — every candidate just scores 0.
     const compatByUser = {};
@@ -76,7 +83,7 @@ export default async function handler(req, res) {
 
     const { data: candidates, error: candError } = await supabase
       .from('users')
-      .select('id, name, gender, seeking_gender, age, city, photo_url, dark_mode_active, kink_markers')
+      .select('id, name, gender, seeking_gender, age, city, photo_url, dark_mode_active, kink_markers, shadow_hidden')
       .neq('id', me.id);
     if (candError) throw candError;
 
@@ -86,7 +93,8 @@ export default async function handler(req, res) {
 
     const ranked = [];
     for (const c of candidates || []) {
-      if (seen.has(c.id)) continue;                              // already swiped
+      if (seen.has(c.id)) continue;                              // already swiped / blocked
+      if (c.shadow_hidden) continue;                             // mass-reported, auto-hidden
       if (!c.gender || !c.seeking_gender || !c.age) continue;    // incomplete profile
       // Opposite gender by mutual preference ('any' is a wildcard on either side).
       if (me.seeking_gender !== 'any' && c.gender !== me.seeking_gender) continue;

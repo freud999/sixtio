@@ -34,7 +34,9 @@
     border:1px solid var(--glass-border); color:var(--hint); flex-shrink:0; }
   .peer-name{ font-size:16px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .peer-status{ font-size:11px; letter-spacing:.06em; color:var(--a1); }
-  .info-ico{ flex-shrink:0; font-size:18px; color:var(--a1); opacity:.7; }
+  .info-ico{ flex-shrink:0; font-size:22px; line-height:1; color:var(--a1); opacity:.75;
+    background:none; border:none; cursor:pointer; font-family:inherit; padding:4px 6px; }
+  .info-ico:active{ opacity:.5; }
 
   /* telegram-exchange bar */
   .share-bar{ position:relative; z-index:1; display:flex; justify-content:center;
@@ -103,7 +105,7 @@
         <div class="peer-status led" data-i18n="cv_view_match">переглянути метч ›</div>
       </div>
     </button>
-    <span class="info-ico" aria-hidden="true">ⓘ</span>
+    <button class="info-ico" id="peerMenu" type="button" data-i18n-aria="mn_menu" aria-label="Дії">⋯</button>
   </div>
 
   <div class="share-bar" id="shareBar" hidden></div>
@@ -142,6 +144,7 @@
       var seen = {};       // message id -> true (dedupe across polls)
       var pollTimer = null;
       var matchId = new URLSearchParams(window.location.search).get('match') || null;
+      var partnerId = null;   // partner's internal user id, for block/report
 
       function goBack(){ window.location.href = 'chat.html'; }
       document.getElementById('back').addEventListener('click', goBack);
@@ -246,6 +249,7 @@
         api('/api/chat', { op: 'list' }).then(function(data){
           if (!data.hasMatch) { goBack(); return; }
           if (data.matchId) matchId = data.matchId;
+          if (data.partnerId) partnerId = data.partnerId;
           if (!partnerLoaded) {
             renderPartner(data.partner);
             peerName = (data.partner && data.partner.name) || SixtioI18n.t('cv_pair');
@@ -257,6 +261,53 @@
           if (had === 0 && data.messages.length === 0) intro.hidden = false;
         }).catch(function(){ /* keep last state on transient errors */ });
       }
+
+      // ---- Safety: block / report -------------------------------------------
+      function notify(msg){
+        if (tg && tg.showAlert) { try { tg.showAlert(msg); return; } catch(e){} }
+        alert(msg);
+      }
+      function confirmThen(question, run){
+        if (tg && tg.showConfirm) { try { tg.showConfirm(question, function(ok){ if (ok) run(); }); return; } catch(e){} }
+        if (window.confirm(question)) run();
+      }
+      function doBlock(){
+        if (!partnerId) return;
+        confirmThen(SixtioI18n.t('mn_block_q'), function(){
+          api('/api/interact', { op: 'block', targetId: partnerId })
+            .then(function(){ notify(SixtioI18n.t('mn_blocked')); setTimeout(goBack, 600); })
+            .catch(function(){});
+        });
+      }
+      function doReport(){
+        if (!partnerId) return;
+        var reason = window.prompt ? window.prompt(SixtioI18n.t('mn_report_q'), '') : '';
+        if (reason === null) return;   // cancelled
+        api('/api/interact', { op: 'report', targetId: partnerId, reason: reason || '' })
+          .then(function(){ notify(SixtioI18n.t('mn_reported')); setTimeout(goBack, 600); })
+          .catch(function(){});
+      }
+      document.getElementById('peerMenu').addEventListener('click', function(){
+        if (!partnerId) return;
+        if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('light'); } catch(e){} }
+        var t = SixtioI18n.t;
+        if (tg && tg.showPopup) {
+          try {
+            tg.showPopup({
+              title: t('mn_menu'),
+              message: (document.getElementById('peerName').textContent || '').trim() || t('mn_menu'),
+              buttons: [
+                { id: 'report', type: 'default', text: t('mn_report') },
+                { id: 'block', type: 'destructive', text: t('mn_block') },
+                { id: 'cancel', type: 'cancel' }
+              ]
+            }, function(id){ if (id === 'block') doBlock(); else if (id === 'report') doReport(); });
+            return;
+          } catch(e){}
+        }
+        // Fallback for clients without showPopup: report first, then offer block.
+        doReport();
+      });
 
       function autosize(){
         input.style.height = 'auto';

@@ -1,5 +1,7 @@
 import { resolveUser, pickLang } from './_lib/telegram.js';
-import { findUserId, getSupabase } from './_lib/supabase.js';
+import {
+  findUserId, getSupabase, blockUser, unblockUser, reportUser,
+} from './_lib/supabase.js';
 import {
   entitlements, likesLeftForClient,
   FREE_DAILY_LIMIT, PREMIUM_PRICE, PREMIUM_DAYS, SWIPE_PACK_PRICE,
@@ -16,6 +18,11 @@ const STAR_PACKS = {
   pack_100: { stars: 100, title: 'Sixtio · 100 ⭐', label: 'Поповнення балансу · 100 ⭐' },
   pack_250: { stars: 250, title: 'Sixtio · 250 ⭐', label: 'Поповнення балансу · 250 ⭐' },
 };
+
+// A user is auto-hidden from every feed/match once this many DISTINCT people
+// report them (see report_user RPC, migration 022). Blocking is always instant.
+const REPORT_HIDE_THRESHOLD = 3;
+const OWNER_TELEGRAM_ID = Number(process.env.OWNER_TELEGRAM_ID || 0);
 
 // Chance-based lootbox reward table. Rolled server-side so the client can't
 // bias the odds: 40% +3 swipes, 20% a 30% Premium discount, 40% nothing.
@@ -61,6 +68,8 @@ export default async function handler(req, res) {
     if (op === 'submit_kink_interview') return submitKinkInterview(res, tgUser, body);
     if (op === 'unlock_mystery_match') return unlockMysteryMatch(res, tgUser);
     if (op === 'open_lootbox') return openLootbox(res, tgUser);
+    if (op === 'block' || op === 'unblock') return blockOrUnblock(res, tgUser, body, op);
+    if (op === 'report') return report(res, tgUser, body);
     return swipe(req, res, tgUser, body);
   } catch (e) {
     console.error('api/interact failed:', e);
@@ -350,6 +359,60 @@ async function revealMysteryCard(supabase, meId, targetId) {
     age: u.age, city: u.city || '', photoUrl: u.photo_url || '',
     compatibility, tags, isMysteryMatch: true, unlocked: true,
   };
+}
+
+// --- Block / Unblock ----------------------------------------------------
+// Blocking is a private, two-way hide: the target vanishes from this user's
+// feed/matches/chat and vice versa (the read paths union both directions). It
+// never notifies anyone and never deletes data — unblocking fully reverses it.
+async function blockOrUnblock(res, tgUser, body, op) {
+  const targetId = body.targetId ? String(body.targetId) : '';
+  if (!targetId) return res.status(400).json({ error: 'targetId is required' });
+
+  const userId = await findUserId(tgUser.id);
+  if (!userId) return res.status(200).json({ ok: false });
+  if (targetId === userId) return res.status(400).json({ error: 'cannot block yourself' });
+
+  if (op === 'block') await blockUser(userId, targetId);
+  else await unblockUser(userId, targetId);
+
+  return res.status(200).json({ ok: true, blocked: op === 'block' });
+}
+
+// --- Report -------------------------------------------------------------
+// Flags a user to the owner for review and auto-hides them once enough distinct
+// people report them. A report also blocks the reporter -> reported direction
+// immediately, so the reporter never has to see them again while we review.
+async function report(res, tgUser, body) {
+  const targetId = body.targetId ? String(body.targetId) : '';
+  if (!targetId) return res.status(400).json({ error: 'targetId is required' });
+
+  const userId = await findUserId(tgUser.id);
+  if (!userId) return res.status(200).json({ ok: false });
+  if (targetId === userId) return res.status(400).json({ error: 'cannot report yourself' });
+
+  const reason = typeof body.reason === 'string' ? body.reason.trim().slice(0, 500) : '';
+  const count = await reportUser(userId, targetId, reason, REPORT_HIDE_THRESHOLD);
+  // A report implies a block — hide them from the reporter right away.
+  try { await blockUser(userId, targetId); } catch (e) { console.error('report auto-block failed:', e.message); }
+
+  const hidden = count >= REPORT_HIDE_THRESHOLD;
+  // Notify the owner so a real human can review. Best-effort, never fatal.
+  if (OWNER_TELEGRAM_ID) {
+    const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const text =
+      '🚩 <b>Скарга Sixtio</b>\n' +
+      `Порушник: <code>${targetId}</code>\n` +
+      `Скаржник: <code>${userId}</code>\n` +
+      `Причина: ${reason ? esc(reason) : '—'}\n` +
+      `Унікальних скарг: <b>${count}</b>` +
+      (hidden ? '\n\n⛔️ Авто-приховано (досягнуто поріг).' : '');
+    try {
+      await callBot('sendMessage', { chat_id: OWNER_TELEGRAM_ID, text, parse_mode: 'HTML' });
+    } catch (e) { console.error('report owner notify failed:', e.message); }
+  }
+
+  return res.status(200).json({ ok: true, reported: true, hidden });
 }
 
 // --- Open Lootbox (first free / then 5 ⭐) -------------------------------

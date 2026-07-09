@@ -1,5 +1,5 @@
 import { resolveUser, pickLang } from './_lib/telegram.js';
-import { getSupabase, getMatchesFor } from './_lib/supabase.js';
+import { getSupabase, getMatchesFor, getHiddenUserIds } from './_lib/supabase.js';
 import { buildReferralLink } from './_lib/referrals.js';
 import { entitlements, likesLeftForClient, intimateCompatibility } from './_lib/entitlements.js';
 import { notifyRetention } from './_lib/bot.js';
@@ -58,7 +58,7 @@ export default async function handler(req, res) {
     const supabase = getSupabase();
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, name, gender, seeking_gender, goal, age, city, interests, bio, photo_url, stars_balance, premium, premium_until, daily_likes_count, last_like_reset, dark_mode_active, kink_markers, profile_depth, achievements')
+      .select('id, name, gender, seeking_gender, goal, age, city, interests, bio, photo_url, stars_balance, premium, premium_until, daily_likes_count, last_like_reset, dark_mode_active, kink_markers, blocked_users, profile_depth, achievements')
       .eq('telegram_id', tgUser.id)
       .maybeSingle();
     if (error) throw error;
@@ -127,14 +127,19 @@ export default async function handler(req, res) {
     };
     const rows = await getMatchesFor(user.id);
     const darkOn = !!user.dark_mode_active;
+    // Blocked (either direction) partners never surface as match cards.
+    let hidden = new Set();
+    try { hidden = await getHiddenUserIds(user.id, user.blocked_users); }
+    catch (e) { console.error('matches block-filter failed:', e.message); }
     const matches = [];
     for (const m of rows) {
+      if (hidden.has(m.partnerId)) continue;
       const { data: partner } = await supabase
         .from('users')
-        .select('name, age, city, goal, interests, bio, photo_url, dark_mode_active, kink_markers')
+        .select('name, age, city, goal, interests, bio, photo_url, dark_mode_active, kink_markers, shadow_hidden')
         .eq('id', m.partnerId)
         .maybeSingle();
-      if (!partner) continue;
+      if (!partner || partner.shadow_hidden) continue;
       const { data: partnerProfile } = await supabase
         .from('profiles')
         .select('traits_json, vibe')
@@ -150,6 +155,9 @@ export default async function handler(req, res) {
       const lm = lastRows && lastRows[0];
       const card = {
         matchId: m.matchId,
+        // Partner's internal user id — needed by the client to block/report them
+        // (never the Telegram identity, which stays private until mutual consent).
+        partnerId: m.partnerId,
         // Sanitized on read too: rows written before the parser hardening may
         // carry leaked JSON/meta-commentary at the tail (see claude.js).
         reason: m.reason === 'mutual_like'

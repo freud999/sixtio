@@ -134,6 +134,7 @@
 
   <div class="top-bar">
     <button class="back" id="back" data-i18n="mt_back" data-i18n-aria="aria_back" aria-label="Назад">‹ Назад</button>
+    <button class="back" id="menuBtn" type="button" style="margin-left:auto;" data-i18n-aria="mn_menu" aria-label="Дії" hidden>⋯</button>
   </div>
 
   <div class="match-card" id="card" hidden>
@@ -260,7 +261,62 @@
           if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('medium'); } catch(e){} }
           openWhyFactor(m.matchId);
         });
+
+        // Safety menu (block / report) — needs the partner's internal id.
+        if (m.partnerId) { partnerId = m.partnerId; document.getElementById('menuBtn').hidden = false; }
       }
+
+      // ---- Safety: block / report ---------------------------------------------
+      var partnerId = null;
+      function notify(msg){
+        if (tg && tg.showAlert) { try { tg.showAlert(msg); return; } catch(e){} }
+        alert(msg);
+      }
+      function confirmThen(question, run){
+        if (tg && tg.showConfirm) { try { tg.showConfirm(question, function(ok){ if (ok) run(); }); return; } catch(e){} }
+        if (window.confirm(question)) run();
+      }
+      function safeApi(payload){
+        return fetch('/api/interact', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(Object.assign({ initData: initData }, payload))
+        }).then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+      }
+      function doBlock(){
+        if (!partnerId) return;
+        confirmThen(t('mn_block_q'), function(){
+          safeApi({ op: 'block', targetId: partnerId })
+            .then(function(){ notify(t('mn_blocked')); setTimeout(goBack, 600); })
+            .catch(function(){});
+        });
+      }
+      function doReport(){
+        if (!partnerId) return;
+        var reason = window.prompt ? window.prompt(t('mn_report_q'), '') : '';
+        if (reason === null) return;
+        safeApi({ op: 'report', targetId: partnerId, reason: reason || '' })
+          .then(function(){ notify(t('mn_reported')); setTimeout(goBack, 600); })
+          .catch(function(){});
+      }
+      document.getElementById('menuBtn').addEventListener('click', function(){
+        if (!partnerId) return;
+        if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('light'); } catch(e){} }
+        if (tg && tg.showPopup) {
+          try {
+            tg.showPopup({
+              title: t('mn_menu'),
+              message: (document.getElementById('name').textContent || '').trim() || t('mn_menu'),
+              buttons: [
+                { id: 'report', type: 'default', text: t('mn_report') },
+                { id: 'block', type: 'destructive', text: t('mn_block') },
+                { id: 'cancel', type: 'cancel' }
+              ]
+            }, function(id){ if (id === 'block') doBlock(); else if (id === 'report') doReport(); });
+            return;
+          } catch(e){}
+        }
+        doReport();
+      });
 
       function pick(me){
         if (me.user && typeof me.user.starsBalance === 'number') starsBal = me.user.starsBalance;

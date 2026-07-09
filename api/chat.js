@@ -1,7 +1,7 @@
 import { resolveUser, pickLang } from './_lib/telegram.js';
 import {
   getSupabase, findUserId, resolveMatchForUser,
-  getShareState, setShareConsent,
+  getShareState, setShareConsent, areUsersBlocked,
 } from './_lib/supabase.js';
 import { notifyNewMessage } from './_lib/bot.js';
 import { entitlements, WHY_FACTOR_PRICE } from './_lib/entitlements.js';
@@ -52,7 +52,8 @@ async function list(res, tgUser, body) {
   const supabase = getSupabase();
   const userId = await findUserId(tgUser.id);
   const match = userId ? await resolveMatchForUser(userId, body.matchId) : null;
-  if (!match) {
+  // A blocked match (either direction) reads as if it no longer exists.
+  if (!match || await areUsersBlocked(userId, match.partnerId)) {
     return res.status(200).json({ hasMatch: false, partner: null, messages: [] });
   }
 
@@ -81,6 +82,7 @@ async function list(res, tgUser, body) {
   return res.status(200).json({
     hasMatch: true,
     matchId: match.matchId,
+    partnerId: match.partnerId,   // for block/report (internal id, not Telegram identity)
     partner: {
       name: (partner && (partner.name || '').split(' ')[0]) ||
         NAME_FALLBACK[pickLang(body.lang, tgUser)] || NAME_FALLBACK.uk,
@@ -101,6 +103,10 @@ async function send(res, tgUser, body) {
   const userId = await findUserId(tgUser.id);
   const match = userId ? await resolveMatchForUser(userId, body.matchId) : null;
   if (!match) return res.status(409).json({ error: 'No match yet' });
+  // Neither side can message across a block.
+  if (await areUsersBlocked(userId, match.partnerId)) {
+    return res.status(409).json({ error: 'No match yet' });
+  }
 
   const { data: inserted, error } = await supabase
     .from('messages')

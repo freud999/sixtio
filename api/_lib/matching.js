@@ -1,4 +1,4 @@
-import { getSupabase, pairExists } from './supabase.js';
+import { getSupabase, pairExists, getHiddenUserIds } from './supabase.js';
 import { scoreCandidates } from './claude.js';
 import { notifyMatchBoth } from './bot.js';
 
@@ -62,12 +62,18 @@ export async function runMatching(userId, lang = 'uk') {
 
   const { data: candidates, error: candError } = await supabase
     .from('users')
-    .select('id, telegram_id, name, tg_username, gender, seeking_gender, goal, age, city, interests, bio, photo_url, language_code')
+    .select('id, telegram_id, name, tg_username, gender, seeking_gender, goal, age, city, interests, bio, photo_url, language_code, shadow_hidden')
     .neq('id', userId);
   if (candError) throw candError;
 
+  // Never pair across a block (either direction) or with a mass-reported user.
+  let hidden = new Set();
+  try { hidden = await getHiddenUserIds(userId, me.blocked_users); }
+  catch (e) { console.error('matching block-filter failed:', e.message); }
+
   const eligible = [];
   for (const c of candidates || []) {
+    if (hidden.has(c.id) || c.shadow_hidden) continue;
     if (!c.gender || !c.seeking_gender || !c.goal || !c.age) continue;
     if (me.seeking_gender !== 'any' && c.gender !== me.seeking_gender) continue;
     if (c.seeking_gender !== 'any' && me.gender !== c.seeking_gender) continue;
