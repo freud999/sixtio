@@ -950,6 +950,33 @@
   var api = { lang: lang, t: t, kink: kink, apply: apply, detect: detect, refresh: refresh, setLang: setLang, mountSwitchers: mountSwitchers };
   window.SixtioI18n = api;
 
+  // Attach the ACTIVE UI language to every same-origin API call that already
+  // carries initData, so the server renders AI content — and stores the language
+  // used for out-of-band bot notifications — in the language the user actually
+  // SEES (the switcher), not merely the Telegram account language. Done once and
+  // centrally, so no per-page api() helper has to change and future calls are
+  // covered automatically. Only JSON bodies with an initData field are touched;
+  // FormData/binary uploads, cross-origin, and non-API calls pass through as-is.
+  (function patchFetchForLang() {
+    if (!window.fetch || window.__sixtioLangFetch) return;
+    window.__sixtioLangFetch = true;
+    var orig = window.fetch.bind(window);
+    window.fetch = function (input, init) {
+      try {
+        var url = typeof input === 'string' ? input : (input && input.url) || '';
+        if (init && typeof init.body === 'string' && url.indexOf('/api/') !== -1) {
+          var data = JSON.parse(init.body);
+          if (data && typeof data === 'object' && !Array.isArray(data) &&
+              Object.prototype.hasOwnProperty.call(data, 'initData') && data.lang == null) {
+            data.lang = lang;
+            init = Object.assign({}, init, { body: JSON.stringify(data) });
+          }
+        }
+      } catch (e) { /* non-JSON body or parse issue -> send unchanged */ }
+      return orig(input, init);
+    };
+  })();
+
   // Apply as early as possible, then re-verify at every point the Telegram SDK
   // could have finished (or changed) its init data: on DOM ready, and once the
   // WebApp reports ready(). This is the cache-bust sweep the lifecycle needs.

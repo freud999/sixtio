@@ -1,4 +1,4 @@
-import { resolveUser, getStartParam, resolveLang } from './_lib/telegram.js';
+import { resolveUser, getStartParam, pickLang } from './_lib/telegram.js';
 import { getSupabase, upsertUser } from './_lib/supabase.js';
 import { generateProfile } from './_lib/claude.js';
 import { questionLabel } from './_lib/questions.js';
@@ -10,7 +10,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
   try {
-    const { initData } = req.body || {};
+    const { initData, lang: clientLang } = req.body || {};
     const tgUser = resolveUser(initData);
     if (!tgUser) {
       return res.status(401).json({ error: 'Invalid Telegram initData' });
@@ -39,7 +39,7 @@ export default async function handler(req, res) {
       (r) => `Питання: ${questionLabel(r.question_id)}\nВідповідь: ${r.answer_text}\n`
     );
     // Digital Twin traits/vibe/summary in the user's native language (Task 26).
-    const lang = resolveLang(tgUser);
+    const lang = pickLang(clientLang, tgUser);
     const profile = await generateProfile(qaLines, userRow ? userRow.gender : null, lang);
 
     const { error: upsertError } = await supabase.from('profiles').upsert(

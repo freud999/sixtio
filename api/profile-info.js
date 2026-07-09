@@ -1,4 +1,4 @@
-import { resolveUser, resolveLang } from './_lib/telegram.js';
+import { resolveUser, pickLang } from './_lib/telegram.js';
 import { getSupabase, upsertUser } from './_lib/supabase.js';
 
 const GENDERS = ['male', 'female'];
@@ -11,16 +11,17 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
   try {
-    const { initData, gender, seekingGender, goal, age, city, interests, bio } = req.body || {};
+    const { initData, gender, seekingGender, goal, age, city, interests, bio, lang: clientLang } = req.body || {};
     const tgUser = resolveUser(initData);
     if (!tgUser) {
       return res.status(401).json({ error: 'Invalid Telegram initData' });
     }
 
     const fields = {};
-    // Task 28: bind the account to the CURRENT Telegram interface language at
-    // registration; /api/me re-syncs it on every later open.
-    fields.language_code = resolveLang(tgUser);
+    // Bind the account to the user's CHOSEN UI language at registration (the
+    // in-app switcher), falling back to the Telegram language; /api/me re-syncs
+    // it on every later open. Drives bot-notification language (Task 36).
+    fields.language_code = pickLang(clientLang, tgUser);
     if (GENDERS.includes(gender)) fields.gender = gender;
     if (SEEKING.includes(seekingGender)) fields.seeking_gender = seekingGender;
     if (GOALS.includes(goal)) fields.goal = goal;

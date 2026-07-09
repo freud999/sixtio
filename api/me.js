@@ -1,4 +1,4 @@
-import { resolveUser, resolveLang } from './_lib/telegram.js';
+import { resolveUser, pickLang } from './_lib/telegram.js';
 import { getSupabase, getMatchesFor } from './_lib/supabase.js';
 import { buildReferralLink } from './_lib/referrals.js';
 import { entitlements, likesLeftForClient, intimateCompatibility } from './_lib/entitlements.js';
@@ -73,7 +73,7 @@ export default async function handler(req, res) {
     // later AI generations follow the user's language switch immediately.
     try {
       await supabase.from('users')
-        .update({ last_active: new Date().toISOString(), language_code: resolveLang(tgUser) })
+        .update({ last_active: new Date().toISOString(), language_code: pickLang(body.lang, tgUser) })
         .eq('id', user.id);
     } catch (e) { console.error('last_active stamp failed:', e.message); }
 
@@ -115,7 +115,7 @@ export default async function handler(req, res) {
 
     // Build a public card for every match this user holds. The viewer's native
     // Telegram language (Task 26) localizes the rare server-side fallbacks.
-    const lang = resolveLang(tgUser);
+    const lang = pickLang(body.lang, tgUser);
     const NAME_FALLBACK = { uk: 'Хтось особливий', en: 'Someone special', ru: 'Кто-то особенный' };
     // Instant mutual-swipe matches store the token 'mutual_like' (Task 28), so
     // each viewer reads the reason in their own language — unlike AI reasons,

@@ -1,4 +1,4 @@
-import { resolveUser, resolveLang } from './_lib/telegram.js';
+import { resolveUser, pickLang } from './_lib/telegram.js';
 import {
   getSupabase, findUserId, resolveMatchForUser,
   getShareState, setShareConsent,
@@ -83,7 +83,7 @@ async function list(res, tgUser, body) {
     matchId: match.matchId,
     partner: {
       name: (partner && (partner.name || '').split(' ')[0]) ||
-        NAME_FALLBACK[resolveLang(tgUser)] || NAME_FALLBACK.uk,
+        NAME_FALLBACK[pickLang(body.lang, tgUser)] || NAME_FALLBACK.uk,
       photoUrl: partner ? partner.photo_url : null,
     },
     messages,
@@ -225,7 +225,7 @@ async function whyFactor(res, tgUser, body) {
       name: partner && partner.name, gender: partner && partner.gender,
       traits: partnerProfile, kink: mutualIntimate ? (partner && partner.kink_markers) : [],
     },
-    resolveLang(tgUser)
+    pickLang(body.lang, tgUser)
   );
 
   // Settle after a successful generation (premium reveals free). For free males:

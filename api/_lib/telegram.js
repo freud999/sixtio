@@ -62,6 +62,21 @@ export function resolveLang(tgUser) {
 }
 
 /**
+ * Prefers an EXPLICIT client-supplied UI language (the in-app UA/RU/EN switcher,
+ * sent as `lang` on every API call) over the Telegram account language. This is
+ * essential on Telegram Desktop, where the signed language_code is the account
+ * language and never reflects the user's chosen interface language — so AI
+ * content and stored bot-notification language must follow the switcher instead.
+ * Only the three whitelisted values are honored; anything else falls back to the
+ * signed Telegram language, so an arbitrary client string can inject nothing.
+ */
+export function pickLang(clientLang, tgUser) {
+  const c = String(clientLang || '').toLowerCase();
+  if (c === 'uk' || c === 'ru' || c === 'en') return c;
+  return resolveLang(tgUser);
+}
+
+/**
  * Resolves the Telegram user from initData.
  * ALLOW_FAKE_AUTH=1 is a local-dev escape hatch (never set it on Vercel):
  * real initData is still preferred, but a stub user is returned without it.

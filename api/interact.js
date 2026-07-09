@@ -1,4 +1,4 @@
-import { resolveUser, resolveLang } from './_lib/telegram.js';
+import { resolveUser, pickLang } from './_lib/telegram.js';
 import { findUserId, getSupabase } from './_lib/supabase.js';
 import {
   entitlements, likesLeftForClient,
@@ -140,7 +140,7 @@ async function swipe(req, res, tgUser, body) {
         if (Array.isArray(inserted) && inserted.length) {
           matched = true;
           await notifyInstantMatch(
-            { telegram_id: tgUser.id, name: me.name, language_code: resolveLang(tgUser) },
+            { telegram_id: tgUser.id, name: me.name, language_code: pickLang(body.lang, tgUser) },
             { telegram_id: target.telegram_id, name: target.name, language_code: target.language_code }
           );
         }

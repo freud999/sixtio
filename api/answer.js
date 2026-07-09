@@ -1,4 +1,4 @@
-import { resolveUser, getStartParam, resolveLang } from './_lib/telegram.js';
+import { resolveUser, getStartParam, pickLang } from './_lib/telegram.js';
 import { getSupabase, upsertUser } from './_lib/supabase.js';
 import { captureReferral } from './_lib/referrals.js';
 import { generateFollowup as geminiFollowup } from './_lib/gemini.js';
@@ -9,7 +9,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
   try {
-    const { initData, questionId, questionText, answerText, isFollowup, skipFollowup, gender } = req.body || {};
+    const { initData, questionId, questionText, answerText, isFollowup, skipFollowup, gender, lang: clientLang } = req.body || {};
     if (!questionId || !answerText) {
       return res.status(400).json({ error: 'questionId and answerText are required' });
     }
@@ -43,7 +43,7 @@ export default async function handler(req, res) {
     // Gemini first (free/cheap tier); Claude as fallback if Gemini is down or unconfigured.
     // The follow-up question comes back in the user's native Telegram language (Task 26).
     const safeGender = ['male', 'female'].includes(gender) ? gender : null;
-    const lang = resolveLang(tgUser);
+    const lang = pickLang(clientLang, tgUser);
     let followup = null;
     try {
       followup = await geminiFollowup(questionText || '', answerText, safeGender, lang);
