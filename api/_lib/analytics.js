@@ -1,5 +1,6 @@
 import { getSupabase } from './supabase.js';
 import { callBot, botLang } from './bot.js';
+import { handleUserCommand, handleUserCallback } from './commands.js';
 
 // --- /start welcome (Task 28) ---------------------------------------------
 // The webhook used to ignore /start entirely, so users saw only BotFather's
@@ -102,6 +103,18 @@ export async function handleTelegramUpdate(req, res, update) {
       }
       await renderInto(cb.message.chat.id, cb.message.message_id, cb.data.slice(6));
       await ack(cb.id, '📊 Оновлено');
+      return res.status(200).json({ ok: true });
+    }
+
+    // Public inline-button callbacks (/delete confirm/cancel). Kept in _lib.
+    if (cb && await handleUserCallback(cb)) {
+      return res.status(200).json({ ok: true });
+    }
+
+    // Public user commands (/help, /feedback, /language) + owner feedback replies.
+    // Owns everything except /start and /stats; returns true when it consumed the
+    // update. Kept in _lib so it adds no Vercel function.
+    if (msg && await handleUserCommand(msg)) {
       return res.status(200).json({ ok: true });
     }
 

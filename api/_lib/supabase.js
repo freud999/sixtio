@@ -127,6 +127,23 @@ export async function resolveMatchForUser(userId, matchId) {
   return all[0];
 }
 
+/**
+ * Permanently deletes a user and everything tied to them. The foreign keys
+ * cascade (answers, profile, matches, messages); the stored photo is removed too.
+ * Photo cleanup is best-effort and never blocks the row deletion. Shared by the
+ * in-app /api/delete-account endpoint and the bot's /delete command.
+ */
+export async function deleteUserCascade(userId) {
+  const supabase = getSupabase();
+  try {
+    await supabase.storage.from('photos').remove([`${userId}.jpg`]);
+  } catch (storageError) {
+    console.error('photo cleanup failed:', storageError.message);
+  }
+  const { error } = await supabase.from('users').delete().eq('id', userId);
+  if (error) throw error;
+}
+
 /** Upserts the Telegram user into public.users and returns the row id. */
 export async function upsertUser(tgUser) {
   const name = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ') || null;

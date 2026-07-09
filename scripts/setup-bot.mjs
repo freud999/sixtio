@@ -74,10 +74,31 @@ const DESCRIPTION = {
     'Жми «Начать» и познакомься с тем, кто действительно подходит.',
 };
 
+// The public / command menu. /delete is a real command but intentionally omitted
+// from the menu so it's never a mis-tap away; /stats is owner-only and also hidden
+// (analytics.js still gates it by OWNER_TELEGRAM_ID).
 const COMMANDS = {
-  en: [{ command: 'start', description: 'Meet Sixtio & find your match' }],
-  uk: [{ command: 'start', description: 'Познайомитись із Sixtio і знайти пару' }],
-  ru: [{ command: 'start', description: 'Познакомиться с Sixtio и найти пару' }],
+  en: [
+    { command: 'start', description: 'Meet Sixtio & find your match' },
+    { command: 'help', description: 'How Sixtio works & all commands' },
+    { command: 'invite', description: 'Invite a friend and earn 15 ⭐' },
+    { command: 'feedback', description: 'Send feedback or report a problem' },
+    { command: 'language', description: 'How to change the language' },
+  ],
+  uk: [
+    { command: 'start', description: 'Познайомитись із Sixtio і знайти пару' },
+    { command: 'help', description: 'Як працює Sixtio і всі команди' },
+    { command: 'invite', description: 'Запросити друга і отримати 15 ⭐' },
+    { command: 'feedback', description: 'Надіслати відгук або повідомити про проблему' },
+    { command: 'language', description: 'Як змінити мову' },
+  ],
+  ru: [
+    { command: 'start', description: 'Познакомиться с Sixtio и найти пару' },
+    { command: 'help', description: 'Как работает Sixtio и все команды' },
+    { command: 'invite', description: 'Пригласить друга и получить 15 ⭐' },
+    { command: 'feedback', description: 'Отправить отзыв или сообщить о проблеме' },
+    { command: 'language', description: 'Как изменить язык' },
+  ],
 };
 
 async function run() {
