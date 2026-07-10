@@ -57,15 +57,22 @@ export function likesLeftForClient(ent) {
 // scorer validate against the set, so a corrupt or stale marker can never skew
 // the math or leak onto a card.
 export const KINK_MARKERS = [
+  // Dynamic — who leads.
   'dominant', 'submissive', 'switch',
-  'sensual', 'passionate', 'romantic', 'tender', 'playful',
-  'experimental', 'adventurous', 'curious', 'vanilla',
-  'roleplay', 'bondage', 'voyeur', 'exhibitionist',
+  // Tone / emotional texture.
+  'sensual', 'passionate', 'romantic', 'tender', 'playful', 'slow', 'intense',
+  // Appetite for novelty.
+  'curious', 'experimental', 'adventurous', 'vanilla',
+  // Affection & sensuality.
+  'kissing', 'cuddling', 'massage', 'sensation_play', 'teasing', 'dirty_talk', 'sexting', 'fantasies',
+  // Specific interests — emitted only when clearly, positively expressed.
+  'roleplay', 'toys', 'bondage', 'blindfold', 'edging', 'spanking', 'biting',
+  'wax_play', 'footplay', 'strap_on', 'oral', 'mirrors', 'voyeur', 'exhibitionist',
 ];
 
-// Complementary pairs: an X in one person "connects" with a listed token in the
-// other even without an exact match (the classic dominant/submissive draw). A
-// switch pairs with either pole and with another switch.
+// Complementary pairs (FULL credit, 1.0): an X in one person "connects" with a
+// listed token in the other even without an exact match (the classic
+// dominant/submissive draw). A switch pairs with either pole and with a switch.
 const KINK_COMPLEMENTS = {
   dominant: ['submissive', 'switch'],
   submissive: ['dominant', 'switch'],
@@ -73,6 +80,29 @@ const KINK_COMPLEMENTS = {
   voyeur: ['exhibitionist'],
   exhibitionist: ['voyeur'],
 };
+
+// Affinity clusters (PARTIAL credit, 0.5): tokens in the same cluster harmonize
+// even without an exact match — so "romantic" and "tender" draw together instead
+// of scoring zero. Exact matches and hard complements above still win at 1.0.
+// vanilla is deliberately clusterless (it connects only with another vanilla).
+const KINK_AFFINITY = [
+  ['sensual', 'romantic', 'tender', 'slow', 'massage', 'kissing', 'cuddling'],
+  ['passionate', 'intense', 'adventurous', 'experimental', 'oral'],
+  ['playful', 'teasing', 'curious', 'dirty_talk', 'sexting', 'fantasies', 'roleplay'],
+  ['sensation_play', 'wax_play', 'blindfold', 'edging', 'bondage', 'footplay', 'toys', 'strap_on', 'spanking', 'biting'],
+  ['voyeur', 'exhibitionist', 'mirrors'],
+  ['dominant', 'submissive', 'switch'],
+];
+
+// token -> Set of its clustermates, for O(1) affinity lookups during scoring.
+const KINK_AFFINITY_BY_TOKEN = new Map();
+for (const cluster of KINK_AFFINITY) {
+  for (const t of cluster) {
+    const mates = KINK_AFFINITY_BY_TOKEN.get(t) || new Set();
+    for (const u of cluster) if (u !== t) mates.add(u);
+    KINK_AFFINITY_BY_TOKEN.set(t, mates);
+  }
+}
 
 const KINK_SET = new Set(KINK_MARKERS);
 
@@ -88,11 +118,13 @@ export function normalizeMarkers(markers) {
 }
 
 /**
- * Intimate compatibility between two marker sets. A "connection" is either a
- * shared marker or a complementary one (dominant↔submissive, voyeur↔exhibitionist,
- * switch↔either). Score is the share of the smaller set that connects, so two
- * tightly aligned people reach ~100% without one long list drowning the signal.
- * Returns { score: 0..100, tags: [my markers that connected] } — pure, no I/O.
+ * Intimate compatibility between two marker sets. Each of my markers connects to
+ * the other person at a weight: 1.0 for an exact shared marker or a hard
+ * complement (dominant↔submissive, voyeur↔exhibitionist, switch↔either), and 0.5
+ * for an affinity-cluster sibling (romantic↔tender, playful↔teasing, …) so
+ * kindred tones no longer score zero. Score is the summed weight over the smaller
+ * set, so two tightly aligned people reach ~100% without one long list drowning
+ * the signal. Returns { score: 0..100, tags: [my markers that connected] } — pure.
  */
 export function intimateCompatibility(mine, theirs) {
   const a = normalizeMarkers(mine);
@@ -100,14 +132,20 @@ export function intimateCompatibility(mine, theirs) {
   if (!a.length || !b.length) return { score: 0, tags: [] };
 
   const bSet = new Set(b);
+  let sum = 0;
   const matched = [];
   for (const x of a) {
-    if (bSet.has(x)) { matched.push(x); continue; }
-    const comps = KINK_COMPLEMENTS[x] || [];
-    if (comps.some((c) => bSet.has(c))) matched.push(x);
+    let w = 0;
+    if (bSet.has(x)) w = 1;                                          // exact
+    else if ((KINK_COMPLEMENTS[x] || []).some((c) => bSet.has(c))) w = 1; // complement
+    else {
+      const mates = KINK_AFFINITY_BY_TOKEN.get(x);                  // same-cluster kinship
+      if (mates && b.some((y) => mates.has(y))) w = 0.5;
+    }
+    if (w > 0) { sum += w; matched.push(x); }
   }
 
   const denom = Math.min(a.length, b.length);
-  const score = Math.round(100 * Math.min(1, matched.length / denom));
+  const score = Math.round(100 * Math.min(1, sum / denom));
   return { score, tags: matched };
 }

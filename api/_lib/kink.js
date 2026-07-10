@@ -33,10 +33,11 @@ Map what they express to a compact set of standardized, non-graphic preference m
 Allowed markers (use ONLY these tokens): ${KINK_MARKERS.join(', ')}.
 
 Meaning guide:
-- dominant / submissive / switch: preferred dynamic (leading, following, or fluid).
-- sensual, passionate, romantic, tender, playful: emotional/erotic tone.
-- experimental, adventurous, curious, vanilla: appetite for novelty (vanilla = prefers the classic/traditional).
-- roleplay, bondage, voyeur, exhibitionist: specific interests, only when clearly and positively expressed.
+- Dynamic: dominant / submissive / switch (leading, following, or fluid).
+- Tone: sensual, passionate, romantic, tender, playful, slow (unhurried, savouring), intense (fiery, high-intensity).
+- Novelty: curious, experimental, adventurous, vanilla (prefers the classic/traditional).
+- Affection & sensuality: kissing, cuddling, massage, sensation_play (light sensory play — temperature, feathers), teasing, dirty_talk, sexting, fantasies.
+- Specific interests (emit ONLY when clearly and positively expressed): roleplay, toys, bondage, blindfold, edging, spanking, biting, wax_play, footplay, strap_on, oral, mirrors, voyeur, exhibitionist.
 
 Rules:
 - Return ONLY markers the answers clearly and positively support — never infer taboos the user rules out.
