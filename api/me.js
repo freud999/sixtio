@@ -225,6 +225,10 @@ export default async function handler(req, res) {
         card.intimateCompatibility = intim.score;
         card.intimateTagsBlurred = ent.blur;
         card.intimateTags = ent.blur ? [] : intim.tags;
+        // Visibility B: a match is already mutual, so reveal the partner's FULL
+        // desire list (not just the shared markers). Same privacy gate — withheld
+        // from free males server-side, so it's never on the wire for them.
+        card.intimatePartnerMarkers = ent.blur ? [] : (partner.kink_markers || []);
       }
 
       matches.push(card);

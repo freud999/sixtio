@@ -76,6 +76,7 @@
       mt_why_btn: '🧠 Чому ми підходимо один одному?',
       mt_write_btn: 'Написати повідомлення 💬',
       mt_intimate_line: '🔥 Ваша інтимна сумісність — {pct}%',
+      mt_desires: 'Бажання партнера',
       // The Why Factor overlay (match page)
       wf_title: '🧠 Чому ви підходите',
       wf_analyzing: 'Sixtio аналізує вашу сумісність…',
@@ -312,6 +313,7 @@
       mt_why_btn: '🧠 Why do we match each other?',
       mt_write_btn: 'Send a message 💬',
       mt_intimate_line: '🔥 Your intimate compatibility — {pct}%',
+      mt_desires: 'Their desires',
       wf_title: '🧠 Why you match',
       wf_analyzing: 'Sixtio is analyzing your compatibility…',
       wf_free_note: 'Today’s first reveal is free. The next ones cost Stars.',
@@ -535,6 +537,7 @@
       mt_why_btn: '🧠 Почему мы подходим друг другу?',
       mt_write_btn: 'Написать сообщение 💬',
       mt_intimate_line: '🔥 Ваша интимная совместимость — {pct}%',
+      mt_desires: 'Желания партнёра',
       wf_title: '🧠 Почему вы подходите',
       wf_analyzing: 'Sixtio анализирует вашу совместимость…',
       wf_free_note: 'Первое раскрытие на сегодня — бесплатное. Следующие — за Stars.',
