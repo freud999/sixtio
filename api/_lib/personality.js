@@ -50,8 +50,17 @@ Scoring guide (higher = more of the trait):
 - neuroticism: anxious, emotionally reactive, moody vs. calm, resilient.
 - openness: curious, imaginative, unconventional vs. practical, routine-loving.
 
+Calibration — use the FULL range; do NOT cluster scores around 50:
+- 50 is the average, but real people are rarely a flat 50. Most traits land in
+  roughly 25-40 or 60-80 — commit to a direction whenever the answers lean one way.
+- Read HOW they write, not only what: tone, word choice, emotional intensity, and
+  which examples they pick (and omit) are strong evidence even in short answers.
+- Reserve below 20 or above 80 for a trait the answers express clearly and repeatedly.
+- Fall back toward 50 ONLY for a trait with genuinely no signal — never as a safe default.
+- Keep the read stable: the same answers should always yield the same scores.
+
 Rules:
-- Base every score ONLY on evidence in the answers; when a trait is weakly expressed, stay near 50.
+- Base every score ONLY on evidence in the answers.
 - Return integers from 1 to 100 (never 0, never above 100).
 - Also return exactly 3 short lowercase descriptive tags (1-2 words each), e.g. ["empathetic", "rational", "adventurous"].
 - Respond with the JSON object only — no commentary.`;

@@ -12,7 +12,12 @@ const DEFAULT_LIMIT = 20;
 
 // "Daily Mystery Match": the single strongest Big Five match, refreshed at most
 // once per rolling 24h and shown fully anonymized until unlocked (10 ⭐).
-const MYSTERY_MIN_SCORE = 90;    // only a >90% match is worth teasing
+// Floor for the daily tease. Lowered 90 -> 80 alongside compatibility v2
+// (migration 027) + sharper trait extraction: top pairs now peak ~97 and strong
+// matches land ~80-90, so a 90 gate would rarely fire. 80 keeps the tease strong
+// yet reliable. It's the single highest match above this floor — relative in
+// spirit, absolute in guard.
+const MYSTERY_MIN_SCORE = 80;
 const MYSTERY_REFRESH_MS = 24 * 60 * 60 * 1000;
 
 export default async function handler(req, res) {
@@ -185,7 +190,7 @@ export default async function handler(req, res) {
       rateLimited: ent.rateLimited,
       candidates: page,
       hasMore: start + size < ranked.length,
-      // Anonymized-until-unlocked daily tease (null when there's no >90% match).
+      // Anonymized-until-unlocked daily tease (null when no match clears the floor).
       mysteryMatch,
     });
   } catch (e) {
