@@ -118,7 +118,7 @@ export async function generateFollowup(questionText, answerText, gender, lang) {
 
 /**
  * Builds the Digital Twin from the interview.
- * Returns { traits[4-6], vibe, summary, portrait{values,pace,attachment,conflict,closeness} }.
+ * Returns { traits[4-6], vibe, summary, portrait{values,pace,attachment,conflict,closeness,dealbreakers} }.
  * `portrait` holds the comparable psychological axes used for matching.
  */
 export async function generateProfile(qaLines, gender, lang) {
@@ -133,9 +133,10 @@ export async function generateProfile(qaLines, gender, lang) {
       '- vibe: одна вишукана фраза (3–6 слів), що передає загальний вайб людини;\n' +
       '- summary: рівно 2 преміальних, теплих речення від імені Sixtio, звертання на «ти», ' +
       'про те, ким ти побачила цю людину;\n' +
-      '- portrait: обʼєкт із 5 стислих (1 речення кожне) психологічних осей для зіставлення сумісності: ' +
+      '- portrait: обʼєкт із 6 стислих (1 речення кожне) психологічних осей для зіставлення сумісності: ' +
       'values (що для неї найважливіше), pace (темп і ритм життя), attachment (як любить і прив\'язується), ' +
-      'conflict (як поводиться в конфлікті), closeness (що для неї справжня близькість і чого потребує). ' +
+      'conflict (як поводиться в конфлікті), closeness (що для неї справжня близькість і чого потребує), ' +
+      'dealbreakers (її чіткі межі — чого вона більше не готова терпіти у стосунках; з відповіді про це). ' +
       'Осі пиши нейтрально й точно — вони порівнюватимуться з іншими людьми. ' +
       langLine(lang),
     messages: [{ role: 'user', content: qaLines.join('\n') }],
@@ -156,8 +157,9 @@ export async function generateProfile(qaLines, gender, lang) {
                 attachment: { type: 'string' },
                 conflict: { type: 'string' },
                 closeness: { type: 'string' },
+                dealbreakers: { type: 'string' },
               },
-              required: ['values', 'pace', 'attachment', 'conflict', 'closeness'],
+              required: ['values', 'pace', 'attachment', 'conflict', 'closeness', 'dealbreakers'],
               additionalProperties: false,
             },
           },
@@ -195,9 +197,13 @@ export async function scoreCandidates(person, candidates, lang) {
     system:
       PERSONA +
       'Тобі дають Digital Twin людини та список кандидатів (кожен зі своїм portrait — ' +
-      'осями values / pace / attachment / conflict / closeness). Зістав портрети й обери ' +
+      'осями values / pace / attachment / conflict / closeness / dealbreakers). Зістав портрети й обери ' +
       'ОДНОГО найсумiснiшого кандидата за глибинною психологічною сумісністю: збіг цінностей, ' +
       'сумісність темпу життя, взаємодоповнення стилів конфлікту та потреб у близькості. ' +
+      'Зваж стилі прив\'язаності (attachment): тривожний + уникаючий — ризикована пара; ' +
+      'двоє надійних або надійний із будь-ким — міцніше. ' +
+      'КРИТИЧНО про межі: перевір dealbreakers ОБОХ сторін — якщо кандидат явно порушує межі людини, ' +
+      'АБО людина порушує межі кандидата, це сильний мінус: не обирай таку пару попри інші збіги. ' +
       'Спільне місто та інтереси — приємний бонус, але не головне. Поверни JSON: best — index ' +
       'найкращого кандидата, або -1 якщо ніхто не пасує по-справжньому; score — сумісність 1–10 ' +
       '(чесно й вимогливо, не завищуй); reason — рівно 2 вишуканих теплих речення, ' +
