@@ -226,7 +226,7 @@
           body: JSON.stringify(body),
           signal: controller ? controller.signal : undefined
         }).then(function(r){
-          if (!r.ok) throw new Error('HTTP ' + r.status);
+          if (!r.ok) { var e = new Error('HTTP ' + r.status); e.status = r.status; throw e; }
           return r.json();
         });
       }
@@ -503,8 +503,14 @@
               addBubble(t('ob_photo_ok'), 'bot');
               pIndex++;
               askNextProfile();
-            }).catch(function(){
+            }).catch(function(err){
               typingEl.remove();
+              // NSFW rejection (422): re-prompt for another photo, don't advance.
+              if (err && err.status === 422) {
+                addBubble(t('ob_photo_rejected'), 'bot');
+                askNextProfile();
+                return;
+              }
               addBubble(t('ob_photo_fail'), 'bot');
               pIndex++;
               askNextProfile();

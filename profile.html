@@ -436,7 +436,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(Object.assign({ initData: initData }, payload))
         }).then(function(r){
-          if (!r.ok) throw new Error('HTTP ' + r.status);
+          if (!r.ok) { var e = new Error('HTTP ' + r.status); e.status = r.status; throw e; }
           return r.json();
         });
       }
@@ -710,14 +710,24 @@
                 return bc.toDataURL('image/jpeg', 0.6);
               } catch(e){ return ''; }
             })();
-            // optimistic preview
+            // optimistic preview (remember prior state so we can revert on reject)
             var avatar = document.getElementById('avatar');
+            var placeholder = document.getElementById('avatarPlaceholder');
+            var prevSrc = avatar.src, prevHidden = avatar.hidden, prevPh = placeholder.hidden;
             avatar.src = dataUrl;
             avatar.hidden = false;
-            document.getElementById('avatarPlaceholder').hidden = true;
+            placeholder.hidden = true;
             api('/api/photo', { imageBase64: dataUrl, blurBase64: blurUrl }).then(function(){
               if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.notificationOccurred('success'); } catch(err){} }
-            }).catch(function(){ /* keep preview; next load shows truth */ });
+            }).catch(function(err){
+              // NSFW rejection (422): revert the optimistic preview and tell the user.
+              if (err && err.status === 422) {
+                avatar.src = prevSrc; avatar.hidden = prevHidden; placeholder.hidden = prevPh;
+                if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.notificationOccurred('error'); } catch(e2){} }
+                if (tg && tg.showAlert) tg.showAlert(t('ob_photo_rejected'));
+              }
+              /* other errors: keep preview; next load shows truth */
+            });
           };
           img.src = reader.result;
         };

@@ -42,6 +42,65 @@ function langLine(lang) {
     ' — це рідна мова користувача. Жодного змішування мов у відповіді. ';
 }
 
+/**
+ * Vision safety gate for profile photos (Gemini multimodal). Returns
+ * { nsfw:boolean, reason:string }. Conservatively rejects ONLY explicit NSFW —
+ * nudity, sexual/erotic content, pornography, or graphic violence/gore. A photo
+ * without a visible face is fine and passes (nsfw:false). Throws on API/parse
+ * failure so the caller can fail-open (treat a throw as "allow").
+ * @param {string} base64Jpeg raw base64 (no data: prefix) of a JPEG image
+ */
+export async function moderatePhoto(base64Jpeg) {
+  if (!process.env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY is not set');
+  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+  const prompt =
+    'Ти — суворий модератор фото для застосунку знайомств. Оціни зображення на безпеку. ' +
+    'Поверни ЛИШЕ JSON без пояснень: {"nsfw": true|false, "reason": "коротка причина"}. ' +
+    'Постав nsfw=true ЛИШЕ якщо на фото є: оголеність або видимі статеві органи/оголені груди/сідниці; ' +
+    'відверто сексуальний чи еротичний контент, пози або білизна з явним сексуальним підтекстом; ' +
+    'порнографія; графічне насильство, кров, каліцтва; або будь-що з неповнолітніми у сексуалізованому контексті. ' +
+    'Постав nsfw=false для звичайних фото: портрет, селфі, люди в одязі, помірні пляжні фото у купальнику/плавках, ' +
+    'краєвиди, тварини, предмети. ВАЖЛИВО: відсутність обличчя або відсутність людини — це НОРМА і НЕ робить фото nsfw. ' +
+    'Не будь надто прискіпливим: сумніваєшся — став nsfw=false.';
+  const res = await fetch(`${API_BASE}/${model}:generateContent`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': process.env.GEMINI_API_KEY,
+    },
+    body: JSON.stringify({
+      contents: [{
+        role: 'user',
+        parts: [
+          { text: prompt },
+          { inlineData: { mimeType: 'image/jpeg', data: base64Jpeg } },
+        ],
+      }],
+      generationConfig: {
+        temperature: 0,
+        responseMimeType: 'application/json',
+        thinkingConfig: { thinkingBudget: 0 },
+      },
+    }),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Gemini vision ${res.status}: ${body.slice(0, 300)}`);
+  }
+  const data = await res.json();
+  const text = (data.candidates?.[0]?.content?.parts || [])
+    .map((p) => p.text || '')
+    .join('')
+    .trim();
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw new Error('Gemini vision returned non-JSON');
+  }
+  return { nsfw: parsed.nsfw === true, reason: String(parsed.reason || '').slice(0, 120) };
+}
+
 /** One short, warm follow-up question (in the user's language) to the answer. */
 export async function generateFollowup(questionText, answerText, gender, lang) {
   const prompt =

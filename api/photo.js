@@ -1,6 +1,7 @@
 import { resolveUser } from './_lib/telegram.js';
 import { getSupabase, upsertUser } from './_lib/supabase.js';
 import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
+import { moderatePhoto } from './_lib/gemini.js';
 
 // Accepts a client-side-downscaled JPEG as base64 (data URL or raw),
 // stores it in the public `photos` bucket, and saves the URL on the user.
@@ -40,6 +41,20 @@ export default async function handler(req, res) {
 
     const buffer = decodeJpeg(imageBase64);
     if (!buffer) return res.status(400).json({ error: 'Not a JPEG image' });
+
+    // Safety gate: reject explicit NSFW (nudity/sexual/graphic-violence) before
+    // the photo is ever stored or shown. A missing face is fine and passes.
+    // Fail-open — if the vision check errors, never block a legitimate upload
+    // (the crowd-report auto-hide from migration 022 stays as the human net).
+    try {
+      const verdict = await moderatePhoto(buffer.toString('base64'));
+      if (verdict.nsfw) {
+        console.warn(`photo rejected (nsfw) for tg ${tgUser.id}: ${verdict.reason}`);
+        return res.status(422).json({ error: 'photo_rejected' });
+      }
+    } catch (modErr) {
+      console.error('photo moderation skipped (fail-open):', modErr.message);
+    }
 
     const supabase = getSupabase();
     const userId = await upsertUser(tgUser);
