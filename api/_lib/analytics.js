@@ -166,9 +166,15 @@ async function creditSuccessfulPayment(msg) {
       return;
     }
 
+    // Owner topping up their own bot (ad budget) is not customer revenue — tag it
+    // so the dashboard excludes it. Derived from OWNER_TELEGRAM_ID, never trusted
+    // from the client (from.id is authenticated by Telegram).
+    const isSelf = !!OWNER_TELEGRAM_ID && Number(tgId) === OWNER_TELEGRAM_ID;
+
     const supabase = getSupabase();
     const { data: newBalance, error } = await supabase.rpc('credit_stars_deposit', {
       p_charge: charge, p_user: userId, p_tg: tgId, p_stars: stars, p_payload: payload,
+      p_self: isSelf,
     });
     if (error) throw error;
 
@@ -282,6 +288,9 @@ function renderPeriod(d, label) {
     '💎 <b>БІЗНЕС &amp; ARPU</b>',
     `• Дохід усього: <b>${stars(revAll)}</b>`,
     `• Дохід за період: <b>${stars(d.revenue_period)}</b>`,
+    ...(num(d.self_funding) > 0
+      ? [`• 🔁 Само-поповнення (реклама, не дохід): <b>${stars(d.self_funding)}</b>`]
+      : []),
     `• Premium активних: <b>${prem}</b>  ·  Конверсія: <b>${pct(prem, total)}%</b>`,
     `• ARPU: <b>${arpu} ⭐</b>`,
     '• Мікротранзакції (період):',
