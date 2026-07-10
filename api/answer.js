@@ -3,6 +3,7 @@ import { getSupabase, upsertUser } from './_lib/supabase.js';
 import { captureReferral } from './_lib/referrals.js';
 import { generateFollowup as geminiFollowup } from './_lib/gemini.js';
 import { generateFollowup as claudeFollowup } from './_lib/claude.js';
+import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -18,6 +19,9 @@ export default async function handler(req, res) {
     if (!tgUser) {
       return res.status(401).json({ error: 'Invalid Telegram initData' });
     }
+
+    const rl = rateLimit(`answer:${tgUser.id}`, LIMITS.answer);
+    if (!rl.allowed) return sendRateLimited(res, rl.retryAfterSec);
 
     const userId = await upsertUser(tgUser);
 

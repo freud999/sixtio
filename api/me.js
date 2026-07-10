@@ -4,6 +4,7 @@ import { buildReferralLink } from './_lib/referrals.js';
 import { entitlements, likesLeftForClient, intimateCompatibility } from './_lib/entitlements.js';
 import { notifyRetention } from './_lib/bot.js';
 import { sanitizeAiText } from './_lib/claude.js';
+import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
 
 // Base completeness after onboarding; each answered "extra" deep question is +20.
 const BASE_PROFILE_DEPTH = 40;
@@ -79,6 +80,9 @@ export default async function handler(req, res) {
     if (!tgUser) {
       return res.status(401).json({ error: 'Invalid Telegram initData' });
     }
+
+    const rl = rateLimit(`me:${tgUser.id}`, LIMITS.read);
+    if (!rl.allowed) return sendRateLimited(res, rl.retryAfterSec);
 
     if (body.op === 'submit_extra_question') return submitExtraQuestion(res, tgUser, body);
     if (body.op === 'update_location') return updateLocation(res, tgUser, body);

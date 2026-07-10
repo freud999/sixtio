@@ -1,5 +1,6 @@
 import { resolveUser } from './_lib/telegram.js';
 import { findUserId, deleteUserCascade } from './_lib/supabase.js';
+import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
 
 // Permanently deletes the user and everything tied to them. The foreign keys
 // cascade (answers, profile, matches, messages); the photo is removed too.
@@ -13,6 +14,9 @@ export default async function handler(req, res) {
     if (!tgUser) {
       return res.status(401).json({ error: 'Invalid Telegram initData' });
     }
+
+    const rl = rateLimit(`delete:${tgUser.id}`, LIMITS.write);
+    if (!rl.allowed) return sendRateLimited(res, rl.retryAfterSec);
 
     const userId = await findUserId(tgUser.id);
     if (!userId) return res.status(200).json({ ok: true }); // already gone

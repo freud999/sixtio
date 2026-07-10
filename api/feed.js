@@ -1,6 +1,7 @@
 import { resolveUser, pickLang } from './_lib/telegram.js';
 import { getSupabase, getMatchesFor, getHiddenUserIds } from './_lib/supabase.js';
 import { entitlements, likesLeftForClient, intimateCompatibility } from './_lib/entitlements.js';
+import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
 
 // Recommendation feed for the swipe deck (feed.html). Pure Supabase — no AI.
 // Candidates are opposite-gender, within ±10 years, never already swiped, and
@@ -24,6 +25,10 @@ export default async function handler(req, res) {
     if (!tgUser) {
       return res.status(401).json({ error: 'Invalid Telegram initData' });
     }
+
+    const rl = rateLimit(`feed:${tgUser.id}`, LIMITS.read);
+    if (!rl.allowed) return sendRateLimited(res, rl.retryAfterSec);
+
     const lang = pickLang(req.body && req.body.lang, tgUser);
     const NAME_FALLBACK = { uk: 'Хтось особливий', en: 'Someone special', ru: 'Кто-то особенный' };
     const nameFallback = NAME_FALLBACK[lang] || NAME_FALLBACK.uk;

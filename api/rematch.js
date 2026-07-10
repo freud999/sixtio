@@ -1,6 +1,7 @@
 import { resolveUser, pickLang } from './_lib/telegram.js';
 import { findUserId } from './_lib/supabase.js';
 import { runMatching } from './_lib/matching.js';
+import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
 
 // User-triggered "find me a match" (the button on the matches page).
 // Explicit, so it never spends AI budget or pings people without intent.
@@ -14,6 +15,10 @@ export default async function handler(req, res) {
     if (!tgUser) {
       return res.status(401).json({ error: 'Invalid Telegram initData' });
     }
+
+    const rl = rateLimit(`rematch:${tgUser.id}`, LIMITS.ai_heavy);
+    if (!rl.allowed) return sendRateLimited(res, rl.retryAfterSec);
+
     const userId = await findUserId(tgUser.id);
     if (!userId) return res.status(200).json({ matched: false });
 

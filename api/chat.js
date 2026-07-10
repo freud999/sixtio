@@ -7,6 +7,7 @@ import { notifyNewMessage } from './_lib/bot.js';
 import { entitlements, WHY_FACTOR_PRICE } from './_lib/entitlements.js';
 import { generateWhyFactor } from './_lib/gemini.js';
 import { handleTelegramUpdate } from './_lib/analytics.js';
+import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
 
 // Consolidated conversation endpoint. Vercel Hobby caps a project at 12
 // serverless functions, so the three chat operations share one file, routed
@@ -35,6 +36,14 @@ export default async function handler(req, res) {
     }
 
     const op = body.op || (typeof body.text === 'string' ? 'send' : 'list');
+
+    // the_why_factor spends AI budget + Stars; list is a cheap read; the rest write.
+    const rlPreset = op === 'the_why_factor'
+      ? LIMITS.ai_heavy
+      : op === 'list' ? LIMITS.read : LIMITS.write;
+    const rl = rateLimit(`chat:${op}:${tgUser.id}`, rlPreset);
+    if (!rl.allowed) return sendRateLimited(res, rl.retryAfterSec);
+
     if (op === 'send') return send(res, tgUser, body);
     if (op === 'share') return share(res, tgUser, body);
     if (op === 'the_why_factor') return whyFactor(res, tgUser, body);

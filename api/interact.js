@@ -9,6 +9,7 @@ import {
 } from './_lib/entitlements.js';
 import { processKinkInterview } from './_lib/kink.js';
 import { notifyInstantMatch, callBot } from './_lib/bot.js';
+import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
 
 // Real Telegram Stars top-up packs (Task 19). Server-authoritative so the client
 // can never forge the price/amount: buying pack P pays P.stars Telegram Stars
@@ -62,6 +63,16 @@ export default async function handler(req, res) {
     }
 
     const op = body.op || (body.item ? 'purchase' : 'swipe');
+
+    // Per-op rate limit: Stars spends are the costliest to abuse, the kink
+    // interview spends AI budget, everything else is a cheap write.
+    const MONEY_OPS = ['create_stars_invoice', 'purchase', 'unlock_mystery_match', 'open_lootbox'];
+    const rlPreset = op === 'submit_kink_interview'
+      ? LIMITS.ai_heavy
+      : MONEY_OPS.includes(op) ? LIMITS.money : LIMITS.write;
+    const rl = rateLimit(`interact:${op}:${tgUser.id}`, rlPreset);
+    if (!rl.allowed) return sendRateLimited(res, rl.retryAfterSec);
+
     if (op === 'create_stars_invoice') return createStarsInvoice(res, tgUser, body);
     if (op === 'purchase') return purchase(req, res, tgUser, body);
     if (op === 'toggle_dark_mode') return toggleDarkMode(res, tgUser, body);

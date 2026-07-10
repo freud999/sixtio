@@ -4,6 +4,7 @@ import { generateProfile } from './_lib/claude.js';
 import { questionLabel } from './_lib/questions.js';
 import { runMatching } from './_lib/matching.js';
 import { captureReferral, rewardReferrerOnOnboarding } from './_lib/referrals.js';
+import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -15,6 +16,9 @@ export default async function handler(req, res) {
     if (!tgUser) {
       return res.status(401).json({ error: 'Invalid Telegram initData' });
     }
+
+    const rl = rateLimit(`profile:${tgUser.id}`, LIMITS.ai_heavy);
+    if (!rl.allowed) return sendRateLimited(res, rl.retryAfterSec);
 
     const supabase = getSupabase();
     const userId = await upsertUser(tgUser);

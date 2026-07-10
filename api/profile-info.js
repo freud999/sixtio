@@ -1,5 +1,6 @@
 import { resolveUser, pickLang } from './_lib/telegram.js';
 import { getSupabase, upsertUser } from './_lib/supabase.js';
+import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
 
 const GENDERS = ['male', 'female'];
 const SEEKING = ['male', 'female', 'any'];
@@ -16,6 +17,9 @@ export default async function handler(req, res) {
     if (!tgUser) {
       return res.status(401).json({ error: 'Invalid Telegram initData' });
     }
+
+    const rl = rateLimit(`profinfo:${tgUser.id}`, LIMITS.write);
+    if (!rl.allowed) return sendRateLimited(res, rl.retryAfterSec);
 
     const fields = {};
     // Bind the account to the user's CHOSEN UI language at registration (the

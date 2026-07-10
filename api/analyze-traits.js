@@ -2,6 +2,7 @@ import { resolveUser } from './_lib/telegram.js';
 import { getSupabase, findUserId } from './_lib/supabase.js';
 import { questionLabel } from './_lib/questions.js';
 import { processOnboardingPersonality } from './_lib/personality.js';
+import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
 
 // Standalone Big Five (OCEAN) extraction — deliberately split out of
 // api/profile.js so each call stays well under Vercel Hobby's 10s limit.
@@ -20,6 +21,9 @@ export default async function handler(req, res) {
     if (!tgUser) {
       return res.status(401).json({ error: 'Invalid Telegram initData' });
     }
+
+    const rl = rateLimit(`analyze:${tgUser.id}`, LIMITS.ai_heavy);
+    if (!rl.allowed) return sendRateLimited(res, rl.retryAfterSec);
 
     const supabase = getSupabase();
     // Read-only lookup: never re-upsert here, so we don't clobber the name.

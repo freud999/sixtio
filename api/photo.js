@@ -1,5 +1,6 @@
 import { resolveUser } from './_lib/telegram.js';
 import { getSupabase, upsertUser } from './_lib/supabase.js';
+import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
 
 // Accepts a client-side-downscaled JPEG as base64 (data URL or raw),
 // stores it in the public `photos` bucket, and saves the URL on the user.
@@ -26,6 +27,10 @@ export default async function handler(req, res) {
     if (!tgUser) {
       return res.status(401).json({ error: 'Invalid Telegram initData' });
     }
+
+    const rl = rateLimit(`photo:${tgUser.id}`, LIMITS.photo);
+    if (!rl.allowed) return sendRateLimited(res, rl.retryAfterSec);
+
     if (typeof imageBase64 !== 'string' || !imageBase64) {
       return res.status(400).json({ error: 'imageBase64 is required' });
     }
