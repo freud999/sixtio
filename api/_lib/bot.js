@@ -1,4 +1,5 @@
 const APP_URL = process.env.APP_URL || 'https://sixtio.vercel.app';
+const OWNER_TELEGRAM_ID = Number(process.env.OWNER_TELEGRAM_ID || 0);
 
 export async function callBot(method, payload) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -11,6 +12,20 @@ export async function callBot(method, payload) {
   const data = await res.json();
   if (!data.ok) throw new Error(`Telegram ${method}: ${data.description || res.status}`);
   return data.result;
+}
+
+/**
+ * Best-effort owner alert for ops/fraud signals (e.g. referral abuse). No-op if
+ * OWNER_TELEGRAM_ID is unset; never throws, so a failed ping can't break a flow.
+ * `text` is sent HTML-parsed — callers must pre-escape any user-derived content.
+ */
+export async function notifyOwner(text) {
+  if (!OWNER_TELEGRAM_ID) return;
+  try {
+    await callBot('sendMessage', { chat_id: OWNER_TELEGRAM_ID, text, parse_mode: 'HTML' });
+  } catch (e) {
+    console.error('owner notify failed:', e.message);
+  }
 }
 
 // --- Localization (Task 28) -----------------------------------------------

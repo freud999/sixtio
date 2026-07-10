@@ -3,7 +3,7 @@ import { getSupabase, upsertUser } from './_lib/supabase.js';
 import { generateProfile } from './_lib/claude.js';
 import { questionLabel } from './_lib/questions.js';
 import { runMatching } from './_lib/matching.js';
-import { captureReferral, rewardReferrerOnOnboarding } from './_lib/referrals.js';
+import { captureReferral } from './_lib/referrals.js';
 import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
 
 export default async function handler(req, res) {
@@ -59,14 +59,15 @@ export default async function handler(req, res) {
     );
     if (upsertError) throw upsertError;
 
-    // Onboarding is complete once the Digital Twin exists — credit the referrer
-    // (+15 stars, once) now. captureReferral covers the rare case the referral
-    // wasn't attributed earlier. Neither may fail the profile response.
+    // Onboarding is complete once the Digital Twin exists — attribute the referrer
+    // now (covers the rare case it wasn't captured on an earlier step). The +15
+    // bonus itself is NOT paid here: it is credited only once this invited user
+    // actually engages (their first swipe), gated + capped in api/interact.js.
+    // Attribution must never fail the profile response.
     try {
       await captureReferral(userId, getStartParam(initData));
-      await rewardReferrerOnOnboarding(userId);
     } catch (refError) {
-      console.error('referral reward failed:', refError.message);
+      console.error('referral capture failed:', refError.message);
     }
 
     // Instant matchmaking: try to pair this user right after their profile is ready.

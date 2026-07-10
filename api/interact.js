@@ -9,6 +9,7 @@ import {
 } from './_lib/entitlements.js';
 import { processKinkInterview } from './_lib/kink.js';
 import { notifyInstantMatch, callBot } from './_lib/bot.js';
+import { rewardReferrerOnEngagement } from './_lib/referrals.js';
 import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
 
 // Real Telegram Stars top-up packs (Task 19). Server-authoritative so the client
@@ -104,7 +105,7 @@ async function swipe(req, res, tgUser, body) {
   const supabase = getSupabase();
   const { data: me, error: meError } = await supabase
     .from('users')
-    .select('id, name, gender, premium, premium_until, daily_likes_count, last_like_reset')
+    .select('id, name, gender, premium, premium_until, daily_likes_count, last_like_reset, referred_by, referral_rewarded')
     .eq('telegram_id', tgUser.id)
     .maybeSingle();
   if (meError) throw meError;
@@ -130,6 +131,16 @@ async function swipe(req, res, tgUser, body) {
     liked: action === 'like',
   });
   if (error) throw error;
+
+  // Referral quality gate: the +15 bonus is credited to the referrer only once
+  // the invited user actually engages — this, their first recorded swipe — not
+  // merely on signup. The RPC is atomic/once-only/capped; we only bother calling
+  // it while a reward is still pending, so it adds no round trip for anyone else.
+  // Self-guarded: a reward failure must never break the swipe.
+  if (me.referred_by != null && me.referral_rewarded === false) {
+    try { await rewardReferrerOnEngagement(me.id); }
+    catch (e) { console.error('referral reward on swipe failed:', e.message); }
+  }
 
   // Instant match: a LIKE that the target already returned = mutual. Create the
   // match (idempotent via the unique(user_a,user_b) constraint) and ping both in
