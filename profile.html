@@ -329,6 +329,10 @@
       <div class="sec-title" data-i18n="interests">Інтереси</div>
       <div class="chips" id="interests"></div>
     </div>
+    <div class="mono-block" id="valuesBlock" hidden>
+      <div class="sec-title" data-i18n="values">Цінності</div>
+      <div class="chips" id="values"></div>
+    </div>
   </div>
 
   <!-- Compact referral banner: single row (balance + snappy reward + inline CTA)
@@ -379,6 +383,10 @@
         <label for="fInterests" data-i18n="f_interests">Інтереси</label>
         <div class="picker" id="interestPalette"></div>
         <input id="fInterests" type="text" data-i18n-ph="f_interests_custom" placeholder="Додати своє…" />
+      </div>
+      <div class="field">
+        <label data-i18n="values">Цінності</label>
+        <div class="picker" id="valuePalette"></div>
       </div>
       <div class="field">
         <label for="fBio" data-i18n="about_me">Про мене</label>
@@ -480,6 +488,30 @@
         });
       }
 
+      // ---- Life-values quick-pick palette (Layer 3) ------------------------
+      // Closed canonical set (no custom free-text): a deep compatibility signal
+      // weighed heavily by the auto-match judge.
+      var VALUE_TAGS = (window.SixtioI18n && SixtioI18n.valueTags) || [];
+      var CANON_VALUE = {}; VALUE_TAGS.forEach(function(x){ CANON_VALUE[x] = true; });
+      var selectedValues = {};   // canonical token -> true
+
+      function buildValuePalette(){
+        var pal = document.getElementById('valuePalette');
+        if (!pal) return;
+        pal.innerHTML = '';
+        VALUE_TAGS.forEach(function(tok){
+          var chip = document.createElement('span');
+          chip.className = 'chip' + (selectedValues[tok] ? '' : ' outline');
+          chip.textContent = SixtioI18n.value(tok);
+          chip.addEventListener('click', function(){
+            if (selectedValues[tok]) { delete selectedValues[tok]; chip.className = 'chip outline'; }
+            else { selectedValues[tok] = true; chip.className = 'chip'; }
+            if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.selectionChanged(); } catch(e){} }
+          });
+          pal.appendChild(chip);
+        });
+      }
+
       function render(me){
         var u = me.user || {};
         var p = me.profile;
@@ -518,6 +550,9 @@
 
         document.getElementById('interestsBlock').hidden =
           !fillChips('interests', (u.interests || []).map(function(x){ return SixtioI18n.interest(x); }), true);
+
+        document.getElementById('valuesBlock').hidden =
+          !fillChips('values', (u.values || []).map(function(x){ return SixtioI18n.value(x); }), true);
 
         if (p && p.traits && p.traits.length) {
           fillChips('traits', p.traits, false);
@@ -675,6 +710,10 @@
         });
         buildInterestPalette();
         document.getElementById('fInterests').value = customInterests.join(', ');
+        // Values: closed set — preselect the palette from stored core_values.
+        selectedValues = {};
+        (current.values || []).forEach(function(v){ if (CANON_VALUE[v]) selectedValues[v] = true; });
+        buildValuePalette();
         document.getElementById('fBio').value = current.bio || '';
         saveNote.textContent = '';
         editSection.hidden = false;
@@ -705,6 +744,7 @@
               .split(',').map(function(s){ return s.trim(); })
               .filter(function(s){ return s && !CANON_INTEREST[s]; })
           ),
+          values: Object.keys(selectedValues),
           bio: document.getElementById('fBio').value.trim()
         }).then(function(){
           saveNote.textContent = t('saved');

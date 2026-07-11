@@ -90,7 +90,7 @@ export default async function handler(req, res) {
     const supabase = getSupabase();
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, name, gender, seeking_gender, goal, age, city, interests, bio, photo_url, stars_balance, premium, premium_until, daily_likes_count, last_like_reset, dark_mode_active, kink_markers, blocked_users, profile_depth, achievements')
+      .select('id, name, gender, seeking_gender, goal, age, city, interests, core_values, bio, photo_url, stars_balance, premium, premium_until, daily_likes_count, last_like_reset, dark_mode_active, kink_markers, blocked_users, profile_depth, achievements')
       .eq('telegram_id', tgUser.id)
       .maybeSingle();
     if (error) throw error;
@@ -244,6 +244,7 @@ export default async function handler(req, res) {
         age: user.age,
         city: user.city,
         interests: user.interests || [],
+        values: user.core_values || [],
         bio: user.bio,
         photoUrl: user.photo_url,
         // Telegram Stars wallet + this user's shareable referral link.
