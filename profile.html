@@ -68,6 +68,10 @@
   .chip{ font-size:13px; font-weight:600; padding:7px 13px; border-radius:999px;
     color:#fff; background:linear-gradient(120deg, var(--a2), var(--a1)); }
   .chip.outline{ background:var(--faux-glass); border:1px solid var(--glass-border); color:var(--a1); }
+  /* Interest quick-pick palette: tappable chips; selected ones fill with accent. */
+  .picker{ display:flex; flex-wrap:wrap; gap:7px; margin-bottom:9px; }
+  .picker .chip{ cursor:pointer; user-select:none; }
+  .picker .chip:active{ transform:scale(.96); }
 
   /* ---- Monolithic frosted card (AI hook priority) ----
      One coherent frosted pane. Personality tags flow straight into the Gemini
@@ -372,8 +376,9 @@
         <input id="fCity" type="text" maxlength="100" />
       </div>
       <div class="field">
-        <label for="fInterests" data-i18n="f_interests">Інтереси (через кому)</label>
-        <input id="fInterests" type="text" />
+        <label for="fInterests" data-i18n="f_interests">Інтереси</label>
+        <div class="picker" id="interestPalette"></div>
+        <input id="fInterests" type="text" data-i18n-ph="f_interests_custom" placeholder="Додати своє…" />
       </div>
       <div class="field">
         <label for="fBio" data-i18n="about_me">Про мене</label>
@@ -453,6 +458,28 @@
         return (items || []).length > 0;
       }
 
+      // ---- Interest quick-pick palette (Layer 2) ---------------------------
+      var INTEREST_TAGS = (window.SixtioI18n && SixtioI18n.interestTags) || [];
+      var CANON_INTEREST = {}; INTEREST_TAGS.forEach(function(x){ CANON_INTEREST[x] = true; });
+      var selectedInterests = {};   // canonical token -> true
+
+      function buildInterestPalette(){
+        var pal = document.getElementById('interestPalette');
+        if (!pal) return;
+        pal.innerHTML = '';
+        INTEREST_TAGS.forEach(function(tok){
+          var chip = document.createElement('span');
+          chip.className = 'chip' + (selectedInterests[tok] ? '' : ' outline');
+          chip.textContent = SixtioI18n.interest(tok);
+          chip.addEventListener('click', function(){
+            if (selectedInterests[tok]) { delete selectedInterests[tok]; chip.className = 'chip outline'; }
+            else { selectedInterests[tok] = true; chip.className = 'chip'; }
+            if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.selectionChanged(); } catch(e){} }
+          });
+          pal.appendChild(chip);
+        });
+      }
+
       function render(me){
         var u = me.user || {};
         var p = me.profile;
@@ -490,7 +517,7 @@
         referralLink = u.referralLink || '';
 
         document.getElementById('interestsBlock').hidden =
-          !fillChips('interests', u.interests, true);
+          !fillChips('interests', (u.interests || []).map(function(x){ return SixtioI18n.interest(x); }), true);
 
         if (p && p.traits && p.traits.length) {
           fillChips('traits', p.traits, false);
@@ -639,7 +666,15 @@
         document.getElementById('fGoal').value = current.goal || 'situational';
         document.getElementById('fAge').value = current.age || '';
         document.getElementById('fCity').value = current.city || '';
-        document.getElementById('fInterests').value = (current.interests || []).join(', ');
+        // Split stored interests: canonical tokens preselect the palette, the rest
+        // (custom free-text) go into the input.
+        selectedInterests = {};
+        var customInterests = [];
+        (current.interests || []).forEach(function(it){
+          if (CANON_INTEREST[it]) selectedInterests[it] = true; else customInterests.push(it);
+        });
+        buildInterestPalette();
+        document.getElementById('fInterests').value = customInterests.join(', ');
         document.getElementById('fBio').value = current.bio || '';
         saveNote.textContent = '';
         editSection.hidden = false;
@@ -664,8 +699,12 @@
           goal: document.getElementById('fGoal').value,
           age: age,
           city: document.getElementById('fCity').value.trim(),
-          interests: document.getElementById('fInterests').value
-            .split(',').map(function(s){ return s.trim(); }).filter(Boolean),
+          // Canonical picks first, then any custom free-text the user typed.
+          interests: Object.keys(selectedInterests).concat(
+            document.getElementById('fInterests').value
+              .split(',').map(function(s){ return s.trim(); })
+              .filter(function(s){ return s && !CANON_INTEREST[s]; })
+          ),
           bio: document.getElementById('fBio').value.trim()
         }).then(function(){
           saveNote.textContent = t('saved');

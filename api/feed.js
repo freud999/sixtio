@@ -10,6 +10,16 @@ import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
 const MAX_AGE_GAP = 10;          // same convention as matching.js
 const DEFAULT_LIMIT = 20;
 
+// Shared-interest ranking nudge (Layer 2): a small, capped bonus so common
+// hobbies lift a candidate in the deck without ever outweighing psychological or
+// intimate compatibility. Interests are matched case/space-insensitively, which
+// covers both canonical tokens and any legacy free-text a user typed.
+const INTEREST_BOOST_PER = 4;
+const INTEREST_BOOST_MAX = 12;
+const normInterests = (arr) => new Set(
+  (Array.isArray(arr) ? arr : []).map((s) => String(s || '').trim().toLowerCase()).filter(Boolean)
+);
+
 // "Daily Mystery Match": the single strongest Big Five match, refreshed at most
 // once per rolling 24h and shown fully anonymized until unlocked (10 ⭐).
 // Floor for the daily tease. Lowered 90 -> 80 alongside compatibility v2
@@ -41,7 +51,7 @@ export default async function handler(req, res) {
     const supabase = getSupabase();
     const { data: me, error: meError } = await supabase
       .from('users')
-      .select('id, gender, seeking_gender, age, liked_users, disliked_users, blocked_users, premium, premium_until, daily_likes_count, last_like_reset, dark_mode_active, kink_markers, last_mystery_match_id, last_mystery_match_time, mystery_match_unlocked')
+      .select('id, gender, seeking_gender, age, liked_users, disliked_users, blocked_users, premium, premium_until, daily_likes_count, last_like_reset, dark_mode_active, kink_markers, interests, last_mystery_match_id, last_mystery_match_time, mystery_match_unlocked')
       .eq('telegram_id', tgUser.id)
       .maybeSingle();
     if (meError) throw meError;
@@ -99,7 +109,7 @@ export default async function handler(req, res) {
     // wildcard 'any' preference skips the gender filter; JS still does final checks.
     let candQuery = supabase
       .from('users')
-      .select('id, name, gender, seeking_gender, age, city, photo_url, photo_blur_url, dark_mode_active, kink_markers, shadow_hidden')
+      .select('id, name, gender, seeking_gender, age, city, photo_url, photo_blur_url, dark_mode_active, kink_markers, interests, shadow_hidden')
       .neq('id', me.id)
       .eq('shadow_hidden', false);
     if (me.seeking_gender && me.seeking_gender !== 'any') candQuery = candQuery.eq('gender', me.seeking_gender);
@@ -110,6 +120,7 @@ export default async function handler(req, res) {
     // Dark Mode (18+) is a mutual, opt-in layer: intimate data is computed ONLY
     // when this user has it on, and then only against candidates who also do.
     const darkOn = !!me.dark_mode_active;
+    const myInterests = normInterests(me.interests);
 
     const ranked = [];
     for (const c of candidates || []) {
@@ -138,6 +149,13 @@ export default async function handler(req, res) {
         tags: hit ? (hit.tags || []).slice(0, 3) : [],
       };
 
+      // Shared-interest nudge (Layer 2): count normalized overlaps for ranking.
+      let sharedInterests = 0;
+      if (myInterests.size) {
+        for (const it of normInterests(c.interests)) if (myInterests.has(it)) sharedInterests++;
+      }
+      card.sharedInterests = sharedInterests;
+
       // Only surface the intimate layer when BOTH sides opted in — otherwise the
       // card stays byte-for-byte standard, keeping opted-out users fully private.
       if (darkOn && c.dark_mode_active) {
@@ -162,7 +180,8 @@ export default async function handler(req, res) {
     // intimate compatibility, so a 0%-personality / high-kink-overlap profile
     // surfaces near the top instead of drowning at the tail (Task 24).
     const rankScore = (c) =>
-      Math.max(c.compatibility || 0, c.darkMode ? (c.intimateCompatibility || 0) : 0);
+      Math.max(c.compatibility || 0, c.darkMode ? (c.intimateCompatibility || 0) : 0)
+      + Math.min(INTEREST_BOOST_MAX, (c.sharedInterests || 0) * INTEREST_BOOST_PER);
     ranked.sort((a, b) => rankScore(b) - rankScore(a));
 
     const start = Math.max(0, parseInt(offset, 10) || 0);

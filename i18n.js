@@ -150,7 +150,8 @@
       f_goal: 'Мета',
       opt_longterm: 'Довготривалі стосунки', opt_fun: 'Розважитись', opt_situational: 'По ситуації',
       f_age: 'Вік', f_city: 'Місто',
-      f_interests: 'Інтереси (через кому)',
+      f_interests: 'Інтереси',
+      f_interests_custom: 'Додати своє…',
       cancel: 'Скасувати', save: 'Зберегти',
       age_range_err: 'Вік має бути від 18 до 100',
       saving: 'Зберігаю…', saved: 'Збережено ✓',
@@ -230,6 +231,14 @@
       kink_edging: 'Еджинг', kink_spanking: 'Спанкінг', kink_biting: 'Кусання', kink_wax_play: 'Ігри з воском',
       kink_footplay: 'Футплей', kink_strap_on: 'На ременях', kink_oral: 'Оральні пестощі', kink_mirrors: 'Дзеркала',
       kink_voyeur: 'Люблю спостерігати', kink_exhibitionist: 'Люблю, коли дивляться',
+      // interest tokens (Layer 2) -> local words
+      interest_intellect: 'Інтелект', interest_music: 'Музика', interest_cinema: 'Кіно', interest_literature: 'Література',
+      interest_gaming: 'Геймінг', interest_anime: 'Аніме', interest_geek: 'Гік-культура', interest_cosplay: 'Косплей',
+      interest_dancing: 'Танці', interest_techno: 'Техно', interest_standup: 'Стендап', interest_art_dates: 'Арт-побачення',
+      interest_board_games: 'Настільні ігри', interest_cooking: 'Кулінарія', interest_breakfast: 'Сніданки',
+      interest_extreme_sports: 'Екстрим-спорт', interest_park_walks: 'Прогулянки', interest_wellness: 'Велнес',
+      interest_astrology: 'Астрологія', interest_drag: 'Дреґ', interest_vintage: 'Вінтаж', interest_tattoos: 'Тату і пірсинг',
+      interest_scents: 'Аромати',
       // paywall / Stars shop
       pw_default_sub: 'Твій ліміт вподобань на сьогодні вичерпано. Обери, як продовжити 💜',
       pw_balance: 'Баланс:',
@@ -381,7 +390,8 @@
       f_goal: 'Goal',
       opt_longterm: 'Long-term relationship', opt_fun: 'Have fun', opt_situational: 'Depends',
       f_age: 'Age', f_city: 'City',
-      f_interests: 'Interests (comma-separated)',
+      f_interests: 'Interests',
+      f_interests_custom: 'Add your own…',
       cancel: 'Cancel', save: 'Save',
       age_range_err: 'Age must be between 18 and 100',
       saving: 'Saving…', saved: 'Saved ✓',
@@ -455,6 +465,14 @@
       kink_edging: 'Edging', kink_spanking: 'Spanking', kink_biting: 'Biting', kink_wax_play: 'Wax play',
       kink_footplay: 'Footplay', kink_strap_on: 'Strap-on', kink_oral: 'Oral', kink_mirrors: 'Mirrors',
       kink_voyeur: 'Loves to watch', kink_exhibitionist: 'Loves being watched',
+      // interest tokens (Layer 2) -> local words
+      interest_intellect: 'Intellect', interest_music: 'Music', interest_cinema: 'Cinema', interest_literature: 'Literature',
+      interest_gaming: 'Gaming', interest_anime: 'Anime', interest_geek: 'Geek culture', interest_cosplay: 'Cosplay',
+      interest_dancing: 'Dancing', interest_techno: 'Techno', interest_standup: 'Stand-up', interest_art_dates: 'Art dates',
+      interest_board_games: 'Board games', interest_cooking: 'Cooking', interest_breakfast: 'Breakfasts',
+      interest_extreme_sports: 'Extreme sports', interest_park_walks: 'Park walks', interest_wellness: 'Wellness',
+      interest_astrology: 'Astrology', interest_drag: 'Drag', interest_vintage: 'Vintage', interest_tattoos: 'Tattoos',
+      interest_scents: 'Scents',
       pw_default_sub: 'You’ve used today’s likes. Choose how to continue 💜',
       pw_balance: 'Balance:',
       pw_premium_name: 'Premium · 30 days',
@@ -605,7 +623,8 @@
       f_goal: 'Цель',
       opt_longterm: 'Долгосрочные отношения', opt_fun: 'Развлечься', opt_situational: 'По ситуации',
       f_age: 'Возраст', f_city: 'Город',
-      f_interests: 'Интересы (через запятую)',
+      f_interests: 'Интересы',
+      f_interests_custom: 'Добавить своё…',
       cancel: 'Отмена', save: 'Сохранить',
       age_range_err: 'Возраст должен быть от 18 до 100',
       saving: 'Сохраняю…', saved: 'Сохранено ✓',
@@ -679,6 +698,14 @@
       kink_edging: 'Эджинг', kink_spanking: 'Спанкинг', kink_biting: 'Укусы', kink_wax_play: 'Игры с воском',
       kink_footplay: 'Футплей', kink_strap_on: 'На ремнях', kink_oral: 'Оральные ласки', kink_mirrors: 'Зеркала',
       kink_voyeur: 'Люблю наблюдать', kink_exhibitionist: 'Люблю, когда смотрят',
+      // interest tokens (Layer 2) -> local words
+      interest_intellect: 'Интеллект', interest_music: 'Музыка', interest_cinema: 'Кино', interest_literature: 'Литература',
+      interest_gaming: 'Гейминг', interest_anime: 'Аниме', interest_geek: 'Гик-культура', interest_cosplay: 'Косплей',
+      interest_dancing: 'Танцы', interest_techno: 'Техно', interest_standup: 'Стендап', interest_art_dates: 'Арт-свидания',
+      interest_board_games: 'Настольные игры', interest_cooking: 'Кулинария', interest_breakfast: 'Завтраки',
+      interest_extreme_sports: 'Экстрим-спорт', interest_park_walks: 'Прогулки', interest_wellness: 'Велнес',
+      interest_astrology: 'Астрология', interest_drag: 'Дрэг', interest_vintage: 'Винтаж', interest_tattoos: 'Тату и пирсинг',
+      interest_scents: 'Ароматы',
       pw_default_sub: 'Твой лимит симпатий на сегодня исчерпан. Выбери, как продолжить 💜',
       pw_balance: 'Баланс:',
       pw_premium_name: 'Premium · 30 дней',
@@ -877,6 +904,21 @@
     return v === 'kink_' + marker ? marker : v;
   }
 
+  // Canonical interest tokens offered as a quick-pick palette (Layer 2). Users may
+  // ALSO add free-text interests; those pass through interest() verbatim.
+  var INTEREST_TAGS = [
+    'intellect', 'music', 'cinema', 'literature', 'gaming', 'anime', 'geek', 'cosplay',
+    'dancing', 'techno', 'standup', 'art_dates', 'board_games', 'cooking', 'breakfast',
+    'extreme_sports', 'park_walks', 'wellness', 'astrology', 'drag', 'vintage', 'tattoos', 'scents',
+  ];
+
+  // Localized label for a canonical interest token; unknown/custom free-text
+  // interests pass through verbatim.
+  function interest(token) {
+    var v = t('interest_' + token);
+    return v === 'interest_' + token ? token : v;
+  }
+
   // Rewrites all annotated static nodes under `root` (default: whole document).
   //   data-i18n       -> textContent
   //   data-i18n-html  -> innerHTML (trusted dictionary markup only)
@@ -998,7 +1040,7 @@
     syncSwitchers();
   }
 
-  var api = { lang: lang, t: t, kink: kink, apply: apply, detect: detect, refresh: refresh, setLang: setLang, mountSwitchers: mountSwitchers };
+  var api = { lang: lang, t: t, kink: kink, interest: interest, interestTags: INTEREST_TAGS, apply: apply, detect: detect, refresh: refresh, setLang: setLang, mountSwitchers: mountSwitchers };
   window.SixtioI18n = api;
 
   // Attach the ACTIVE UI language to every same-origin API call that already
