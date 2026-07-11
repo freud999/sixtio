@@ -52,6 +52,8 @@
     transition:transform .12s ease, opacity .12s ease, color .6s ease; }
   .option-btn:active{ transform:scale(0.96); opacity:.85; }
   .option-btn.secondary{ color:var(--hint); font-weight:500; }
+  .option-btn.sel{ color:#fff; border-color:transparent;
+    background:linear-gradient(120deg, var(--a2), var(--a1)); }
   .option-btn.gps{ color:#fff; border:none;
     background:linear-gradient(120deg, var(--a2), var(--a1));
     box-shadow:0 8px 22px -10px var(--glow); }
@@ -149,7 +151,7 @@
           options:[{v:'longterm',label:t('opt_longterm')},{v:'fun',label:t('opt_fun')},{v:'situational',label:t('opt_situational')}] },
         { id:'age', type:'number', text:t('ob_age_q') },
         { id:'city', type:'text', optional:true, text:t('ob_city_q') },
-        { id:'interests', type:'text', optional:true, text:t('ob_interests_q') },
+        { id:'interests', type:'interests', optional:true, text:t('ob_interests_q') },
         { id:'bio', type:'text', optional:true, text:t('ob_bio_q'), textF:t('ob_bio_q_f') },
         { id:'photo', type:'photo', optional:true, text:t('ob_photo_q') }
       ];
@@ -202,6 +204,7 @@
       var index = 0;                // psych question index
       var phase = 'main';           // 'main' | 'followup' (psych only)
       var profileData = { interests: [] };
+      var obInterests = {};          // onboarding interest picker selection: token -> true
       var answers = [];
       var lastFollowupText = '';
       var detectedCity = null;
@@ -326,6 +329,49 @@
         if (currentOptions) { currentOptions.remove(); currentOptions = null; }
       }
 
+      // Interest quick-pick (Layer 2): toggleable canonical chips + Done/Skip.
+      // Custom free-text interests are added later in the profile editor.
+      function showInterestPicker(step){
+        removeOptions();
+        obInterests = {};
+        var wrap = document.createElement('div');
+        wrap.className = 'options';
+        (SixtioI18n.interestTags || []).forEach(function(tok){
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'option-btn';
+          b.textContent = SixtioI18n.interest(tok);
+          b.addEventListener('click', function(){
+            if (obInterests[tok]) { delete obInterests[tok]; b.classList.remove('sel'); }
+            else { obInterests[tok] = true; b.classList.add('sel'); }
+            if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.selectionChanged(); } catch(e){} }
+          });
+          wrap.appendChild(b);
+        });
+        var done = document.createElement('button');
+        done.type = 'button';
+        done.className = 'option-btn gps';
+        done.textContent = t('ob_interests_done');
+        done.addEventListener('click', function(){
+          if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('light'); } catch(e){} }
+          var list = Object.keys(obInterests);
+          if (!list.length) { skipProfile(step); return; }
+          answerProfile(step, list, list.map(function(x){ return SixtioI18n.interest(x); }).join(', '));
+        });
+        wrap.appendChild(done);
+        if (step.optional) {
+          var sk = document.createElement('button');
+          sk.type = 'button';
+          sk.className = 'option-btn secondary';
+          sk.textContent = t('ob_skip');
+          sk.addEventListener('click', function(){ skipProfile(step); });
+          wrap.appendChild(sk);
+        }
+        chat.appendChild(wrap);
+        currentOptions = wrap;
+        scrollToBottom();
+      }
+
       // ---- profile stage -------------------------------------------------
       function askNextProfile(){
         updateProgress();
@@ -341,6 +387,8 @@
             showOptions(step.options.map(function(o){
               return { label: o.label, onSelect: function(){ answerProfile(step, o.v, o.label); } };
             }));
+          } else if (step.type === 'interests') {
+            showInterestPicker(step);
           } else if (step.type === 'photo') {
             showOptions([
               { label: t('ob_pick_photo'), onSelect: function(){ photoInput.click(); } },

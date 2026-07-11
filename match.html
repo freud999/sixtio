@@ -204,7 +204,7 @@
         if (pt.vibe) { var v = document.getElementById('vibe'); v.textContent = '«' + pt.vibe + '»'; v.hidden = false; }
         document.getElementById('reason').textContent = m.reason || '';
         if (fillChips('traits', pt.traits, false)) document.getElementById('traitsLbl').hidden = false;
-        if (fillChips('interests', pt.interests, true)) document.getElementById('interestsLbl').hidden = false;
+        if (fillChips('interests', (pt.interests || []).map(function(x){ return SixtioI18n.interest(x); }), true)) document.getElementById('interestsLbl').hidden = false;
         if (pt.bio) { document.getElementById('bio').textContent = pt.bio; document.getElementById('bioLbl').hidden = false; }
 
         // Dark Mode (18+): present ONLY when both sides opted in (server-gated).
