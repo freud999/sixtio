@@ -5,6 +5,11 @@ import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
 const GENDERS = ['male', 'female'];
 const SEEKING = ['male', 'female', 'any'];
 const GOALS = ['longterm', 'fun', 'situational'];
+// Canonical life-values (Layer 3); anything outside this set is dropped server-side.
+const VALUE_TOKENS = new Set([
+  'feminism', 'sober', 'therapy_minded', 'unconditional_love',
+  'body_positive', 'gender_free', 'non_smoker',
+]);
 
 // Saves the structured profile fields collected at the start of onboarding.
 export default async function handler(req, res) {
@@ -12,7 +17,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
   try {
-    const { initData, gender, seekingGender, goal, age, city, interests, bio, lang: clientLang } = req.body || {};
+    const { initData, gender, seekingGender, goal, age, city, interests, values, bio, lang: clientLang } = req.body || {};
     const tgUser = resolveUser(initData);
     if (!tgUser) {
       return res.status(401).json({ error: 'Invalid Telegram initData' });
@@ -41,6 +46,16 @@ export default async function handler(req, res) {
         .map((i) => i.trim().slice(0, 40))
         .slice(0, 15);
       if (cleaned.length) fields.interests = cleaned;
+    }
+    // Life values: keep only canonical tokens, de-duped and capped.
+    if (Array.isArray(values)) {
+      const seen = new Set();
+      const vals = [];
+      for (const v of values) {
+        const tok = typeof v === 'string' ? v.trim() : '';
+        if (VALUE_TOKENS.has(tok) && !seen.has(tok)) { seen.add(tok); vals.push(tok); }
+      }
+      fields.core_values = vals;   // may be [] — an explicit "no values picked"
     }
 
     if (!fields.gender || !fields.seeking_gender || !fields.goal || !fields.age) {

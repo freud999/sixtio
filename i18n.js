@@ -240,6 +240,12 @@
       interest_extreme_sports: 'Екстрим-спорт', interest_park_walks: 'Прогулянки', interest_wellness: 'Велнес',
       interest_astrology: 'Астрологія', interest_drag: 'Дреґ', interest_vintage: 'Вінтаж', interest_tattoos: 'Тату і пірсинг',
       interest_scents: 'Аромати',
+      // life-values tokens (Layer 3) -> local words
+      value_feminism: 'Фемінізм', value_sober: 'Тверезі побачення', value_therapy_minded: 'Психотерапія',
+      value_unconditional_love: 'Любов без умов', value_body_positive: 'Бодіпозитив',
+      value_gender_free: 'Свобода самовираження', value_non_smoker: 'Не палю',
+      ob_values_q: 'Що для тебе важливо у стосунках і житті? Обери свої цінності.',
+      ob_values_done: 'Готово',
       // paywall / Stars shop
       pw_default_sub: 'Твій ліміт вподобань на сьогодні вичерпано. Обери, як продовжити 💜',
       pw_balance: 'Баланс:',
@@ -475,6 +481,12 @@
       interest_extreme_sports: 'Extreme sports', interest_park_walks: 'Park walks', interest_wellness: 'Wellness',
       interest_astrology: 'Astrology', interest_drag: 'Drag', interest_vintage: 'Vintage', interest_tattoos: 'Tattoos',
       interest_scents: 'Scents',
+      // life-values tokens (Layer 3) -> local words
+      value_feminism: 'Feminism', value_sober: 'Sober dating', value_therapy_minded: 'Therapy-minded',
+      value_unconditional_love: 'Unconditional love', value_body_positive: 'Body positivity',
+      value_gender_free: 'Gender-free', value_non_smoker: 'Non-smoker',
+      ob_values_q: 'What matters to you in relationships and life? Pick your values.',
+      ob_values_done: 'Done',
       pw_default_sub: 'You’ve used today’s likes. Choose how to continue 💜',
       pw_balance: 'Balance:',
       pw_premium_name: 'Premium · 30 days',
@@ -709,6 +721,12 @@
       interest_extreme_sports: 'Экстрим-спорт', interest_park_walks: 'Прогулки', interest_wellness: 'Велнес',
       interest_astrology: 'Астрология', interest_drag: 'Дрэг', interest_vintage: 'Винтаж', interest_tattoos: 'Тату и пирсинг',
       interest_scents: 'Ароматы',
+      // life-values tokens (Layer 3) -> local words
+      value_feminism: 'Феминизм', value_sober: 'Трезвые свидания', value_therapy_minded: 'Психотерапия',
+      value_unconditional_love: 'Любовь без условий', value_body_positive: 'Бодипозитив',
+      value_gender_free: 'Свобода самовыражения', value_non_smoker: 'Не курю',
+      ob_values_q: 'Что для тебя важно в отношениях и жизни? Выбери свои ценности.',
+      ob_values_done: 'Готово',
       pw_default_sub: 'Твой лимит симпатий на сегодня исчерпан. Выбери, как продолжить 💜',
       pw_balance: 'Баланс:',
       pw_premium_name: 'Premium · 30 дней',
@@ -922,6 +940,19 @@
     return v === 'interest_' + token ? token : v;
   }
 
+  // Canonical life-values tokens (Layer 3), asked in onboarding and fed to the
+  // matcher with heavy weight.
+  var VALUE_TAGS = [
+    'feminism', 'sober', 'therapy_minded', 'unconditional_love',
+    'body_positive', 'gender_free', 'non_smoker',
+  ];
+
+  // Localized label for a canonical value token; unknown tokens pass through.
+  function value(token) {
+    var v = t('value_' + token);
+    return v === 'value_' + token ? token : v;
+  }
+
   // Rewrites all annotated static nodes under `root` (default: whole document).
   //   data-i18n       -> textContent
   //   data-i18n-html  -> innerHTML (trusted dictionary markup only)
@@ -1043,7 +1074,7 @@
     syncSwitchers();
   }
 
-  var api = { lang: lang, t: t, kink: kink, interest: interest, interestTags: INTEREST_TAGS, apply: apply, detect: detect, refresh: refresh, setLang: setLang, mountSwitchers: mountSwitchers };
+  var api = { lang: lang, t: t, kink: kink, interest: interest, interestTags: INTEREST_TAGS, value: value, valueTags: VALUE_TAGS, apply: apply, detect: detect, refresh: refresh, setLang: setLang, mountSwitchers: mountSwitchers };
   window.SixtioI18n = api;
 
   // Attach the ACTIVE UI language to every same-origin API call that already

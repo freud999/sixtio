@@ -20,6 +20,7 @@ function describe(user, profile) {
     city: user.city,
     goal: user.goal,
     interests: user.interests,
+    values: user.core_values,
     bio: user.bio,
     traits: profile.traits_json,
     vibe: profile.vibe,
@@ -66,7 +67,7 @@ export async function runMatching(userId, lang = 'uk') {
   // memory on the much smaller reduced set.
   let candQuery = supabase
     .from('users')
-    .select('id, telegram_id, name, tg_username, gender, seeking_gender, goal, age, city, interests, bio, photo_url, language_code')
+    .select('id, telegram_id, name, tg_username, gender, seeking_gender, goal, age, city, interests, core_values, bio, photo_url, language_code')
     .neq('id', userId)
     .eq('shadow_hidden', false)
     .gte('age', me.age - MAX_AGE_GAP)

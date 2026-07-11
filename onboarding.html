@@ -152,6 +152,7 @@
         { id:'age', type:'number', text:t('ob_age_q') },
         { id:'city', type:'text', optional:true, text:t('ob_city_q') },
         { id:'interests', type:'interests', optional:true, text:t('ob_interests_q') },
+        { id:'values', type:'values', optional:true, text:t('ob_values_q') },
         { id:'bio', type:'text', optional:true, text:t('ob_bio_q'), textF:t('ob_bio_q_f') },
         { id:'photo', type:'photo', optional:true, text:t('ob_photo_q') }
       ];
@@ -205,6 +206,7 @@
       var phase = 'main';           // 'main' | 'followup' (psych only)
       var profileData = { interests: [] };
       var obInterests = {};          // onboarding interest picker selection: token -> true
+      var obValues = {};             // onboarding values picker selection: token -> true
       var answers = [];
       var lastFollowupText = '';
       var detectedCity = null;
@@ -329,21 +331,22 @@
         if (currentOptions) { currentOptions.remove(); currentOptions = null; }
       }
 
-      // Interest quick-pick (Layer 2): toggleable canonical chips + Done/Skip.
-      // Custom free-text interests are added later in the profile editor.
-      function showInterestPicker(step){
+      // Generic quick-pick (Layers 2 & 3): toggleable canonical chips + Done/Skip.
+      // `sel` is the selection map to fill, `labelFn` localizes a token. Custom
+      // free-text (interests only) is added later in the profile editor.
+      function showTagPicker(step, tags, sel, labelFn, doneKey){
         removeOptions();
-        obInterests = {};
+        for (var k in sel) { if (Object.prototype.hasOwnProperty.call(sel, k)) delete sel[k]; }
         var wrap = document.createElement('div');
         wrap.className = 'options';
-        (SixtioI18n.interestTags || []).forEach(function(tok){
+        (tags || []).forEach(function(tok){
           var b = document.createElement('button');
           b.type = 'button';
           b.className = 'option-btn';
-          b.textContent = SixtioI18n.interest(tok);
+          b.textContent = labelFn(tok);
           b.addEventListener('click', function(){
-            if (obInterests[tok]) { delete obInterests[tok]; b.classList.remove('sel'); }
-            else { obInterests[tok] = true; b.classList.add('sel'); }
+            if (sel[tok]) { delete sel[tok]; b.classList.remove('sel'); }
+            else { sel[tok] = true; b.classList.add('sel'); }
             if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.selectionChanged(); } catch(e){} }
           });
           wrap.appendChild(b);
@@ -351,12 +354,12 @@
         var done = document.createElement('button');
         done.type = 'button';
         done.className = 'option-btn gps';
-        done.textContent = t('ob_interests_done');
+        done.textContent = t(doneKey);
         done.addEventListener('click', function(){
           if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('light'); } catch(e){} }
-          var list = Object.keys(obInterests);
+          var list = Object.keys(sel);
           if (!list.length) { skipProfile(step); return; }
-          answerProfile(step, list, list.map(function(x){ return SixtioI18n.interest(x); }).join(', '));
+          answerProfile(step, list, list.map(labelFn).join(', '));
         });
         wrap.appendChild(done);
         if (step.optional) {
@@ -388,7 +391,9 @@
               return { label: o.label, onSelect: function(){ answerProfile(step, o.v, o.label); } };
             }));
           } else if (step.type === 'interests') {
-            showInterestPicker(step);
+            showTagPicker(step, SixtioI18n.interestTags, obInterests, SixtioI18n.interest, 'ob_interests_done');
+          } else if (step.type === 'values') {
+            showTagPicker(step, SixtioI18n.valueTags, obValues, SixtioI18n.value, 'ob_values_done');
           } else if (step.type === 'photo') {
             showOptions([
               { label: t('ob_pick_photo'), onSelect: function(){ photoInput.click(); } },
@@ -509,6 +514,7 @@
           age: profileData.age,
           city: profileData.city || '',
           interests: profileData.interests || [],
+          values: profileData.values || [],
           bio: profileData.bio || ''
         }).catch(function(e){
           console.error('profile-info save failed', e);
