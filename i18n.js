@@ -17,7 +17,7 @@
     // ------------------------------------------------------------- Ukrainian
     uk: {
       // tab bar
-      tab_matches: 'Метчі', tab_chat: 'Чат', tab_profile: 'Профіль',
+      tab_matches: 'Метчі', tab_chat: 'Чат', tab_profile: 'Профіль', match_short: 'збіг', matches_sub: 'Твої збіги',
       close: 'Закрити',
       // index (welcome)
       idx_thesis: 'Не свайпи. Знайомства, які справді мають сенс.',
@@ -89,6 +89,7 @@
       // chat list
       chat_you: 'Ти: ',
       chat_start: 'Почніть розмову ✨',
+      chat_ai_hint: '<b>AI-підказка ·&nbsp;</b>Sixtio пропонує теми для розмови на основі ваших спільних цінностей.',
       chat_empty: 'Тут зʼявляться розмови з твоїми парами. Поки метчів немає — зазирни у <a href="matches.html">Метчі</a> й натисни «Знайти пару».',
       // profile — goal labels (gendered, Task 23)
       goal_longterm: 'Шукаю довготривалі стосунки',
@@ -275,7 +276,7 @@
     },
     // --------------------------------------------------------------- English
     en: {
-      tab_matches: 'Matches', tab_chat: 'Chat', tab_profile: 'Profile',
+      tab_matches: 'Matches', tab_chat: 'Chat', tab_profile: 'Profile', match_short: 'match', matches_sub: 'Your matches',
       close: 'Close',
       idx_thesis: 'Not swipes. Connections that truly make sense.',
       idx_hello: 'Hi, {name}! Ready for a real connection?',
@@ -341,6 +342,7 @@
       wf_fail: 'Couldn’t generate. Try again.',
       chat_you: 'You: ',
       chat_start: 'Start the conversation ✨',
+      chat_ai_hint: '<b>AI tip ·&nbsp;</b>Sixtio suggests conversation topics based on your shared values.',
       chat_empty: 'Conversations with your matches will appear here. No matches yet — open <a href="matches.html">Matches</a> and tap “Find a match”.',
       goal_longterm: 'Looking for a long-term relationship',
       goal_fun: 'Here to have fun',
@@ -516,7 +518,7 @@
     },
     // --------------------------------------------------------------- Russian
     ru: {
-      tab_matches: 'Мэтчи', tab_chat: 'Чат', tab_profile: 'Профиль',
+      tab_matches: 'Мэтчи', tab_chat: 'Чат', tab_profile: 'Профиль', match_short: 'совпад.', matches_sub: 'Твои совпадения',
       close: 'Закрыть',
       idx_thesis: 'Не свайпы. Знакомства, которые действительно имеют смысл.',
       idx_hello: 'Привет, {name}! Готовы к настоящему знакомству?',
@@ -582,6 +584,7 @@
       wf_fail: 'Не удалось сгенерировать. Попробуй ещё раз.',
       chat_you: 'Ты: ',
       chat_start: 'Начните разговор ✨',
+      chat_ai_hint: '<b>AI-подсказка ·&nbsp;</b>Sixtio предлагает темы для разговора на основе ваших общих ценностей.',
       chat_empty: 'Здесь появятся разговоры с твоими парами. Пока мэтчей нет — загляни в <a href="matches.html">Мэтчи</a> и нажми «Найти пару».',
       goal_longterm: 'Ищу долгосрочные отношения',
       goal_fun: 'Хочу развлечься',

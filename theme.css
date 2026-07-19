@@ -1,201 +1,200 @@
 /* ============================================================
-   Sixtio design system — aura glassmorphism
-   Gender-aware:  html[data-gender="female" | "male"]  (pink / blue)
-   Theme-aware:   html[data-theme="light" | "dark"]    (from Telegram)
-   Set by theme.js. Neutral violet/teal until gender is known.
+   Sixtio design system — «Clarity»
+   Light  (porcelain surfaces + indigo accent)  = html[data-theme="light"]
+   Dark   (warm ember surfaces + orange accent)  = html[data-theme="dark"]
+   Set by theme.js (from Telegram colorScheme). Accent is theme-driven,
+   NOT gender-driven (data-gender is kept as a harmless no-op for legacy calls).
+   Legacy token names (--a1/--a2/--a3/--glow/--bg/--card/--text/--hint/--glass-*)
+   are remapped to Clarity values so existing page markup adopts the new look
+   with no structural changes.
    ============================================================ */
-@import url('https://fonts.googleapis.com/css2?family=Doto:wght@700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-:root{
-  /* Neon accent trio (Telegram Night — electric cyan/blue + cyber pink) */
-  --a1:#4FACFE;            /* electric blue */
-  --a2:#00F2FE;            /* neon cyan */
-  --a3:#FF007F;            /* cyber pink */
-  --glow:rgba(0,242,254,.35);
+:root,
+html[data-theme="light"]{
+  /* Clarity tokens */
+  --bg1:#FBF8F3; --bg2:#F1EBE1; --bg2-soft:rgba(241,235,225,.5);
+  --surface:#FFFDFA; --glass:rgba(255,255,255,.82); --glass-soft:rgba(255,255,255,.7); --glass-badge:rgba(255,253,250,.94);
+  --ink:#17161C; --ink2:#3c3a44; --ink3:#5c5850; --muted:#9a9488; --muted2:#8a8494; --faint:#b0aa9e;
+  --strong:#17161C; --track:#EDE7DD; --chip:#F1EDE4; --chip2:#F3EFE6;
+  --hair:rgba(23,22,28,.06); --hair2:rgba(23,22,28,.08); --hair3:rgba(23,22,28,.13); --hair-strong:rgba(23,22,28,.25);
+  --coral-card1:#FFF6F2; --coral-card2:#FFF1EC; --coral-ink:#C0442A; --coral-mut:#a8776a; --coral-desc:#7a6a62; --coral:#FF5A2C;
+  --star-bg:rgba(246,185,59,.14); --star-border:rgba(246,185,59,.36); --star-ink:#996911;
+  --acc:#4B3BFF; --acc2:#7C6BFF; --acc-rgb:75,59,255; --acc-grad:linear-gradient(150deg,#4B3BFF,#7C6BFF);
+  --success:#3B9E6B; --warn:#C98A2E;
 
-  /* Dynamic neon duo (UX milestone 1). Cyan/blue = standard features; cyber
-     pink = premium/stars. --accent-current is the single knob the app shifts at
-     runtime (standard ⇄ dark-mode); initialise it to the cyan/blue standard. */
-  --neon-b:#1DF9FE;        /* standard — cyan/blue */
-  --neon-p:#FF1AC8;        /* premium/stars — cyber pink */
-  --accent-current:var(--neon-b);
-
-  /* Deep-purple night surfaces — forced (NOT tinted by a light Telegram theme) */
-  --bg:#0E040A;
-  --bg-grad:linear-gradient(160deg,#0E040A 0%,#160812 100%);
-  --text:#E0E0E0;
-  --hint:#A99FC7;
-  --card:#1B1330;
-
-  /* Premium frosted glassmorphism (rgba(34,23,61,.6) + blur + hairline border) */
-  --glass-grad:linear-gradient(158deg, rgba(34,23,61,.72), rgba(34,23,61,.5));
-  --glass-bg:rgba(34,23,61,.6);
-  --glass-border:rgba(255,255,255,.08);
-  --glass-hi:rgba(255,255,255,.10);            /* inset top highlight */
-  --glass-shadow:0 14px 40px -16px rgba(0,0,0,.7);
-  --faux-glass:rgba(34,23,61,.55);             /* cheap glass: no backdrop blur */
-  --aura-deep:#0F0A1C;
-  --dots:rgba(255,255,255,.05);
+  /* Legacy names → Clarity values (keeps existing pages working) */
+  --a1:#4B3BFF; --a2:#7C6BFF; --a3:#FF5A2C; --glow:rgba(75,59,255,.32);
+  --neon-b:#4B3BFF; --neon-p:#FF5A2C; --accent-current:var(--acc);
+  --bg:#FBF8F3; --bg-grad:linear-gradient(175deg,#FBF8F3 0%,#F1EBE1 100%);
+  --text:#17161C; --hint:#8a8494; --card:#FFFDFA;
+  --glass-grad:linear-gradient(158deg, rgba(255,255,255,.9), rgba(255,255,255,.72));
+  --glass-bg:rgba(255,255,255,.82); --glass-border:rgba(23,22,28,.08);
+  --glass-hi:rgba(255,255,255,.7); --glass-shadow:0 18px 44px -20px rgba(60,45,30,.4);
+  --faux-glass:rgba(255,255,255,.7); --aura-deep:#EFE7DD; --dots:rgba(23,22,28,.045);
   --on-accent:#ffffff;
 }
 
 html[data-theme="dark"]{
-  --bg:#0E040A;
-  --text:#E0E0E0;
-  --hint:#A99FC7;
-  --card:#1B1330;
-  --glass-grad:linear-gradient(158deg, rgba(34,23,61,.72), rgba(34,23,61,.5));
-  --glass-bg:rgba(34,23,61,.6);
-  --glass-border:rgba(255,255,255,.08);
-  --glass-hi:rgba(255,255,255,.10);
-  --glass-shadow:0 14px 40px -16px rgba(0,0,0,.7);
-  --faux-glass:rgba(34,23,61,.55);
-  --aura-deep:#0F0A1C;
-  --dots:rgba(255,255,255,.05);
+  --bg1:#1C1109; --bg2:#0B0604; --bg2-soft:rgba(11,6,4,.5);
+  --surface:#231710; --glass:rgba(40,26,14,.72); --glass-soft:rgba(52,34,18,.55); --glass-badge:rgba(35,23,16,.9);
+  --ink:#FBEFE6; --ink2:#E4C7B4; --ink3:#CBB29E; --muted:#A98D74; --muted2:#9C8068; --faint:#6E584A;
+  --strong:#3A2413; --track:#3A2616; --chip:#2E1E12; --chip2:#281A0F;
+  --hair:rgba(255,180,120,.07); --hair2:rgba(255,180,120,.1); --hair3:rgba(255,180,120,.14); --hair-strong:rgba(255,180,120,.28);
+  --coral-card1:#2A1608; --coral-card2:#21110A; --coral-ink:#FF9068; --coral-mut:#C79486; --coral-desc:#B7998F; --coral:#FF5A2C;
+  --star-bg:rgba(246,185,59,.15); --star-border:rgba(246,185,59,.42); --star-ink:#F6C868;
+  --acc:#FF6A1A; --acc2:#FFA51E; --acc-rgb:255,106,26; --acc-grad:linear-gradient(150deg,#FF6A1A,#FFA51E);
+  --success:#3B9E6B; --warn:#C98A2E;
+
+  --a1:#FF6A1A; --a2:#FFA51E; --a3:#FF5A2C; --glow:rgba(255,106,26,.38);
+  --neon-b:#FF6A1A; --neon-p:#FF5A2C; --accent-current:var(--acc);
+  --bg:#1C1109; --bg-grad:linear-gradient(175deg,#1C1109 0%,#0B0604 100%);
+  --text:#FBEFE6; --hint:#9C8068; --card:#231710;
+  --glass-grad:linear-gradient(158deg, rgba(40,26,14,.82), rgba(40,26,14,.6));
+  --glass-bg:rgba(40,26,14,.72); --glass-border:rgba(255,180,120,.1);
+  --glass-hi:rgba(255,180,120,.14); --glass-shadow:0 18px 44px -20px rgba(0,0,0,.6);
+  --faux-glass:rgba(52,34,18,.55); --aura-deep:#0B0604; --dots:rgba(255,180,120,.05);
+  --on-accent:#ffffff;
 }
 
-html[data-gender="female"]{
-  --a1:#FF007F; --a2:#B24BF3; --a3:#FF6FD8;
-  --glow:rgba(255,0,127,.42);
-}
-html[data-gender="male"]{
-  --a1:#4FACFE; --a2:#00F2FE; --a3:#7F9CFF;
-  --glow:rgba(0,242,254,.4);
-}
+/* data-gender is legacy — Clarity accent is theme-driven, so gender must NOT
+   override the accent. Explicitly neutralise any inherited gender styling. */
+html[data-gender]{ --a1:var(--acc); --a2:var(--acc2); --a3:var(--coral); }
 
 *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
 [hidden]{ display:none !important; }
-/* Links never look like raw hyperlinked HTML: cards/rows rendered as <a> (match
-   list, chat list) inherit the premium text color with no underline. Intentional
-   links restyle themselves (.tab-item, .empty a, .foot-link, .stars-badge). */
 a{ color:inherit; text-decoration:none; }
 html{ height:100%; }
 body{
   background:var(--bg-grad); background-attachment:fixed;
   color:var(--text);
-  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-  min-height:100dvh;   /* grows with content — do NOT set height:100% (breaks scroll padding) */
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  min-height:100dvh;
   position:relative;
 }
 
-/* ---- backdrop: dotted grid + aura blobs (static, phone-friendly) ---- */
+/* ---- backdrop: faint dotted grid + soft airy halos ---- */
 .bg-dots{ position:fixed; inset:0; z-index:0; pointer-events:none;
-  background-image:radial-gradient(var(--dots) 1.2px, transparent 1.6px);
-  background-size:22px 22px; }
-.bg-aura{ position:fixed; border-radius:50%; filter:blur(72px); z-index:0;
+  background-image:radial-gradient(var(--dots) 1.1px, transparent 1.5px);
+  background-size:24px 24px; }
+.bg-aura{ position:fixed; border-radius:50%; filter:blur(60px); z-index:0;
   pointer-events:none; }
-.bg-aura.one{ width:330px; height:330px; top:-110px; left:-120px; background:var(--a1); opacity:.45; }
-.bg-aura.two{ width:290px; height:290px; bottom:-120px; right:-100px; background:var(--a3); opacity:.32; }
-html[data-theme="dark"] .bg-aura.one{ opacity:.3; }
-html[data-theme="dark"] .bg-aura.two{ opacity:.2; }
+.bg-aura.one{ width:300px; height:300px; top:-90px; right:-70px;
+  background:radial-gradient(circle, oklch(0.9 0.07 280), transparent 70%); opacity:.55; }
+.bg-aura.two{ width:280px; height:280px; bottom:120px; left:-80px;
+  background:radial-gradient(circle, oklch(0.9 0.07 40), transparent 70%); opacity:.5; }
+html[data-theme="dark"] .bg-aura.one{ opacity:.28; }
+html[data-theme="dark"] .bg-aura.two{ opacity:.22; }
 
-/* ---- true glass (few per screen — backdrop blur costs GPU) ---- */
+/* ---- true glass (light frosted) ---- */
 .glass{
   background:var(--glass-grad);
-  -webkit-backdrop-filter:blur(12px) saturate(1.5);
-  backdrop-filter:blur(12px) saturate(1.5);
+  -webkit-backdrop-filter:blur(20px) saturate(160%);
+  backdrop-filter:blur(20px) saturate(160%);
   border:1px solid var(--glass-border);
-  border-radius:22px;
+  border-radius:24px;
   box-shadow:var(--glass-shadow), inset 0 1px 0 var(--glass-hi);
 }
-/* cheap glass for repeated elements (chat bubbles, chips) — same look, no blur */
 .faux-glass{
   background:var(--glass-grad);
   border:1px solid var(--glass-border);
   box-shadow:inset 0 1px 0 var(--glass-hi);
 }
 
-/* ---- aura card: glowing gradient tile (match card, hero orb) ---- */
+/* ---- aura card: glowing indigo/ember gradient tile ---- */
 .aura-card{
   position:relative; border-radius:28px; overflow:hidden; color:var(--on-accent);
-  background:var(--a2);
   background:radial-gradient(130% 105% at 50% -12%,
-      var(--a1) 0%, var(--a2) 50%,
-      color-mix(in srgb, var(--a2) 28%, var(--aura-deep)) 100%);
+      var(--acc) 0%, var(--acc2) 55%,
+      color-mix(in srgb, var(--acc2) 60%, #000) 100%);
   box-shadow:0 18px 48px -16px var(--glow);
 }
 
-/* ---- LED dot-matrix type (numbers, wordmark accents) ---- */
-.led{ font-family:'Doto', ui-monospace, monospace; font-weight:900; letter-spacing:.05em; }
+/* ---- numeric / wordmark emphasis (Inter, tight tracking — no bitmap font) ---- */
+.led{ font-family:'Inter',ui-monospace,monospace; font-weight:700; letter-spacing:-.03em;
+  font-variant-numeric:tabular-nums; }
 
 /* ---- gradient text ---- */
 .grad-text{
-  background:linear-gradient(100deg, var(--a1), var(--a2) 55%, var(--a3));
+  background:linear-gradient(100deg, var(--acc), var(--acc2) 60%, var(--coral));
   -webkit-background-clip:text; background-clip:text;
   -webkit-text-fill-color:transparent;
 }
 
 /* ---- buttons ---- */
 .btn-primary{
-  border:none; border-radius:999px; padding:17px 22px;
-  font-size:16px; font-weight:700; color:#fff; cursor:pointer; letter-spacing:.2px;
+  border:none; border-radius:18px; padding:16px 22px;
+  font-size:15px; font-weight:600; color:#fff; cursor:pointer; letter-spacing:.1px;
   font-family:inherit;
-  background:linear-gradient(120deg, var(--a2), var(--a1));
-  box-shadow:0 12px 32px -10px var(--glow), inset 0 1px 0 rgba(255,255,255,.35);
-  transition:transform .14s ease, box-shadow .14s ease;
+  background:var(--acc);
+  box-shadow:0 14px 30px -12px rgba(var(--acc-rgb),.6);
+  transition:transform .12s ease-out, box-shadow .14s ease;
 }
-.btn-primary:active{ transform:scale(.97) translateY(1px); box-shadow:0 6px 16px -8px var(--glow); }
+.btn-primary:active{ transform:scale(.98); box-shadow:0 8px 18px -10px rgba(var(--acc-rgb),.6); }
+.btn-ink{ background:var(--strong); box-shadow:0 14px 30px -12px rgba(23,22,28,.7); }
 
 .chip-pill{
-  display:inline-block; font-size:13px; font-weight:600; padding:7px 13px;
-  border-radius:999px; color:#fff;
-  background:linear-gradient(120deg, var(--a2), var(--a1));
+  display:inline-block; font-size:12.5px; font-weight:600; padding:7px 13px;
+  border-radius:12px; color:var(--acc);
+  background:rgba(var(--acc-rgb),.08); border:1px solid rgba(var(--acc-rgb),.18);
 }
-.chip-pill.alt{ background:var(--faux-glass); border:1px solid var(--glass-border); color:var(--text); }
+.chip-pill.alt{ background:var(--chip); border:1px solid var(--hair); color:var(--ink2); }
 
-/* ---- floating bottom tab bar (frosted glass + neon halo) ----
-   Heavily frosted deep-purple glass that hovers above the content with an
-   organic curve and a soft neon halo tinted by --accent-current (the app's
-   runtime standard ⇄ dark-mode knob). Selected icon + label glow to match. */
+/* ---- floating bottom nav: light dock + active indigo/ember blob ---- */
 .tab-bar{
-  position:fixed; left:16px; right:16px;
-  bottom:calc(env(safe-area-inset-bottom) + 12px); z-index:5;
-  display:flex; gap:4px; padding:7px; border-radius:30px;
-  background:rgba(14,4,10,.62);
-  -webkit-backdrop-filter:blur(8px) saturate(1.6); backdrop-filter:blur(8px) saturate(1.6);
-  border:1px solid color-mix(in srgb, var(--accent-current) 30%, transparent);
-  box-shadow:
-    0 0 34px -4px color-mix(in srgb, var(--accent-current) 55%, transparent),
-    0 18px 44px -18px rgba(0,0,0,.8),
-    inset 0 1px 0 rgba(255,255,255,.08);
-  transition:box-shadow .3s ease, border-color .3s ease;
+  position:fixed; left:20px; right:20px;
+  bottom:calc(env(safe-area-inset-bottom) + 16px); z-index:5;
+  display:flex; gap:4px; padding:8px; border-radius:24px; height:64px; align-items:center;
+  background:var(--glass);
+  -webkit-backdrop-filter:blur(22px) saturate(160%); backdrop-filter:blur(22px) saturate(160%);
+  border:1px solid rgba(255,255,255,.85);
+  box-shadow:0 20px 44px -16px rgba(60,45,30,.5);
 }
+html[data-theme="dark"] .tab-bar{ border-color:rgba(255,180,120,.14); }
 .tab-item{
-  flex:1; text-align:center; padding:10px 0 9px; border-radius:24px;
-  color:var(--hint); font-size:11px; font-weight:600; text-decoration:none;
+  position:relative; flex:1; text-align:center; padding:9px 0; border-radius:16px;
+  color:var(--muted); font-size:9px; font-weight:500; text-decoration:none;
   font-family:inherit; letter-spacing:.02em;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
   transition:color .22s ease;
 }
-.tab-item .ico{ display:block; font-size:19px; margin-bottom:2px; transition:filter .22s ease; }
-.tab-item.active{
-  color:var(--accent-current);
-  text-shadow:0 0 12px color-mix(in srgb, var(--accent-current) 70%, transparent);
-  background:color-mix(in srgb, var(--accent-current) 12%, transparent);
+.tab-item .ico{ display:block; font-size:20px; line-height:1; transition:filter .22s ease, transform .22s ease; }
+.tab-item.active{ color:#fff; }
+.tab-item.active::before{
+  content:''; position:absolute; top:50%; left:50%; width:48px; height:48px;
+  transform:translate(-50%,-50%); border-radius:16px; z-index:-1;
+  background:var(--acc-grad);
+  box-shadow:0 12px 26px -6px rgba(var(--acc-rgb),.7);
 }
-.tab-item.active .ico{
-  filter:drop-shadow(0 0 8px color-mix(in srgb, var(--accent-current) 85%, transparent));
-}
-/* pages with a tab bar need room to clear it. A flex spacer is reliable —
-   padding-bottom on the body scroller is dropped from scrollHeight by browsers. */
+.tab-item.active .ico{ transform:translateY(-1px); filter:drop-shadow(0 2px 4px rgba(var(--acc-rgb),.5)); }
+/* pages with a tab bar need room to clear it */
 .has-tab-bar{ padding-bottom:12px !important; }
 .has-tab-bar::after{ content:''; display:block; flex:0 0 auto;
   height:calc(env(safe-area-inset-bottom) + 116px); }
 
-/* ---- story-style circle avatar (gradient ring) ---- */
+/* ---- story-style circle avatar (conic gradient ring) ---- */
 .story-avatar{
   width:104px; height:104px; border-radius:50%; object-fit:cover; display:block;
-  border:3px solid transparent;
+  border:3px solid var(--bg1);
   background:
-    linear-gradient(var(--bg),var(--bg)) padding-box,
-    linear-gradient(120deg, var(--a2), var(--a1)) border-box;
+    conic-gradient(from 200deg, var(--acc), var(--acc2), var(--coral), var(--acc)) border-box;
   box-shadow:0 14px 36px -12px var(--glow);
 }
 .story-avatar-ph{
   width:104px; height:104px; border-radius:50%; display:flex; align-items:center;
   justify-content:center; font-size:40px;
-  background:var(--faux-glass); border:1px solid var(--glass-border); color:var(--hint);
+  background:var(--chip); border:1px solid var(--hair); color:var(--muted);
 }
 
+/* §14 — three independent accessibility signals */
+@media (prefers-reduced-transparency: reduce){
+  .glass,.faux-glass,.tab-bar{ background:var(--surface) !important;
+    -webkit-backdrop-filter:none !important; backdrop-filter:none !important; }
+}
+@media (prefers-contrast: more){
+  .glass,.faux-glass,.tab-bar{ background:var(--surface) !important; border-color:var(--ink) !important; }
+}
 @media (prefers-reduced-motion: reduce){
   *{ animation:none !important; transition:none !important; }
 }

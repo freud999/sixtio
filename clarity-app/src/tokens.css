@@ -1,0 +1,92 @@
+/* ============================================================
+   Sixtio — «Clarity» design tokens (ported from design handoff)
+   Themes: light (porcelain + indigo) · dark / ember (warm + orange)
+   Three independent a11y signals per Apple §14.
+   ============================================================ */
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body { margin: 0; height: 100%; }
+
+body {
+  background: #EDE8DF;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  color: #17161C;
+  -webkit-font-smoothing: antialiased;
+}
+
+@keyframes sxDrift {
+  0%, 100% { transform: translate3d(0,0,0) scale(1); }
+  50%      { transform: translate3d(0,-18px,0) scale(1.06); }
+}
+
+[data-th="light"] {
+  --bg1:#FBF8F3; --bg2:#F1EBE1; --bg2-soft:rgba(241,235,225,.5);
+  --surface:#FFFDFA; --glass:rgba(255,255,255,.82); --glass-soft:rgba(255,255,255,.7); --glass-badge:rgba(255,253,250,.94);
+  --ink:#17161C; --ink2:#3c3a44; --ink3:#5c5850; --muted:#9a9488; --muted2:#8a8494; --faint:#b0aa9e;
+  --strong:#17161C; --track:#EDE7DD; --chip:#F1EDE4; --chip2:#F3EFE6;
+  --hair:rgba(23,22,28,.06); --hair2:rgba(23,22,28,.08); --hair3:rgba(23,22,28,.13); --hair-strong:rgba(23,22,28,.25);
+  --coral-card1:#FFF6F2; --coral-card2:#FFF1EC; --coral-ink:#C0442A; --coral-mut:#a8776a; --coral-desc:#7a6a62;
+  --star-bg:rgba(246,185,59,.14); --star-border:rgba(246,185,59,.36); --star-ink:#996911;
+  --acc:#4B3BFF; --acc2:#7C6BFF; --acc-rgb:75,59,255; --acc-grad:linear-gradient(150deg,#4B3BFF,#7C6BFF);
+}
+
+[data-th="dark"] {
+  --bg1:#171320; --bg2:#0D0A12; --bg2-soft:rgba(13,10,18,.5);
+  --surface:#1C1826; --glass:rgba(28,23,38,.72); --glass-soft:rgba(40,33,54,.55); --glass-badge:rgba(28,23,38,.9);
+  --ink:#F3EEF7; --ink2:#CFC7DE; --ink3:#B4ABC4; --muted:#948CA8; --muted2:#8C84A0; --faint:#6C6480;
+  --strong:#2E2A3C; --track:#2C2637; --chip:#272132; --chip2:#221D2E;
+  --hair:rgba(255,255,255,.07); --hair2:rgba(255,255,255,.1); --hair3:rgba(255,255,255,.14); --hair-strong:rgba(255,255,255,.28);
+  --coral-card1:#2A1620; --coral-card2:#211119; --coral-ink:#FF9068; --coral-mut:#C79486; --coral-desc:#B7998F;
+  --star-bg:rgba(246,185,59,.15); --star-border:rgba(246,185,59,.42); --star-ink:#F6C868;
+  --acc:#4B3BFF; --acc2:#7C6BFF; --acc-rgb:75,59,255; --acc-grad:linear-gradient(150deg,#4B3BFF,#7C6BFF);
+}
+
+[data-th="ember"] {
+  --bg1:#1C1109; --bg2:#0B0604; --bg2-soft:rgba(11,6,4,.5);
+  --surface:#231710; --glass:rgba(40,26,14,.72); --glass-soft:rgba(52,34,18,.55); --glass-badge:rgba(35,23,16,.9);
+  --ink:#FBEFE6; --ink2:#E4C7B4; --ink3:#CBB29E; --muted:#A98D74; --muted2:#9C8068; --faint:#6E584A;
+  --strong:#3A2413; --track:#3A2616; --chip:#2E1E12; --chip2:#281A0F;
+  --hair:rgba(255,180,120,.07); --hair2:rgba(255,180,120,.1); --hair3:rgba(255,180,120,.14); --hair-strong:rgba(255,180,120,.28);
+  --coral-card1:#2A1608; --coral-card2:#21110A; --coral-ink:#FF9068; --coral-mut:#C79486; --coral-desc:#B7998F;
+  --star-bg:rgba(246,185,59,.15); --star-border:rgba(246,185,59,.42); --star-ink:#F6C868;
+  --acc:#FF6A1A; --acc2:#FFA51E; --acc-rgb:255,106,26; --acc-grad:linear-gradient(150deg,#FF6A1A,#FFA51E);
+}
+
+/* §14 — three independent accessibility signals */
+@media (prefers-reduced-transparency: reduce) {
+  .sx-glass { background: var(--surface) !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+}
+@media (prefers-contrast: more) {
+  .sx-glass { background: var(--surface) !important; border-color: var(--ink) !important; }
+  .sx-ink { color: var(--ink) !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; }
+}
+
+/* page shell around the phone frame */
+.stage {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 28px 16px;
+}
+.stage-caption {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-width: 360px;
+}
+.stage-caption b { font-size: 15px; font-weight: 600; color: #3c3a44; }
+.stage-caption span { font-size: 12px; line-height: 1.5; color: #8a8494; }
+
+button { font-family: inherit; }
+a { -webkit-user-drag: none; }
+.no-scrollbar::-webkit-scrollbar { width: 0; height: 0; }
+.no-scrollbar { scrollbar-width: none; }

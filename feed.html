@@ -19,40 +19,58 @@
   body > *{ position:relative; z-index:1; }
   .bg-dots, .bg-aura{ z-index:0; }
 
-  /* ---- swipe deck ---- */
+  /* ---- swipe deck (Clarity editorial card: photo 60% + porcelain panel 40%) ---- */
   .deck{ position:relative; width:100%; max-width:420px; flex:1; min-height:0; }
   .card{
-    position:absolute; inset:0; border-radius:26px; overflow:hidden;
-    background:var(--card); box-shadow:var(--glass-shadow);
+    position:absolute; inset:0; border-radius:30px; overflow:hidden;
+    background:var(--surface); box-shadow:0 30px 70px -26px rgba(60,45,30,.5);
     will-change:transform; touch-action:none; cursor:grab; user-select:none;
   }
   .card.is-front{ cursor:grab; }
-  .card-img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  .card-photo{ position:relative; height:60%; overflow:hidden; }
+  .card-img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
+    transform:scale(1.06); }
   /* Premium gate: non-premium users see candidates through frosted glass. */
-  .card-img.blurred{ filter:blur(8px); transform:scale(1.06); }
+  .card-img.blurred{ filter:blur(9px); transform:scale(1.14); }
   .card-ph{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-    font-size:74px; background:linear-gradient(150deg, var(--a2), var(--a1)); color:#fff; }
-  .scrim{ position:absolute; left:0; right:0; bottom:0; height:62%;
-    background:linear-gradient(to top, rgba(8,6,20,.86) 6%, rgba(8,6,20,.4) 46%, transparent 100%); }
+    font-size:74px; background:linear-gradient(150deg, var(--acc2), var(--acc)); color:#fff;
+    transform:scale(1.06); }
+  .photo-vignette{ position:absolute; top:0; left:0; right:0; height:92px; pointer-events:none;
+    background:linear-gradient(to bottom, rgba(23,22,28,.30), transparent); }
 
-  .lock{ position:absolute; top:14px; left:14px; display:flex; align-items:center; gap:6px;
-    font-size:12px; font-weight:700; color:#fff; padding:6px 11px; border-radius:999px;
-    background:rgba(10,8,24,.5); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
-    border:1px solid rgba(255,255,255,.25); }
+  .lock{ position:absolute; top:26px; left:16px; display:flex; align-items:center; gap:6px;
+    font-size:10.5px; font-weight:600; letter-spacing:.03em; color:var(--ink2);
+    padding:7px 12px; border-radius:14px;
+    background:var(--glass-soft); -webkit-backdrop-filter:blur(12px) saturate(150%);
+    backdrop-filter:blur(12px) saturate(150%); border:1px solid var(--glass-soft); }
 
-  .card-info{ position:absolute; left:0; right:0; bottom:0; padding:18px 18px 20px; color:#fff; }
-  .card-head{ display:flex; align-items:center; gap:10px; }
-  .card-name{ font-size:24px; font-weight:800; letter-spacing:.01em;
-    text-shadow:0 2px 12px rgba(0,0,0,.5); }
-  .card-pct{ flex-shrink:0; font-size:13px; font-weight:800; color:#fff;
-    padding:4px 11px; border-radius:999px;
-    background:linear-gradient(120deg, var(--a2), var(--a1));
-    box-shadow:0 4px 14px -4px var(--glow); }
-  .card-city{ font-size:14px; margin-top:5px; opacity:.92; text-shadow:0 1px 8px rgba(0,0,0,.5); }
-  .card-tags{ display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
-  .card-tag{ font-size:12px; font-weight:600; padding:6px 11px; border-radius:999px; color:#fff;
-    background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.28);
-    -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px); }
+  /* porcelain content panel */
+  .card-info{ position:absolute; left:0; right:0; bottom:0; height:40%; padding:22px 20px 18px;
+    box-sizing:border-box; background:var(--surface); color:var(--ink);
+    display:flex; flex-direction:column; gap:9px; overflow:hidden; }
+  .card-head{ display:flex; align-items:baseline; gap:9px; }
+  .card-name{ font-size:27px; font-weight:600; letter-spacing:-.02em; color:var(--ink); }
+  .card-name .age{ font-size:20px; font-weight:400; color:var(--muted); margin-left:2px; }
+  .card-city{ display:flex; align-items:center; gap:5px; margin-left:auto;
+    font-size:11.5px; font-weight:500; color:var(--muted2); }
+  .card-city::before{ content:''; width:6px; height:6px; border-radius:50%; background:var(--muted); }
+  .card-tags{ display:flex; flex-wrap:wrap; gap:8px; margin-top:auto; }
+  .card-tag{ display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:500;
+    color:var(--ink2); padding:7px 13px; border-radius:12px;
+    background:var(--chip); border:1px solid var(--hair); }
+  .card-tag::before{ content:''; width:5px; height:5px; border-radius:50%; background:var(--acc); opacity:.55; }
+
+  /* floating compatibility ring straddling the photo/panel seam */
+  .card-badge{ position:absolute; top:60%; right:20px; transform:translateY(-50%);
+    width:70px; height:70px; border-radius:50%; padding:0; border:none; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; z-index:3;
+    box-shadow:0 14px 32px -10px rgba(23,22,28,.55); }
+  .card-badge .inner{ width:57px; height:57px; border-radius:50%;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:var(--glass-badge); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); }
+  .card-badge .num{ font-weight:700; font-size:21px; line-height:.9; letter-spacing:-.03em; color:var(--ink); }
+  .card-badge .num i{ font-style:normal; font-size:11px; color:var(--acc); }
+  .card-badge .lbl{ font-size:6.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin-top:1px; }
 
   /* ---- Dark Mode (18+) intimate compatibility ---- */
   .card-dark{ margin-top:10px; padding:10px 12px; border-radius:16px;
@@ -73,26 +91,25 @@
     50%{ transform:scale(1.045); opacity:1; } }
   .dark-hint{ font-size:11.5px; font-weight:600; color:#ffd9cf; margin-top:8px; }
 
-  /* drag verdict stamps */
-  .badge{ position:absolute; top:26px; font-size:26px; font-weight:900; letter-spacing:.08em;
-    padding:7px 14px; border-radius:12px; opacity:0; pointer-events:none; }
-  .badge.like{ right:20px; color:#1fbf7a; border:3px solid #1fbf7a; transform:rotate(14deg); }
-  .badge.nope{ left:20px; color:#ff4d6d; border:3px solid #ff4d6d; transform:rotate(-14deg); }
+  /* drag verdict stamps — round frosted (♥ indigo / ✕ graphite) */
+  .badge{ position:absolute; top:20px; left:50%; transform:translateX(-50%);
+    width:56px; height:56px; border-radius:50%; opacity:0; pointer-events:none;
+    display:flex; align-items:center; justify-content:center; font-size:26px; color:#fff;
+    -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); }
+  .badge.like{ background:rgba(var(--acc-rgb),.82); box-shadow:0 10px 30px -8px rgba(var(--acc-rgb),.7); }
+  .badge.nope{ background:rgba(60,60,72,.6); box-shadow:0 10px 30px -8px rgba(23,22,28,.5); }
 
-  /* ---- action buttons ---- */
-  .actions{ display:flex; align-items:center; justify-content:center; gap:26px;
-    width:100%; max-width:420px; padding:2px 0 2px; }
-  .act{ width:64px; height:64px; border-radius:50%; border:none; cursor:pointer; font-size:26px;
+  /* ---- action buttons (Clarity squircles) ---- */
+  .actions{ display:flex; align-items:center; justify-content:center; gap:12px;
+    width:100%; max-width:420px; padding:2px 0; }
+  .act{ width:58px; height:58px; flex:none; border-radius:20px; border:none; cursor:pointer; font-size:24px;
     display:flex; align-items:center; justify-content:center; font-family:inherit;
-    background:var(--glass-grad); border:1px solid var(--glass-border);
-    box-shadow:var(--glass-shadow), inset 0 1px 0 var(--glass-hi);
-    -webkit-backdrop-filter:blur(20px); backdrop-filter:blur(20px);
-    transition:transform .14s ease; }
-  .act:active{ transform:scale(.9); }
-  .act.nope{ color:#ff4d6d; }
-  .act.like{ width:74px; height:74px; font-size:32px; color:#fff;
-    background:linear-gradient(120deg, var(--a2), var(--a1));
-    box-shadow:0 12px 30px -10px var(--glow), inset 0 1px 0 rgba(255,255,255,.35); }
+    transition:transform .14s ease, box-shadow .14s ease, border-color .14s ease; }
+  .act:active{ transform:scale(.94); }
+  .act.nope{ color:var(--coral); background:var(--surface); border:1px solid var(--hair3);
+    box-shadow:0 12px 28px -8px rgba(var(--acc-rgb),.6); }
+  .act.like{ color:#fff; background:var(--acc);
+    box-shadow:0 12px 28px -8px rgba(var(--acc-rgb),.6); }
 
   /* ---- 🔥 Daily Mystery Match ---- */
   .mystery{ width:100%; max-width:420px; border-radius:22px; padding:14px 16px;
@@ -276,40 +293,41 @@
 
       function buildCard(c){
         var el = document.createElement('div');
-        el.className = 'card faux-glass';
+        el.className = 'card';
 
+        // ---- photo region (top 60%) ----
+        var photo = document.createElement('div'); photo.className = 'card-photo';
         if (c.photoUrl) {
           var img = document.createElement('img');
           img.className = 'card-img' + (premium ? '' : ' blurred');
           img.src = c.photoUrl; img.alt = ''; img.draggable = false;
-          el.appendChild(img);
+          photo.appendChild(img);
         } else {
           var ph = document.createElement('div');
           ph.className = 'card-ph'; ph.textContent = '🙂';
-          el.appendChild(ph);
+          photo.appendChild(ph);
         }
-
-        var scrim = document.createElement('div'); scrim.className = 'scrim';
-        el.appendChild(scrim);
+        var vig = document.createElement('div'); vig.className = 'photo-vignette';
+        photo.appendChild(vig);
 
         if (!premium && c.photoUrl) {
           var lock = document.createElement('div');
           lock.className = 'lock'; lock.textContent = t('lock_premium');
-          el.appendChild(lock);
+          photo.appendChild(lock);
         }
+        var like = document.createElement('div'); like.className = 'badge like'; like.textContent = '♥';
+        var nope = document.createElement('div'); nope.className = 'badge nope'; nope.textContent = '✕';
+        photo.appendChild(like); photo.appendChild(nope);
+        el.appendChild(photo);
 
-        var like = document.createElement('div'); like.className = 'badge like'; like.textContent = 'LIKE';
-        var nope = document.createElement('div'); nope.className = 'badge nope'; nope.textContent = 'NOPE';
-        el.appendChild(like); el.appendChild(nope);
-
+        // ---- porcelain content panel (bottom 40%) ----
         var info = document.createElement('div'); info.className = 'card-info';
         var head = document.createElement('div'); head.className = 'card-head';
         var nm = document.createElement('div'); nm.className = 'card-name';
-        nm.textContent = c.name + (c.age ? ', ' + c.age : '');
+        nm.textContent = c.name;
+        if (c.age) { var ageEl = document.createElement('span'); ageEl.className = 'age'; ageEl.textContent = ', ' + c.age; nm.appendChild(ageEl); }
         head.appendChild(nm);
-        var pct = document.createElement('div'); pct.className = 'card-pct';
-        pct.textContent = (c.compatibility || 0) + '%';
-        head.appendChild(pct);
+        if (c.city) { var city = document.createElement('div'); city.className = 'card-city'; city.textContent = c.city; head.appendChild(city); }
         info.appendChild(head);
 
         // Dark Mode (18+): second, glowing flame scale — only present when both
@@ -319,8 +337,6 @@
           var ds = document.createElement('div'); ds.className = 'dark-score';
           ds.innerHTML = t('intimate_score') + ' <b>' + (c.intimateCompatibility || 0) + '%</b>';
           dm.appendChild(ds);
-          // Premium males & females get the real matching tags. Free males get
-          // an empty array (withheld server-side) + the locked upsell nudge.
           if (c.intimateTags && c.intimateTags.length) {
             var dt = document.createElement('div'); dt.className = 'dark-tags';
             c.intimateTags.slice(0, 4).forEach(function(tag){
@@ -337,20 +353,25 @@
           info.appendChild(dm);
         }
 
-        if (c.city) {
-          var city = document.createElement('div'); city.className = 'card-city';
-          city.textContent = '📍 ' + c.city;
-          info.appendChild(city);
-        }
         if (c.tags && c.tags.length) {
           var tags = document.createElement('div'); tags.className = 'card-tags';
-          c.tags.slice(0, 3).forEach(function(t){
-            var chip = document.createElement('div'); chip.className = 'card-tag'; chip.textContent = t;
+          c.tags.slice(0, 3).forEach(function(tg){
+            var chip = document.createElement('div'); chip.className = 'card-tag'; chip.textContent = tg;
             tags.appendChild(chip);
           });
           info.appendChild(tags);
         }
         el.appendChild(info);
+
+        // ---- floating compatibility ring on the seam ----
+        var pctVal = c.compatibility || 0;
+        var badge = document.createElement('div'); badge.className = 'card-badge';
+        badge.style.background = 'conic-gradient(var(--acc) 0 ' + (pctVal * 3.6) + 'deg, rgba(255,255,255,.55) ' + (pctVal * 3.6) + 'deg 360deg)';
+        var inner = document.createElement('div'); inner.className = 'inner';
+        inner.innerHTML = '<div class="num">' + pctVal + '<i>%</i></div><div class="lbl">' + t('match_short') + '</div>';
+        badge.appendChild(inner);
+        el.appendChild(badge);
+
         return el;
       }
 
@@ -436,35 +457,57 @@
       }
 
       function attachDrag(el, cand){
-        var startX = 0, startY = 0, dx = 0, dy = 0, dragging = false;
+        var startX = 0, startY = 0, dx = 0, dy = 0, dragging = false, hinted = false;
         var like = el.querySelector('.badge.like'), nope = el.querySelector('.badge.nope');
+        var photo = el.querySelector('.card-img') || el.querySelector('.card-ph');
+        var badge = el.querySelector('.card-badge');
+        var likeBtn = document.getElementById('likeBtn'), nopeBtn = document.getElementById('nopeBtn');
+
+        function rubber(v, dim){ var c = 0.55; return (v * dim * c) / (dim + c * Math.abs(v)); }
+        function paint(){
+          el.style.transform = 'translate(' + dx + 'px,' + dy + 'px) rotate(' + (dx * 0.04) + 'deg)';
+          var tt = Math.min(1, Math.abs(dx) / 120);
+          if (like) like.style.opacity = dx > 0 ? tt : 0;
+          if (nope) nope.style.opacity = dx < 0 ? tt : 0;
+          if (photo) photo.style.transform = 'scale(1.06) translateX(' + (-dx * 0.05) + 'px)';
+          if (badge) badge.style.opacity = 1 - tt * 0.5;
+          el.style.boxShadow = '0 ' + (30 + Math.abs(dx) * 0.12) + 'px ' + (70 + Math.abs(dx) * 0.18) + 'px -26px rgba(60,45,30,' + (0.5 + tt * 0.15) + ')';
+          // anticipatory feedback: the destination button swells / warms
+          if (likeBtn) likeBtn.style.transform = dx > 0 ? 'scale(' + (1 + Math.min(0.22, dx / 560)) + ')' : '';
+          if (nopeBtn) { nopeBtn.style.transform = dx < 0 ? 'scale(' + (1 + Math.min(0.22, -dx / 560)) + ')' : '';
+            nopeBtn.style.borderColor = dx < 0 ? 'rgba(255,90,44,' + (0.25 + tt * 0.6) + ')' : ''; }
+        }
+        function resetBtns(){ if (likeBtn) likeBtn.style.transform = ''; if (nopeBtn){ nopeBtn.style.transform = ''; nopeBtn.style.borderColor = ''; } }
+
         el.addEventListener('pointerdown', function(e){
           if (busy) return;
-          dragging = true; startX = e.clientX; startY = e.clientY;
+          dragging = true; hinted = false; startX = e.clientX - dx; startY = e.clientY - dy;
           el.style.transition = 'none';
           try { el.setPointerCapture(e.pointerId); } catch(err){}
         });
         el.addEventListener('pointermove', function(e){
           if (!dragging) return;
-          dx = e.clientX - startX; dy = e.clientY - startY;
-          el.style.transform = 'translate(' + dx + 'px,' + dy + 'px) rotate(' + (dx / 18) + 'deg)';
-          if (like) like.style.opacity = dx > 0 ? Math.min(1, dx / 90) : 0;
-          if (nope) nope.style.opacity = dx < 0 ? Math.min(1, -dx / 90) : 0;
+          dx = e.clientX - startX;
+          dy = rubber(e.clientY - startY, 400);
+          if (!hinted && Math.abs(dx) > 120) { hinted = true; haptic('light'); }
+          paint();
         });
         function end(){
           if (!dragging) return; dragging = false;
           // Right-swipe past threshold, but out of free likes -> snap back + paywall.
-          if (dx > 110 && !canLike()) { dx = 0; dy = 0; snapBack(); return; }
-          if (dx > 110) { fly(el, 1); commit(cand, 'like'); }
-          else if (dx < -110) { fly(el, -1); commit(cand, 'dislike'); }
-          else { snapBack(); }
+          if (dx > 110 && !canLike()) { dx = 0; dy = 0; snapBack(); resetBtns(); return; }
+          if (dx > 110) { fly(el, 1); commit(cand, 'like'); resetBtns(); }
+          else if (dx < -110) { fly(el, -1); commit(cand, 'dislike'); resetBtns(); }
+          else { snapBack(); resetBtns(); }
           dx = 0; dy = 0;
         }
         function snapBack(){
-          el.style.transition = 'transform .25s ease';
-          el.style.transform = '';
+          el.style.transition = 'transform .3s cubic-bezier(.34,1.4,.5,1), box-shadow .3s ease';
+          el.style.transform = ''; el.style.boxShadow = '';
           if (like) like.style.opacity = 0;
           if (nope) nope.style.opacity = 0;
+          if (photo) photo.style.transform = 'scale(1.06)';
+          if (badge) badge.style.opacity = 1;
         }
         el.addEventListener('pointerup', end);
         el.addEventListener('pointercancel', end);

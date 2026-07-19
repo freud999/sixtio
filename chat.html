@@ -18,31 +18,41 @@
   body > *{ position:relative; z-index:1; }
   .bg-dots, .bg-aura{ z-index:0; }
 
+  /* Clarity screen header */
+  .scr-head{ width:100%; max-width:460px; display:flex; align-items:flex-end; justify-content:space-between; }
+  .scr-title{ font-size:28px; font-weight:600; letter-spacing:-.02em; color:var(--ink); }
+
   .list{ width:100%; max-width:460px; display:flex; flex-direction:column; gap:10px; }
   /* Conversation rows are <a> elements — never render as underlined hyperlinks. */
-  .conv{ display:flex; align-items:center; gap:12px; width:100%; text-align:left;
-    padding:11px 12px; border-radius:20px; cursor:pointer; font-family:inherit; color:var(--text);
-    text-decoration:none; transition:transform .12s ease; }
-  .conv:active{ transform:scale(.985); }
-  .c-ava{ width:56px; height:56px; border-radius:50%; object-fit:cover; flex-shrink:0;
-    border:2px solid transparent; background:
-      linear-gradient(var(--bg),var(--bg)) padding-box,
-      linear-gradient(120deg, var(--a2), var(--a1)) border-box; }
-  .c-ava-ph{ width:56px; height:56px; border-radius:50%; flex-shrink:0; display:flex;
-    align-items:center; justify-content:center; font-size:26px;
-    background:var(--faux-glass); border:1px solid var(--glass-border); color:var(--hint); }
+  .conv{ display:flex; align-items:center; gap:14px; width:100%; text-align:left;
+    padding:12px 13px; border-radius:22px; cursor:pointer; font-family:inherit; color:var(--ink);
+    text-decoration:none; background:var(--surface); box-shadow:0 12px 30px -20px rgba(60,45,30,.5);
+    transition:transform .12s ease; }
+  .conv:active{ transform:scale(.99); }
+  .c-ava{ width:52px; height:52px; border-radius:50%; object-fit:cover; flex-shrink:0; }
+  .c-ava-ph{ width:52px; height:52px; border-radius:50%; flex-shrink:0; display:flex;
+    align-items:center; justify-content:center; font-size:24px;
+    background:var(--chip); border:1px solid var(--hair); color:var(--muted); }
   .c-main{ flex:1; min-width:0; }
   /* Name+age always render in full — wrap instead of ellipsing (Task 25). */
-  .c-name{ font-size:16px; font-weight:700; line-height:1.25; overflow-wrap:break-word; }
-  .c-last{ font-size:13px; color:var(--hint); margin-top:2px; white-space:nowrap;
+  .c-name{ font-size:16.5px; font-weight:600; line-height:1.25; color:var(--ink); overflow-wrap:break-word; }
+  .c-last{ font-size:12.5px; color:var(--muted); margin-top:3px; white-space:nowrap;
     overflow:hidden; text-overflow:ellipsis; }
-  .c-last.unseen{ color:var(--text); font-weight:600; }
-  .c-chev{ flex-shrink:0; font-size:22px; color:var(--a1); opacity:.7; }
+  .c-last.unseen{ color:var(--ink); font-weight:600; }
+  .c-chev{ flex-shrink:0; font-size:20px; color:var(--faint); }
+
+  /* AI-hint inset */
+  .ai-hint{ width:100%; max-width:460px; display:flex; align-items:flex-start; gap:11px;
+    margin-top:8px; padding:15px; border-radius:20px;
+    background:var(--chip2); border:1px solid rgba(var(--acc-rgb),.1); }
+  .ai-hint .spk{ font-size:15px; line-height:1; }
+  .ai-hint .txt{ font-size:12px; line-height:1.45; color:var(--ink3); }
+  .ai-hint .txt b{ color:var(--acc); font-weight:600; }
 
   .empty{ max-width:340px; text-align:center; font-size:13px; line-height:1.6;
-    color:var(--hint); padding:18px; margin-top:12px; }
+    color:var(--muted); padding:18px; margin-top:12px; }
   .empty .spark{ font-size:26px; display:block; margin-bottom:8px; }
-  .empty a{ color:var(--a1); font-weight:600; text-decoration:none; }
+  .empty a{ color:var(--acc); font-weight:600; text-decoration:none; }
 </style>
 </head>
 <body class="has-tab-bar">
@@ -50,7 +60,16 @@
   <div class="bg-aura one" aria-hidden="true"></div>
   <div class="bg-aura two" aria-hidden="true"></div>
 
+  <div class="scr-head">
+    <div class="scr-title" data-i18n="tab_chat">Чат</div>
+  </div>
+
   <div class="list" id="list"></div>
+
+  <div class="ai-hint" id="aiHint" hidden>
+    <span class="spk">✨</span>
+    <span class="txt" data-i18n-html="chat_ai_hint"><b>AI-підказка ·&nbsp;</b>Sixtio пропонує теми для розмови на основі ваших спільних цінностей.</span>
+  </div>
 
   <div class="empty glass" id="empty" hidden>
     <span class="spark">💬</span>
@@ -129,11 +148,14 @@
         }
         var matches = me.matches || [];
         listEl.innerHTML = '';
+        var aiHint = document.getElementById('aiHint');
         if (matches.length) {
           emptyEl.hidden = true;
           matches.forEach(function(m){ listEl.appendChild(conv(m)); });
+          if (aiHint) aiHint.hidden = false;
         } else {
           emptyEl.hidden = false;
+          if (aiHint) aiHint.hidden = true;
         }
       }
 
