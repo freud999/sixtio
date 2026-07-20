@@ -38,36 +38,33 @@
     border:2px solid var(--bg); box-shadow:0 4px 12px -4px var(--glow); }
   .name-age{ font-size:22px; font-weight:700; letter-spacing:-0.3px; }
   .meta{ font-size:14px; color:var(--hint); }
-  .goal-badge{ display:inline-block; font-size:13px; font-weight:600; padding:7px 15px;
-    border-radius:999px; color:#fff; background:linear-gradient(120deg, var(--a2), var(--a1));
-    box-shadow:0 8px 22px -10px var(--glow); }
+  .goal-badge{ display:inline-block; font-size:13px; font-weight:600; padding:9px 18px;
+    border-radius:999px; color:var(--acc); background:rgba(var(--acc-rgb),.1);
+    border:1px solid rgba(var(--acc-rgb),.2); }
 
-  /* Persistent Stars wallet — glowing premium (--neon-p) pill, pinned top-right,
-     tappable → opens the Stars shop. Always-visible balance across the profile. */
+  /* Persistent Stars wallet — Clarity star pill, pinned top-right, tappable → shop. */
   .stars-badge{ position:fixed; z-index:6;
     top:calc(env(safe-area-inset-top) + 12px); right:14px;
-    display:inline-flex; align-items:center; gap:5px; padding:7px 13px;
-    border-radius:999px; text-decoration:none; color:#fff;
-    font-size:13.5px; font-weight:800; letter-spacing:.02em;
-    background:linear-gradient(120deg, color-mix(in srgb, var(--neon-p) 80%, #000), var(--neon-p));
-    border:1px solid color-mix(in srgb, var(--neon-p) 55%, transparent);
-    box-shadow:0 0 18px -2px color-mix(in srgb, var(--neon-p) 70%, transparent),
-      inset 0 1px 0 rgba(255,255,255,.3);
+    display:inline-flex; align-items:center; gap:6px; padding:8px 13px;
+    border-radius:16px; text-decoration:none; color:var(--star-ink);
+    font-size:13px; font-weight:700; letter-spacing:.01em;
+    background:var(--star-bg); border:1px solid var(--star-border);
     transition:transform .12s ease; }
   .stars-badge:active{ transform:scale(.94); }
   .stars-badge .sb-star{ font-size:14px; line-height:1; }
 
-  /* sections */
-  .section{ width:100%; max-width:440px; padding:16px 18px; flex-shrink:0; }
-  .sec-title{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.09em;
-    color:var(--hint); margin-bottom:10px; }
-  .sec-title.grad{ background:linear-gradient(100deg, var(--a1), var(--a2));
+  /* sections — solid porcelain cards (Clarity) */
+  .section{ width:100%; max-width:440px; padding:20px; flex-shrink:0;
+    background:var(--surface); border-radius:24px; box-shadow:0 14px 34px -20px rgba(60,45,30,.4); }
+  .sec-title{ font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.14em;
+    color:var(--muted); margin-bottom:12px; }
+  .sec-title.grad{ background:linear-gradient(100deg, var(--acc), var(--acc2));
     -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
-  .sec-body{ font-size:14px; line-height:1.6; }
+  .sec-body{ font-size:13px; line-height:1.55; color:var(--ink2); }
   .chips{ display:flex; flex-wrap:wrap; gap:8px; }
-  .chip{ font-size:13px; font-weight:600; padding:7px 13px; border-radius:999px;
-    color:#fff; background:linear-gradient(120deg, var(--a2), var(--a1)); }
-  .chip.outline{ background:var(--faux-glass); border:1px solid var(--glass-border); color:var(--a1); }
+  .chip{ font-size:12.5px; font-weight:500; padding:8px 14px; border-radius:12px;
+    color:var(--acc); background:rgba(var(--acc-rgb),.08); border:1px solid rgba(var(--acc-rgb),.16); }
+  .chip.outline{ background:var(--chip); border:1px solid var(--hair); color:var(--ink2); }
   /* Interest quick-pick palette: tappable chips; selected ones fill with accent. */
   .picker{ display:flex; flex-wrap:wrap; gap:7px; margin-bottom:9px; }
   .picker .chip{ cursor:pointer; user-select:none; }
@@ -77,18 +74,16 @@
      One coherent frosted pane. Personality tags flow straight into the Gemini
      Barnum text with no inner divider; grouped blocks (About + Interests) share
      the same pane, separated only by a hairline rule. */
-  .monolith-card{ width:100%; max-width:440px; padding:18px 18px 20px; flex-shrink:0;
-    background:var(--glass-grad);
-    -webkit-backdrop-filter:blur(12px) saturate(1.5); backdrop-filter:blur(12px) saturate(1.5);
-    border:1px solid var(--glass-border); border-radius:22px;
-    box-shadow:var(--glass-shadow), inset 0 1px 0 var(--glass-hi); }
+  .monolith-card{ width:100%; max-width:440px; padding:20px; flex-shrink:0;
+    background:var(--surface); border-radius:24px;
+    box-shadow:0 14px 34px -20px rgba(60,45,30,.4); }
   .monolith-card .mono-tags{ margin-bottom:12px; }
   /* Barnum text sits IMMEDIATELY beneath the tags — no gap, no border. */
-  .monolith-card .mono-text{ font-size:14px; line-height:1.6; }
+  .monolith-card .mono-text{ font-size:13px; line-height:1.55; color:var(--ink3); }
   /* Grouped sub-blocks (About Me + Interests) inside one shared pane. */
   .mono-block + .mono-block{ margin-top:16px; padding-top:16px;
-    border-top:1px solid var(--glass-border); }
-  .mono-empty{ font-size:14px; line-height:1.6; color:var(--hint); }
+    border-top:1px solid var(--track); }
+  .mono-empty{ font-size:13px; line-height:1.55; color:var(--muted); }
 
   /* stars wallet + referral */
   .stars-card{ display:flex; flex-direction:column; gap:12px; }
@@ -153,21 +148,18 @@
 
   /* achievements grid — neon badge chips */
   .achieve-grid{ display:flex; flex-wrap:wrap; gap:10px; }
-  .achieve-badge{ display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700;
-    padding:9px 14px; border-radius:14px; color:#fff;
-    background:linear-gradient(135deg, rgba(124,58,237,.28), rgba(236,72,153,.28));
-    border:1px solid rgba(196,120,255,.5);
-    box-shadow:0 0 18px -6px var(--glow), inset 0 0 12px -6px rgba(255,150,240,.6); }
-  .achieve-badge .em{ font-size:17px; line-height:1; }
-  .achieve-empty{ font-size:13.5px; color:var(--hint); line-height:1.5; }
+  .achieve-badge{ display:inline-flex; align-items:center; gap:7px; font-size:12.5px; font-weight:500;
+    padding:8px 13px; border-radius:12px; color:var(--ink2);
+    background:var(--chip); border:1px solid var(--hair); }
+  .achieve-badge .em{ font-size:15px; line-height:1; }
+  .achieve-empty{ font-size:13px; color:var(--muted); line-height:1.5; }
   /* "almost there" progress toward the nearest unearned badge */
   .achieve-next{ flex-basis:100%; margin-top:2px; }
-  .achieve-next-lbl{ font-size:12.5px; font-weight:600; color:var(--hint); margin-bottom:6px; }
+  .achieve-next-lbl{ font-size:12px; font-weight:500; color:var(--muted); margin-bottom:6px; }
   .achieve-next-bar{ position:relative; width:100%; height:8px; border-radius:999px;
-    overflow:hidden; background:rgba(255,255,255,.08); }
+    overflow:hidden; background:var(--track); }
   .achieve-next-bar span{ position:absolute; inset:0 auto 0 0; border-radius:999px;
-    background:linear-gradient(90deg, rgba(124,58,237,.9), rgba(236,72,153,.9));
-    box-shadow:0 0 12px -3px var(--glow); }
+    background:var(--acc-grad); }
 
   /* ---- Dark Mode (18+) — isolated crimson monolith ---- */
   /* Distinct crimson glass so the 18+ layer never blends with standard sections. */
