@@ -6,10 +6,10 @@
 <title>Sixtio — мій профіль</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="i18n.js?v=36"></script>
-<script src="theme.js?v=36"></script>
-<script src="paywall.js?v=36"></script>
-<link rel="stylesheet" href="theme.css?v=36" />
+<script src="i18n.js?v=37"></script>
+<script src="theme.js?v=37"></script>
+<script src="paywall.js?v=37"></script>
+<link rel="stylesheet" href="theme.css?v=37" />
 <style>
   body{
     display:flex; flex-direction:column; align-items:center;
@@ -26,18 +26,27 @@
     text-align:center; flex-shrink:0; }
   /* Edit affordance pinned top-LEFT of the header — the top-right corner belongs
      to the fixed Stars wallet badge, which used to overlap/hide the gear. */
-  .edit-gear{ position:absolute; top:0; left:0; width:38px; height:38px; border-radius:50%;
-    display:flex; align-items:center; justify-content:center; font-size:17px;
-    background:var(--faux-glass); border:1px solid var(--glass-border); color:var(--text);
-    cursor:pointer; font-family:inherit; transition:transform .12s ease, opacity .12s ease; }
-  .edit-gear:active{ transform:scale(.9); opacity:.8; }
+  /* Settings entry — white squircle with the lucide sliders-horizontal glyph
+     (design replaced the gear here). Pinned top-left of the header. */
+  .edit-gear{ position:absolute; top:0; left:0; width:40px; height:40px; border-radius:14px;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--chip); border:none; color:var(--ink2);
+    cursor:pointer; font-family:inherit; transition:transform .12s ease; }
+  .edit-gear:active{ transform:scale(.92) rotate(-30deg); }
+  .edit-gear svg{ display:block; width:19px; height:19px; }
   .ava-btn{ position:relative; border:none; background:none; padding:0; cursor:pointer; }
-  .ava-badge{ position:absolute; right:2px; bottom:2px; width:32px; height:32px; border-radius:50%;
-    display:flex; align-items:center; justify-content:center; font-size:15px;
-    background:linear-gradient(120deg, var(--a2), var(--a1)); color:#fff;
-    border:2px solid var(--bg); box-shadow:0 4px 12px -4px var(--glow); }
-  .name-age{ font-size:22px; font-weight:700; letter-spacing:-0.3px; }
-  .meta{ font-size:14px; color:var(--hint); }
+  /* camera badge — dark ink circle with a camera glyph (design), not a coloured pill */
+  .ava-badge{ position:absolute; right:0; bottom:0; width:32px; height:32px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--strong); color:#fff;
+    border:2.5px solid var(--bg1); box-shadow:0 4px 12px -4px rgba(23,22,28,.5); }
+  .ava-badge svg{ display:block; width:15px; height:15px; }
+  .name-age{ display:flex; align-items:baseline; gap:8px; justify-content:center;
+    font-size:29px; font-weight:600; letter-spacing:-.02em; color:var(--ink); }
+  .name-age .na-age{ font-size:22px; font-weight:400; color:var(--muted); }
+  .meta{ display:inline-flex; align-items:center; gap:6px; font-size:12.5px; color:var(--muted2); }
+  .meta::before{ content:''; width:6px; height:6px; border-radius:50%; background:var(--muted); }
+  .meta:empty::before{ display:none; }
   .goal-badge{ display:inline-block; font-size:13px; font-weight:600; padding:9px 18px;
     border-radius:999px; color:var(--acc); background:rgba(var(--acc-rgb),.1);
     border:1px solid rgba(var(--acc-rgb),.2); }
@@ -126,18 +135,20 @@
   .save-row .btn-glass{ flex:1; }
   .save-note{ font-size:12px; color:var(--hint); text-align:center; min-height:16px; }
 
-  /* ---- Profile depth (gamification) ---- */
-  .depth-top{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:12px; }
-  .depth-pct{ font-size:18px; font-weight:800;
-    background:linear-gradient(100deg, var(--a1), var(--a2));
-    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
-  .depth-bar{ position:relative; width:100%; height:12px; border-radius:999px; overflow:hidden;
-    background:var(--faux-glass); border:1px solid var(--glass-border); }
-  .depth-fill{ position:absolute; inset:0 auto 0 0; width:40%; border-radius:999px;
-    background:linear-gradient(100deg, var(--a2), var(--a1));
-    box-shadow:0 0 14px 1px var(--glow); transition:width .5s cubic-bezier(.2,.8,.2,1);
-    animation:depthPulse 2.4s ease-in-out infinite; }
-  @keyframes depthPulse{ 0%,100%{ filter:brightness(1); } 50%{ filter:brightness(1.25); } }
+  /* ---- Profile depth: compact menu-row (Clarity) ---- */
+  .depth-row{ width:100%; max-width:440px; flex-shrink:0; text-align:left;
+    display:flex; align-items:center; gap:14px; padding:16px; border:none; cursor:pointer;
+    border-radius:22px; background:var(--surface); font-family:inherit;
+    box-shadow:0 14px 34px -20px rgba(60,45,30,.4); transition:transform .12s ease; }
+  .depth-row:active{ transform:scale(.99); }
+  .depth-ring{ position:relative; width:46px; height:46px; flex:none; }
+  .depth-ring svg{ display:block; transform:rotate(-90deg); }
+  .depth-ring-num{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size:12px; font-weight:700; color:var(--acc); }
+  .depth-row-main{ flex:1; min-width:0; }
+  .depth-row-t{ display:block; font-size:14.5px; font-weight:600; color:var(--ink); }
+  .depth-row-s{ display:block; font-size:11.5px; color:var(--muted2); margin-top:2px; }
+  .depth-chev{ flex:none; font-size:16px; color:var(--muted); }
   .depth-widget{ margin-top:16px; padding:14px; border-radius:16px;
     background:var(--faux-glass); border:1px solid var(--glass-border); }
   .depth-q{ font-size:14px; font-weight:600; line-height:1.5; }
@@ -147,50 +158,48 @@
   .depth-submit{ width:100%; margin-top:12px; }
   .depth-note{ font-size:12.5px; color:var(--hint); text-align:center; min-height:16px; margin-top:10px; }
 
-  /* achievements grid — neon badge chips */
-  .achieve-grid{ display:flex; flex-wrap:wrap; gap:10px; }
-  .achieve-badge{ display:inline-flex; align-items:center; gap:7px; font-size:12.5px; font-weight:500;
+  /* achievements — dot chips, earned vs locked, with an "N з 6" counter (design) */
+  .achieve-head{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:13px; }
+  .achieve-count{ font-size:11.5px; font-weight:600; color:var(--muted2); }
+  .achieve-grid{ display:flex; flex-wrap:wrap; gap:8px; }
+  .achieve-badge{ display:inline-flex; align-items:center; gap:6px; font-size:12.5px; font-weight:500;
     padding:8px 13px; border-radius:12px; color:var(--ink2);
     background:var(--chip); border:1px solid var(--hair); }
-  .achieve-badge .em{ font-size:15px; line-height:1; }
-  .achieve-empty{ font-size:13px; color:var(--muted); line-height:1.5; }
-  /* "almost there" progress toward the nearest unearned badge */
-  .achieve-next{ flex-basis:100%; margin-top:2px; }
-  .achieve-next-lbl{ font-size:12px; font-weight:500; color:var(--muted); margin-bottom:6px; }
-  .achieve-next-bar{ position:relative; width:100%; height:8px; border-radius:999px;
-    overflow:hidden; background:var(--track); }
-  .achieve-next-bar span{ position:absolute; inset:0 auto 0 0; border-radius:999px;
-    background:var(--acc-grad); }
+  .achieve-badge .adot{ width:6px; height:6px; border-radius:50%; background:#3B9E6B; flex:none; }
+  .achieve-badge.locked{ color:var(--faint); background:var(--chip2); border:1px dashed var(--hair3); }
+  .achieve-badge.locked .adot{ background:#d3cabc; }
 
   /* ---- Dark Mode (18+) — isolated crimson monolith ---- */
   /* Distinct crimson glass so the 18+ layer never blends with standard sections. */
-  .dark-card{ background:linear-gradient(158deg, rgba(48,10,26,.72), rgba(28,8,18,.6));
-    border:1px solid rgba(255,86,64,.32);
-    box-shadow:0 16px 44px -18px rgba(255,60,50,.5), inset 0 1px 0 rgba(255,150,120,.12); }
-  .grad-crimson{ background:linear-gradient(100deg, #ff7a5c, #ff2f88);
-    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  /* Clarity coral-soft card (theme-aware via --coral-card tokens). */
+  .dark-card{ background:linear-gradient(180deg, var(--coral-card1), var(--coral-card2));
+    border:1px solid rgba(255,90,44,.42);
+    box-shadow:0 20px 46px -20px rgba(255,90,44,.5), inset 0 0 0 1px rgba(255,120,70,.14), 0 0 30px -14px rgba(255,90,44,.45); }
+  .dark-title{ display:flex; align-items:center; gap:8px; font-size:14px; font-weight:700; color:var(--ink); margin-bottom:2px; }
+  .dark-badge18{ font-size:9.5px; font-weight:700; color:#fff; background:linear-gradient(135deg,#FF7A3C,#FF5A2C);
+    padding:2px 7px; border-radius:6px; box-shadow:0 0 12px -2px rgba(255,90,44,.7); }
+  .invite-title{ font-size:14.5px; font-weight:600; color:var(--ink); }
   /* 18+ gate: the toggle stays disabled until age is confirmed (client-side). */
-  .age-gate{ display:flex; align-items:center; gap:10px; margin-top:14px; cursor:pointer;
-    font-size:13px; font-weight:600; color:#ffc9bd; user-select:none; }
+  .age-gate{ display:flex; align-items:center; gap:10px; margin-top:15px; cursor:pointer;
+    font-size:13px; font-weight:500; color:var(--ink2); user-select:none; }
   .age-gate input{ position:absolute; opacity:0; width:0; height:0; }
-  .age-box{ width:22px; height:22px; border-radius:7px; flex-shrink:0; position:relative;
-    background:rgba(255,255,255,.06); border:1.5px solid rgba(255,120,90,.55);
+  .age-box{ width:22px; height:22px; border-radius:8px; flex-shrink:0; position:relative;
+    background:transparent; border:1.5px solid var(--hair-strong);
     transition:background .16s ease, border-color .16s ease; }
   .age-box::after{ content:'✓'; position:absolute; inset:0; display:flex; align-items:center;
-    justify-content:center; font-size:14px; color:#fff; opacity:0; transition:opacity .16s ease; }
-  .age-gate input:checked + .age-box{ background:linear-gradient(120deg, #ff5640, #be2878);
-    border-color:transparent; }
+    justify-content:center; font-size:13px; font-weight:700; color:#fff; opacity:0; transition:opacity .16s ease; }
+  .age-gate input:checked + .age-box{ background:#FF5A2C; border-color:#FF5A2C; }
   .age-gate input:checked + .age-box::after{ opacity:1; }
-  /* Disabled switch reads as locked until the gate is satisfied. */
+  /* Dark-mode toggle: coral gradient when on (design), locked until gate satisfied. */
+  .dark-card .ios-switch input:checked + .ios-slider{ background:linear-gradient(90deg,#FF5A2C,#FF8A5C); }
   .dark-card .ios-switch input:disabled + .ios-slider{ opacity:.45; cursor:not-allowed; }
-  .dark-head{ display:flex; align-items:center; justify-content:space-between; gap:14px; }
-  .dark-desc{ font-size:12.5px; color:var(--hint); line-height:1.45; margin-top:2px; }
-  .dark-markers{ display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
-  .dark-marker{ font-size:12.5px; font-weight:700; padding:6px 12px; border-radius:999px; color:#fff;
-    background:linear-gradient(120deg, rgba(255,86,64,.9), rgba(190,40,120,.92));
-    box-shadow:0 6px 16px -8px rgba(255,70,60,.7); }
-  .dark-redo{ margin-top:14px; font-size:12.5px; color:var(--a1); background:none; border:none;
-    padding:0; cursor:pointer; font-family:inherit; text-decoration:underline; }
+  .dark-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:14px; }
+  .dark-desc{ font-size:12px; color:var(--coral-desc); line-height:1.45; margin-top:2px; }
+  .dark-markers{ display:flex; flex-wrap:wrap; gap:8px; margin-top:15px; }
+  .dark-marker{ font-size:12.5px; font-weight:500; padding:8px 14px; border-radius:12px; color:var(--coral-ink);
+    background:rgba(255,90,44,.08); border:1px solid rgba(255,90,44,.2); }
+  .dark-redo{ display:inline-block; margin-top:15px; font-size:12.5px; font-weight:600; color:#FF5A2C;
+    background:none; border:none; padding:0; cursor:pointer; font-family:inherit; text-decoration:none; }
   /* iOS-style switch */
   .ios-switch{ position:relative; display:inline-block; width:52px; height:31px; flex-shrink:0; }
   .ios-switch input{ opacity:0; width:0; height:0; }
@@ -247,11 +256,13 @@
 
 
   <div class="profile-head">
-    <button class="edit-gear" id="editBtn" data-i18n-aria="aria_settings" aria-label="Налаштування">⚙️</button>
+    <button class="edit-gear" id="editBtn" data-i18n-aria="aria_settings" aria-label="Налаштування">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5h9M17 6.5h3M4 12h3M11 12h9M4 17.5h9M17 17.5h3"/><circle cx="15" cy="6.5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="15" cy="17.5" r="2"/></svg>
+    </button>
     <button class="ava-btn" id="avaBtn" data-i18n-aria="aria_photo" aria-label="Змінити фото">
       <img class="story-avatar" id="avatar" data-i18n-alt="alt_profile_photo" alt="Фото профілю" hidden />
       <div class="story-avatar-ph" id="avatarPlaceholder">🙂</div>
-      <span class="ava-badge">📷</span>
+      <span class="ava-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6.5" width="18" height="13" rx="3"/><circle cx="12" cy="13" r="3.4"/><path d="M8 6.5l1.4-2.2h5.2L16 6.5"/></svg></span>
     </button>
     <div class="name-age" id="nameAge"></div>
     <div class="meta" id="meta"></div>
@@ -266,15 +277,20 @@
     <div data-lang-switch></div>
   </div>
 
-  <div class="section glass" id="depthSection">
-    <div class="depth-top">
-      <div class="sec-title grad" style="margin-bottom:0;" data-i18n="depth_title">Глибина профілю</div>
-      <span class="depth-pct" id="depthPct">40%</span>
-    </div>
-    <div class="depth-bar"><div class="depth-fill" id="depthFill"></div></div>
-    <!-- Improve-profile CTA sits directly under the bar to close the UX loop:
-         see your depth → tap to raise it. Free males hit the paywall here. -->
-    <button class="btn-primary" id="deepenBtn" style="width:100%; margin-top:14px;" data-i18n="improve_btn">✨ Покращити профіль із Sixtio</button>
+  <!-- Design: compact depth menu-row (ring + label + chevron), tap to improve.
+       The big gradient CTA was removed; the row itself carries the deepen action. -->
+  <button class="depth-row" id="deepenBtn" type="button">
+    <span class="depth-ring">
+      <svg viewBox="0 0 44 44" width="46" height="46"><circle cx="22" cy="22" r="19" fill="none" stroke="var(--track)" stroke-width="4"></circle><circle id="depthRing" cx="22" cy="22" r="19" fill="none" stroke="var(--acc)" stroke-width="4" stroke-linecap="round" stroke-dasharray="119.38" stroke-dashoffset="71.6"></circle></svg>
+      <span class="depth-ring-num" id="depthPct">40</span>
+    </span>
+    <span class="depth-row-main">
+      <span class="depth-row-t" data-i18n="depth_title">Глибина профілю</span>
+      <span class="depth-row-s" id="depthSub"></span>
+    </span>
+    <span class="depth-chev">›</span>
+  </button>
+  <div class="section glass" id="depthSection" hidden>
     <div class="depth-widget" id="depthWidget" hidden>
       <!-- No data-i18n here: renderDepth() always sets the localized question,
            and it can run BEFORE the DOMContentLoaded i18n pass (cache-first). -->
@@ -286,19 +302,46 @@
     </div>
   </div>
 
-  <!-- AI hook priority: personality analysis surfaces right under the depth bar.
-       Tags lead the card and the Barnum text flows immediately beneath them. -->
-  <div class="section monolith-card" id="traitsSection" hidden>
-    <div class="chips mono-tags" id="traits"></div>
-    <div class="mono-text" id="summary"></div>
+  <!-- Про мене (bio) — own porcelain card (design). Empty → gentle nudge. -->
+  <div class="section" id="aboutSection">
+    <div class="sec-title" data-i18n="about_me">Про мене</div>
+    <div class="sec-body" id="bio"></div>
   </div>
 
-  <!-- 18+ layer isolated in its own crimson monolith; the toggle is locked until
-       the age gate below is confirmed (fast, client-side, unbypassable in-UI). -->
+  <!-- Психотип: AI personality tags + Barnum summary under a hairline (design). -->
+  <div class="section" id="traitsSection" hidden>
+    <div class="sec-title" data-i18n="psychotype">Психотип</div>
+    <div class="chips" id="traits" style="margin-bottom:15px;"></div>
+    <div class="mono-text" id="summary" style="padding-top:15px; border-top:1px solid var(--track);"></div>
+  </div>
+
+  <!-- Інтереси — own card -->
+  <div class="section" id="interestsBlock" hidden>
+    <div class="sec-title" data-i18n="interests">Інтереси</div>
+    <div class="chips" id="interests"></div>
+  </div>
+
+  <!-- Цінності — own card -->
+  <div class="section" id="valuesBlock" hidden>
+    <div class="sec-title" data-i18n="values">Цінності</div>
+    <div class="chips" id="values"></div>
+  </div>
+
+  <!-- Досягнення -->
+  <div class="section" id="achieveSection">
+    <div class="achieve-head">
+      <div class="sec-title" style="margin-bottom:0;" data-i18n="achievements">Досягнення</div>
+      <span class="achieve-count" id="achieveCount"></span>
+    </div>
+    <div class="achieve-grid" id="achieveGrid"></div>
+  </div>
+
+  <!-- 18+ layer isolated in its own coral card near the bottom (design order);
+       the toggle is locked until the age gate below is confirmed (client-side). -->
   <div class="section monolith-card dark-card" id="darkSection">
     <div class="dark-head">
       <div>
-        <div class="sec-title grad-crimson" style="margin-bottom:4px;">🔥 Dark Mode (18+)</div>
+        <div class="dark-title"><span data-i18n="dark_mode_title">Dark Mode</span><span class="dark-badge18">18+</span></div>
         <div class="dark-desc" data-i18n="dark_desc">Анонімний пошук за інтимною сумісністю. Видно лише тим, хто теж увімкнув Dark Mode.</div>
       </div>
       <label class="ios-switch">
@@ -315,37 +358,15 @@
     <button class="dark-redo" id="darkRedo" data-i18n="dark_redo" hidden>Пройти інтерв'ю знову</button>
   </div>
 
-  <!-- About Me + Interests share one frosted pane (empty bio → gentle nudge). -->
-  <div class="section monolith-card" id="aboutSection">
-    <div class="mono-block">
-      <div class="sec-title" data-i18n="about_me">Про мене</div>
-      <div class="sec-body" id="bio"></div>
-    </div>
-    <div class="mono-block" id="interestsBlock" hidden>
-      <div class="sec-title" data-i18n="interests">Інтереси</div>
-      <div class="chips" id="interests"></div>
-    </div>
-    <div class="mono-block" id="valuesBlock" hidden>
-      <div class="sec-title" data-i18n="values">Цінності</div>
-      <div class="chips" id="values"></div>
-    </div>
-  </div>
-
-  <!-- Compact referral banner: single row (balance + snappy reward + inline CTA)
-       to beat banner blindness — roughly half the previous height. -->
-  <div class="section glass stars-card" id="starsSection" style="padding:12px 14px;">
+  <!-- Запроси друзів -->
+  <div class="section" id="starsSection">
     <div class="stars-row">
-      <span class="stars-ico" aria-hidden="true">🎁</span>
       <div class="stars-info">
-        <div class="stars-sub" data-i18n="referral_sub">💸 +15 ⭐️ за кожного друга (після інтерв'ю)</div>
+        <div class="invite-title" data-i18n="invite_title">Запроси друзів</div>
+        <div class="stars-sub" data-i18n="referral_sub">+15 ⭐️ за кожного друга (після інтерв'ю)</div>
       </div>
-      <button class="btn-primary" id="inviteBtn" style="padding:11px 16px; font-size:14px; white-space:nowrap;" data-i18n="invite_btn">🎁 Запросити</button>
+      <button class="btn-primary" id="inviteBtn" style="padding:12px 20px; font-size:14px; white-space:nowrap;" data-i18n="invite_btn">Запросити</button>
     </div>
-  </div>
-
-  <div class="section glass" id="achieveSection">
-    <div class="sec-title grad" data-i18n="achievements">🏅 Досягнення</div>
-    <div class="achieve-grid" id="achieveGrid"></div>
   </div>
 
   <div class="section glass" id="editSection" hidden>
@@ -534,8 +555,10 @@
 
         var tgName = tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.first_name;
         var name = tgName || (u.name || '').split(' ')[0] || '';
-        document.getElementById('nameAge').textContent = name + (u.age ? (name ? ', ' : '') + u.age : '');
-        document.getElementById('meta').textContent = u.city ? '📍 ' + u.city : '';
+        var nameEl = document.getElementById('nameAge');
+        nameEl.textContent = name;
+        if (u.age) { var ag = document.createElement('span'); ag.className = 'na-age'; ag.textContent = u.age; nameEl.appendChild(ag); }
+        document.getElementById('meta').textContent = u.city || '';
 
         var badge = document.getElementById('goalBadge');
         var goalText = goalLabel(u.goal, u.gender);
@@ -583,51 +606,44 @@
       // Three tricky depth questions — one per +20 step from the base 40% → 100%.
       var EXTRA_QUESTIONS = [ t('extra_q_0'), t('extra_q_1'), t('extra_q_2') ];
 
+      var DEPTH_RING_C = 2 * Math.PI * 19;   // r=19, matches the design ring
       function renderDepth(u){
         var depth = typeof u.profileDepth === 'number' ? u.profileDepth : 40;
         depth = Math.max(0, Math.min(100, depth));
-        document.getElementById('depthFill').style.width = depth + '%';
-        document.getElementById('depthPct').textContent = depth + '%';
-        var widget = document.getElementById('depthWidget');
-        if (depth >= 100) { widget.hidden = true; return; }
-        // Pick the question matching the current step (40→0, 60→1, 80→2).
+        var ring = document.getElementById('depthRing');
+        if (ring) ring.setAttribute('stroke-dashoffset', (DEPTH_RING_C * (1 - depth / 100)).toFixed(2));
+        document.getElementById('depthPct').textContent = depth;
+        var sub = document.getElementById('depthSub');
+        if (sub) sub.textContent = depth >= 100 ? t('depth_full') : t('depth_partial', { pct: depth });
+        // Prime the (hidden) inline widget's question in case it's ever shown.
         var idx = Math.max(0, Math.min(EXTRA_QUESTIONS.length - 1, Math.round((depth - 40) / 20)));
-        document.getElementById('depthQ').textContent = '🧠 ' + EXTRA_QUESTIONS[idx];
-        document.getElementById('depthWidget').dataset.qid = 'extra_deep_' + idx;
-        widget.hidden = false;
+        var qEl = document.getElementById('depthQ');
+        if (qEl) qEl.textContent = EXTRA_QUESTIONS[idx];
+        var widget = document.getElementById('depthWidget');
+        if (widget) widget.dataset.qid = 'extra_deep_' + idx;
       }
 
       function renderAchievements(list, progress){
         var grid = document.getElementById('achieveGrid');
         grid.innerHTML = '';
-        var keys = (list || []).filter(function(k){ return ACHIEVEMENTS[k]; });
+        var allKeys = Object.keys(ACHIEVEMENTS);       // the full 6-badge set
+        var earned = {};
+        (list || []).forEach(function(k){ if (ACHIEVEMENTS[k]) earned[k] = true; });
+        var earnedCount = allKeys.filter(function(k){ return earned[k]; }).length;
 
-        keys.forEach(function(k){
+        // Counter "N з 6" in the section header (design).
+        var counter = document.getElementById('achieveCount');
+        if (counter) counter.textContent = t('achieve_count', { n: earnedCount, total: allKeys.length });
+
+        // Every badge is shown: earned → green dot; locked → dashed, faint (design).
+        allKeys.forEach(function(k){
           var b = ACHIEVEMENTS[k];
+          var on = !!earned[k];
           var chip = document.createElement('span');
-          chip.className = 'achieve-badge';
-          chip.innerHTML = '<span class="em">' + b.em + '</span>' + b.label;
+          chip.className = 'achieve-badge' + (on ? '' : ' locked');
+          chip.innerHTML = '<span class="adot"></span>' + b.label;
           grid.appendChild(chip);
         });
-
-        // "Almost there" hint for the nearest unearned Big Five badge — so the
-        // block is never a dead end even before any badge is earned.
-        if (progress && ACHIEVEMENTS[progress.key] && typeof progress.pct === 'number') {
-          var b = ACHIEVEMENTS[progress.key];
-          var hint = document.createElement('div');
-          hint.className = 'achieve-next';
-          var pct = Math.max(0, Math.min(99, progress.pct));
-          hint.innerHTML =
-            '<div class="achieve-next-lbl">' + b.em + ' ' +
-              t('achieve_next', { label: b.label, pct: pct }) + '</div>' +
-            '<div class="achieve-next-bar"><span style="width:' + pct + '%"></span></div>';
-          grid.appendChild(hint);
-        } else if (!keys.length) {
-          var ph = document.createElement('div');
-          ph.className = 'achieve-empty';
-          ph.textContent = t('achieve_empty');
-          grid.appendChild(ph);
-        }
       }
 
       // ---- Dark Mode (18+) — marker labels come from the i18n dictionary ----

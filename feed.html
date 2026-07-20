@@ -6,10 +6,10 @@
 <title>Sixtio — знайти пару</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="i18n.js?v=36"></script>
-<script src="theme.js?v=36"></script>
-<script src="paywall.js?v=36"></script>
-<link rel="stylesheet" href="theme.css?v=36" />
+<script src="i18n.js?v=37"></script>
+<script src="theme.js?v=37"></script>
+<script src="paywall.js?v=37"></script>
+<link rel="stylesheet" href="theme.css?v=37" />
 <style>
   body{
     display:flex; flex-direction:column; align-items:center;
@@ -22,7 +22,7 @@
   /* ---- swipe deck (Clarity editorial card: photo 60% + porcelain panel 40%) ---- */
   .deck{ position:relative; width:100%; max-width:420px; flex:1; min-height:0; }
   .card{
-    position:absolute; inset:0; border-radius:30px; overflow:hidden;
+    position:absolute; inset:0; border-radius:34px; overflow:hidden;
     background:var(--surface); box-shadow:0 30px 70px -26px rgba(60,45,30,.5);
     will-change:transform; touch-action:none; cursor:grab; user-select:none;
   }
@@ -45,15 +45,25 @@
     backdrop-filter:blur(12px) saturate(150%); border:1px solid var(--glass-soft); }
 
   /* porcelain content panel */
-  .card-info{ position:absolute; left:0; right:0; bottom:0; height:40%; padding:22px 20px 18px;
+  .card-info{ position:absolute; left:0; right:0; bottom:0; height:40%; padding:24px 22px 22px;
     box-sizing:border-box; background:var(--surface); color:var(--ink);
-    display:flex; flex-direction:column; gap:9px; overflow:hidden; }
+    display:flex; flex-direction:column; gap:11px; overflow:hidden; }
   .card-head{ display:flex; align-items:baseline; gap:9px; }
-  .card-name{ font-size:27px; font-weight:600; letter-spacing:-.02em; color:var(--ink); }
-  .card-name .age{ font-size:20px; font-weight:400; color:var(--muted); margin-left:2px; }
+  .card-name{ font-size:30px; font-weight:600; letter-spacing:-.02em; color:var(--ink); }
+  .card-name .age{ font-size:22px; font-weight:400; color:var(--muted); margin-left:7px; }
   .card-city{ display:flex; align-items:center; gap:5px; margin-left:auto;
     font-size:11.5px; font-weight:500; color:var(--muted2); }
   .card-city::before{ content:''; width:6px; height:6px; border-radius:50%; background:var(--muted); }
+  .card-city.online{ color:var(--success); }
+  .card-city.online::before{ background:#3B9E6B; box-shadow:0 0 0 3px rgba(59,158,107,.18); }
+  /* "Чому збіг" reason inset — spark + accent lead, porcelain chip (design) */
+  .card-why{ display:flex; align-items:flex-start; gap:9px; padding:11px 13px; border-radius:15px;
+    background:var(--chip2); border:1px solid rgba(var(--acc-rgb),.1); }
+  .card-why .spk{ width:15px; height:15px; flex:none; margin-top:1px; background:var(--acc);
+    -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2l1.6 6.4L20 10l-6.4 1.6L12 18l-1.6-6.4L4 10l6.4-1.6z'/%3E%3C/svg%3E") center/contain no-repeat;
+    mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2l1.6 6.4L20 10l-6.4 1.6L12 18l-1.6-6.4L4 10l6.4-1.6z'/%3E%3C/svg%3E") center/contain no-repeat; }
+  .card-why .wt{ font-size:12px; line-height:1.4; color:var(--ink3); }
+  .card-why .wt b{ color:var(--acc); font-weight:600; }
   .card-tags{ display:flex; flex-wrap:wrap; gap:8px; margin-top:auto; }
   .card-tag{ display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:500;
     color:var(--ink2); padding:7px 13px; border-radius:12px;
@@ -62,34 +72,26 @@
 
   /* floating compatibility ring straddling the photo/panel seam */
   .card-badge{ position:absolute; top:60%; right:20px; transform:translateY(-50%);
-    width:70px; height:70px; border-radius:50%; padding:0; border:none; cursor:pointer;
+    width:74px; height:74px; border-radius:50%; padding:0; border:none; cursor:pointer;
     display:flex; align-items:center; justify-content:center; z-index:3;
     box-shadow:0 14px 32px -10px rgba(23,22,28,.55); }
-  .card-badge .inner{ width:57px; height:57px; border-radius:50%;
+  .card-badge .inner{ width:60px; height:60px; border-radius:50%;
     display:flex; flex-direction:column; align-items:center; justify-content:center;
     background:var(--glass-badge); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); }
-  .card-badge .num{ font-weight:700; font-size:21px; line-height:.9; letter-spacing:-.03em; color:var(--ink); }
+  .card-badge .num{ font-weight:700; font-size:23px; line-height:.9; letter-spacing:-.03em; color:var(--ink); }
   .card-badge .num i{ font-style:normal; font-size:11px; color:var(--acc); }
   .card-badge .lbl{ font-size:6.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin-top:1px; }
 
-  /* ---- Dark Mode (18+) intimate compatibility ---- */
-  .card-dark{ margin-top:10px; padding:10px 12px; border-radius:16px;
-    background:linear-gradient(120deg, rgba(255,86,64,.22), rgba(190,40,120,.28));
-    border:1px solid rgba(255,120,90,.45);
-    box-shadow:0 6px 20px -8px rgba(255,70,60,.6); }
-  .dark-score{ font-size:13.5px; font-weight:700; color:#fff; letter-spacing:.01em;
-    text-shadow:0 1px 8px rgba(0,0,0,.45); animation:flameGlow 2.4s ease-in-out infinite; }
-  .dark-score b{ font-weight:900; }
-  @keyframes flameGlow{ 0%,100%{ text-shadow:0 1px 8px rgba(255,90,60,.5); }
-    50%{ text-shadow:0 1px 16px rgba(255,140,80,.95); } }
+  /* ---- Dark Mode (18+) intimate compatibility — Clarity coral-soft ---- */
+  .card-dark{ margin-top:10px; padding:10px 12px; border-radius:14px;
+    background:rgba(255,90,44,.08); border:1px solid rgba(255,90,44,.22); }
+  .dark-score{ font-size:12.5px; font-weight:700; color:var(--coral-ink); letter-spacing:.01em; }
+  .dark-score b{ font-weight:800; }
   .dark-tags{ display:flex; flex-wrap:wrap; gap:6px; margin-top:9px; }
   .dark-tags.blurred{ filter:blur(5px); opacity:.85; pointer-events:none; }
-  .dark-tag{ font-size:11.5px; font-weight:700; padding:5px 10px; border-radius:999px; color:#fff;
-    background:rgba(255,120,90,.28); border:1px solid rgba(255,150,110,.5);
-    animation:tagPulse 1.9s ease-in-out infinite; }
-  @keyframes tagPulse{ 0%,100%{ transform:scale(1); opacity:.9; }
-    50%{ transform:scale(1.045); opacity:1; } }
-  .dark-hint{ font-size:11.5px; font-weight:600; color:#ffd9cf; margin-top:8px; }
+  .dark-tag{ font-size:11px; font-weight:600; padding:5px 11px; border-radius:999px; color:var(--coral-ink);
+    background:rgba(255,90,44,.1); border:1px solid rgba(255,90,44,.24); }
+  .dark-hint{ font-size:11.5px; font-weight:600; color:var(--coral-mut); margin-top:8px; }
 
   /* drag verdict stamps — round frosted (♥ indigo / ✕ graphite) */
   .badge{ position:absolute; top:20px; left:50%; transform:translateX(-50%);
@@ -114,35 +116,24 @@
   /* ---- 🔥 Daily Mystery Match ---- */
   .mystery{ width:100%; max-width:420px; border-radius:22px; padding:14px 16px;
     display:flex; align-items:center; gap:14px; cursor:default;
-    background:linear-gradient(125deg, rgba(120,40,200,.42), rgba(210,40,130,.38));
-    border:1px solid rgba(200,130,255,.5);
-    box-shadow:0 10px 34px -12px rgba(180,60,220,.8), inset 0 1px 0 rgba(255,255,255,.18);
-    -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px);
-    animation:mysteryGlow 3s ease-in-out infinite; }
-  @keyframes mysteryGlow{ 0%,100%{ box-shadow:0 10px 34px -14px rgba(180,60,220,.7), inset 0 1px 0 rgba(255,255,255,.18); }
-    50%{ box-shadow:0 14px 42px -10px rgba(230,80,200,.95), inset 0 1px 0 rgba(255,255,255,.25); } }
+    background:var(--surface); border:1px solid rgba(var(--acc-rgb),.18);
+    box-shadow:0 14px 34px -20px rgba(60,45,30,.4), 0 0 22px -14px rgba(var(--acc-rgb),.5); }
   .mystery-orb{ flex-shrink:0; width:66px; height:66px; border-radius:20px;
-    display:flex; align-items:center; justify-content:center; font-size:34px; font-weight:900; color:#fff;
-    background:radial-gradient(circle at 35% 30%, rgba(255,255,255,.35), rgba(150,40,220,.65));
-    border:1px solid rgba(255,255,255,.4);
-    box-shadow:0 0 24px -2px rgba(220,90,255,.9), inset 0 0 18px rgba(255,255,255,.25);
+    display:flex; align-items:center; justify-content:center; font-size:32px; font-weight:700; color:#fff;
+    background:var(--acc-grad);
+    box-shadow:0 12px 26px -8px rgba(var(--acc-rgb),.6);
     overflow:hidden; }
-  .mystery-orb .q{ animation:orbFloat 2.6s ease-in-out infinite; }
-  @keyframes orbFloat{ 0%,100%{ transform:scale(1); text-shadow:0 0 12px rgba(255,255,255,.8); }
-    50%{ transform:scale(1.14); text-shadow:0 0 22px rgba(255,255,255,1); } }
   .mystery-orb img{ width:100%; height:100%; object-fit:cover; }
   .mystery-body{ flex:1; min-width:0; }
-  .mystery-title{ font-size:12px; font-weight:800; letter-spacing:.08em; text-transform:uppercase;
-    color:#ffd6f4; }
-  .mystery-pct{ font-size:20px; font-weight:900; color:#fff; margin-top:2px;
-    text-shadow:0 2px 12px rgba(0,0,0,.35); }
-  .mystery-pct b{ background:linear-gradient(120deg,#ffe08a,#ff7ad9);
-    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
-  .mystery-name{ font-size:15px; font-weight:800; color:#fff; margin-top:2px; }
+  .mystery-title{ font-size:10px; font-weight:600; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--muted); }
+  .mystery-pct{ font-size:19px; font-weight:700; color:var(--ink); margin-top:2px; letter-spacing:-.02em; }
+  .mystery-pct b{ color:var(--acc); font-weight:700; }
+  .mystery-name{ font-size:14px; font-weight:600; color:var(--ink); margin-top:2px; }
   .mystery-btn{ margin-top:8px; width:100%; border:none; cursor:pointer; font-family:inherit;
-    font-size:13.5px; font-weight:800; color:#fff; padding:9px 12px; border-radius:12px;
-    background:linear-gradient(120deg,#a23bff,#ff4db8);
-    box-shadow:0 8px 20px -8px rgba(220,70,200,.9); transition:transform .14s ease; }
+    font-size:13.5px; font-weight:600; color:#fff; padding:10px 12px; border-radius:14px;
+    background:var(--acc);
+    box-shadow:0 12px 26px -10px rgba(var(--acc-rgb),.6); transition:transform .14s ease; }
   .mystery-btn:active{ transform:scale(.96); }
   .mystery-btn:disabled{ opacity:.6; cursor:default; }
 
@@ -157,15 +148,14 @@
     transform:translateY(102%); transition:transform .34s cubic-bezier(.22,1,.36,1); }
   .loot-back.show .loot-sheet{ transform:translateY(0); }
   .loot-h{ text-align:center; }
-  .loot-h .t{ font-size:19px; font-weight:900; letter-spacing:.01em;
-    background:linear-gradient(120deg,#a23bff,#ff4db8); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  .loot-h .t{ font-size:19px; font-weight:700; letter-spacing:-.01em; color:var(--ink); }
   .loot-h .s{ font-size:13px; color:var(--hint); margin-top:5px; line-height:1.5; }
   .loot-boxes{ display:flex; justify-content:center; gap:14px; margin:22px 0 6px; }
   .loot-box{ width:88px; height:88px; border-radius:20px; cursor:pointer; font-size:40px;
     display:flex; align-items:center; justify-content:center; font-family:inherit; color:#fff;
-    background:linear-gradient(140deg, rgba(150,50,220,.5), rgba(220,50,140,.5));
-    border:1px solid rgba(210,140,255,.55);
-    box-shadow:0 8px 24px -8px rgba(190,70,230,.8), inset 0 1px 0 rgba(255,255,255,.25);
+    background:var(--acc-grad);
+    border:1px solid rgba(var(--acc-rgb),.4);
+    box-shadow:0 12px 26px -8px rgba(var(--acc-rgb),.6), inset 0 1px 0 rgba(255,255,255,.2);
     animation:lootIdle 2.2s ease-in-out infinite; transition:transform .2s ease; }
   .loot-box:active{ transform:scale(.93); }
   @keyframes lootIdle{ 0%,100%{ transform:translateY(0) rotate(-2deg); }
@@ -183,8 +173,8 @@
   .loot-actions{ margin-top:16px; display:flex; flex-direction:column; gap:9px; }
   .loot-cost{ text-align:center; font-size:12.5px; color:var(--hint); }
   .loot-premium{ width:100%; border:none; cursor:pointer; font-family:inherit; font-size:13.5px;
-    font-weight:800; color:#fff; padding:12px; border-radius:14px;
-    background:linear-gradient(120deg, var(--a2), var(--a1)); box-shadow:0 8px 22px -8px var(--glow); }
+    font-weight:600; color:#fff; padding:12px; border-radius:14px;
+    background:var(--acc); box-shadow:0 12px 26px -10px rgba(var(--acc-rgb),.6); }
   .loot-close{ width:100%; background:none; border:none; cursor:pointer; font-family:inherit;
     font-size:13px; font-weight:700; color:var(--hint); padding:8px; }
 
@@ -407,10 +397,23 @@
         var head = document.createElement('div'); head.className = 'card-head';
         var nm = document.createElement('div'); nm.className = 'card-name';
         nm.textContent = c.name;
-        if (c.age) { var ageEl = document.createElement('span'); ageEl.className = 'age'; ageEl.textContent = ', ' + c.age; nm.appendChild(ageEl); }
+        if (c.age) { var ageEl = document.createElement('span'); ageEl.className = 'age'; ageEl.textContent = c.age; nm.appendChild(ageEl); }
         head.appendChild(nm);
-        if (c.city) { var city = document.createElement('div'); city.className = 'card-city'; city.textContent = c.city; head.appendChild(city); }
+        // City + live presence: green dot & "· онлайн" suffix when recently active.
+        if (c.city || c.online) {
+          var city = document.createElement('div'); city.className = 'card-city' + (c.online ? ' online' : '');
+          city.textContent = (c.city || '') + (c.online ? (c.city ? ' · ' : '') + t('online') : '');
+          head.appendChild(city);
+        }
         info.appendChild(head);
+
+        // "Чому збіг" reason — composed from the compatibility tags (design inset).
+        if (c.tags && c.tags.length) {
+          var why = document.createElement('div'); why.className = 'card-why';
+          why.innerHTML = '<span class="spk"></span><span class="wt"><b>' + t('why_match') + '&nbsp;·&nbsp;</b>' +
+            c.tags.join(', ').replace(/[<>]/g, '') + '</span>';
+          info.appendChild(why);
+        }
 
         // Dark Mode (18+): second, glowing flame scale — only present when both
         // this user and the candidate opted in (server gates it in api/feed.js).
@@ -435,10 +438,13 @@
           info.appendChild(dm);
         }
 
-        if (c.tags && c.tags.length) {
+        // Value chips = the candidate's own interests (design), localized.
+        var chipVals = (c.interests && c.interests.length) ? c.interests : (c.tags || []);
+        if (chipVals.length) {
           var tags = document.createElement('div'); tags.className = 'card-tags';
-          c.tags.slice(0, 3).forEach(function(tg){
-            var chip = document.createElement('div'); chip.className = 'card-tag'; chip.textContent = tg;
+          chipVals.slice(0, 3).forEach(function(v){
+            var chip = document.createElement('div'); chip.className = 'card-tag';
+            chip.textContent = SixtioI18n.interest ? SixtioI18n.interest(v) : v;
             tags.appendChild(chip);
           });
           info.appendChild(tags);
@@ -479,7 +485,7 @@
           var el = buildCard(top2[i]);
           el.style.zIndex = String(10 - i);
           if (i === 0) { el.classList.add('is-front'); attachDrag(el, top2[i]); }
-          else { el.style.transform = 'scale(.955) translateY(10px)'; }
+          else { el.style.transform = 'scale(.94) translateY(16px)'; el.style.opacity = '.6'; }
           deckEl.appendChild(el);
         }
       }

@@ -19,6 +19,10 @@ const INTEREST_BOOST_MAX = 12;
 const normInterests = (arr) => new Set(
   (Array.isArray(arr) ? arr : []).map((s) => String(s || '').trim().toLowerCase()).filter(Boolean)
 );
+// Presence: a profile counts as "online" if it pinged within this window. Every
+// /api/feed and /api/me call stamps last_active, so this stays accurate & cheap.
+const ONLINE_WINDOW_MS = 5 * 60 * 1000;
+const isOnline = (ts) => { if (!ts) return false; const d = Date.now() - new Date(ts).getTime(); return d >= 0 && d < ONLINE_WINDOW_MS; };
 
 // "Daily Mystery Match": the single strongest Big Five match, refreshed at most
 // once per rolling 24h and shown fully anonymized until unlocked (10 ⭐).
@@ -128,7 +132,7 @@ export default async function handler(req, res) {
     // wildcard 'any' preference skips the gender filter; JS still does final checks.
     let candQuery = supabase
       .from('users')
-      .select('id, name, gender, seeking_gender, age, city, photo_url, photo_blur_url, dark_mode_active, kink_markers, interests, shadow_hidden')
+      .select('id, name, gender, seeking_gender, age, city, photo_url, photo_blur_url, dark_mode_active, kink_markers, interests, last_active, shadow_hidden')
       .neq('id', me.id)
       .eq('shadow_hidden', false);
     if (me.seeking_gender && me.seeking_gender !== 'any') candQuery = candQuery.eq('gender', me.seeking_gender);
@@ -165,7 +169,12 @@ export default async function handler(req, res) {
         photoUrl: ent.blur ? (c.photo_blur_url || '') : (c.photo_url || ''),
         // 0..100; unscored profiles get 0 so they sort after scored ones.
         compatibility: hit ? hit.score : 0,
+        // Compatibility tags drive the "Why you match" reason line on the card.
         tags: hit ? (hit.tags || []).slice(0, 3) : [],
+        // The candidate's own interests → value chips under the reason.
+        interests: (c.interests || []).slice(0, 3),
+        // Live presence for the green online dot on the card.
+        online: isOnline(c.last_active),
       };
 
       // Shared-interest nudge (Layer 2): count normalized overlaps for ranking.

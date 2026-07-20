@@ -6,10 +6,10 @@
 <title>Sixtio — чат</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="i18n.js?v=36"></script>
-<script src="theme.js?v=36"></script>
-<script src="paywall.js?v=36"></script>
-<link rel="stylesheet" href="theme.css?v=36" />
+<script src="i18n.js?v=37"></script>
+<script src="theme.js?v=37"></script>
+<script src="paywall.js?v=37"></script>
+<link rel="stylesheet" href="theme.css?v=37" />
 <style>
   body{
     display:flex; flex-direction:column; align-items:center;
@@ -30,17 +30,23 @@
     text-decoration:none; background:var(--surface); box-shadow:0 12px 30px -20px rgba(60,45,30,.5);
     transition:transform .12s ease; }
   .conv:active{ transform:scale(.99); }
-  .c-ava{ width:52px; height:52px; border-radius:50%; object-fit:cover; flex-shrink:0; }
-  .c-ava-ph{ width:52px; height:52px; border-radius:50%; flex-shrink:0; display:flex;
+  .c-ava-wrap{ position:relative; flex-shrink:0; }
+  .c-ava{ width:52px; height:52px; border-radius:50%; object-fit:cover; display:block; }
+  .c-ava-ph{ width:52px; height:52px; border-radius:50%; display:flex;
     align-items:center; justify-content:center; font-size:24px;
     background:var(--chip); border:1px solid var(--hair); color:var(--muted); }
+  /* Live presence dot on the avatar (green online / grey offline). */
+  .c-dot{ position:absolute; right:0; bottom:0; width:13px; height:13px; border-radius:50%;
+    background:var(--faint); border:2.5px solid var(--surface); }
+  .c-dot.on{ background:#3B9E6B; }
   .c-main{ flex:1; min-width:0; }
-  /* Name+age always render in full — wrap instead of ellipsing (Task 25). */
+  .c-name-row{ display:flex; align-items:baseline; gap:7px; }
   .c-name{ font-size:16.5px; font-weight:600; line-height:1.25; color:var(--ink); overflow-wrap:break-word; }
+  .c-name .c-age{ font-size:12.5px; font-weight:400; color:var(--muted); margin-left:6px; }
+  .c-time{ font-size:10.5px; color:var(--faint); margin-left:auto; white-space:nowrap; flex-shrink:0; }
   .c-last{ font-size:12.5px; color:var(--muted); margin-top:3px; white-space:nowrap;
     overflow:hidden; text-overflow:ellipsis; }
   .c-last.unseen{ color:var(--ink); font-weight:600; }
-  .c-chev{ flex-shrink:0; font-size:20px; color:var(--faint); }
 
   /* AI-hint inset */
   .ai-hint{ width:100%; max-width:460px; display:flex; align-items:flex-start; gap:11px;
@@ -101,6 +107,18 @@
       var listEl = document.getElementById('list');
       var emptyEl = document.getElementById('empty');
 
+      // Compact relative time for the chat-list preview (localized).
+      function relTime(iso){
+        var d = new Date(iso); if (isNaN(d)) return '';
+        var diff = Date.now() - d.getTime();
+        var min = Math.floor(diff / 60000), h = Math.floor(min / 60), day = Math.floor(h / 24);
+        if (min < 1) return t('time_now');
+        if (h < 1)  return t('time_min',  { n: min });
+        if (day < 1) return t('time_hour', { n: h });
+        if (day < 2) return t('time_yesterday');
+        return d.toLocaleDateString();
+      }
+
       function api(path, payload){
         return fetch(path, {
           method: 'POST',
@@ -118,20 +136,31 @@
           a.addEventListener('click', function(){ try { tg.HapticFeedback.impactOccurred('light'); } catch(e){} });
         }
 
+        // Avatar + live presence dot (green when the partner is recently active).
+        var avaWrap = document.createElement('div'); avaWrap.className = 'c-ava-wrap';
         if (pt.photoUrl) {
           var img = document.createElement('img');
           img.className = 'c-ava'; img.src = pt.photoUrl; img.alt = '';
-          a.appendChild(img);
+          avaWrap.appendChild(img);
         } else {
           var ph = document.createElement('div');
           ph.className = 'c-ava-ph'; ph.textContent = '🙂';
-          a.appendChild(ph);
+          avaWrap.appendChild(ph);
         }
+        var dot = document.createElement('span');
+        dot.className = 'c-dot' + (pt.online ? ' on' : '');
+        avaWrap.appendChild(dot);
+        a.appendChild(avaWrap);
 
         var main = document.createElement('div'); main.className = 'c-main';
-        var nm = document.createElement('div'); nm.className = 'c-name';
-        nm.textContent = pt.name + (pt.age ? ', ' + pt.age : '');
-        main.appendChild(nm);
+        var nmRow = document.createElement('div'); nmRow.className = 'c-name-row';
+        var nm = document.createElement('span'); nm.className = 'c-name';
+        nm.textContent = pt.name;
+        if (pt.age) { var ageEl = document.createElement('span'); ageEl.className = 'c-age'; ageEl.textContent = pt.age; nm.appendChild(ageEl); }
+        nmRow.appendChild(nm);
+        var timeText = m.lastMessage && m.lastMessage.createdAt ? relTime(m.lastMessage.createdAt) : '';
+        if (timeText) { var tm = document.createElement('span'); tm.className = 'c-time'; tm.textContent = timeText; nmRow.appendChild(tm); }
+        main.appendChild(nmRow);
 
         var last = document.createElement('div'); last.className = 'c-last';
         if (m.lastMessage && m.lastMessage.text) {
@@ -142,9 +171,6 @@
         }
         main.appendChild(last);
         a.appendChild(main);
-
-        var chev = document.createElement('div'); chev.className = 'c-chev'; chev.textContent = '›';
-        a.appendChild(chev);
         return a;
       }
 

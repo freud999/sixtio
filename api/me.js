@@ -6,6 +6,20 @@ import { notifyRetention } from './_lib/bot.js';
 import { sanitizeAiText } from './_lib/claude.js';
 import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
 
+// Presence window for the online dot (mirrors api/feed.js). Every /api/me and
+// /api/feed call stamps last_active, so this stays accurate without extra writes.
+const ONLINE_WINDOW_MS = 5 * 60 * 1000;
+const isOnline = (ts) => { if (!ts) return false; const d = Date.now() - new Date(ts).getTime(); return d >= 0 && d < ONLINE_WINDOW_MS; };
+const normInt = (arr) => (Array.isArray(arr) ? arr : []).map((s) => String(s || '').trim()).filter(Boolean);
+// Shared interests between two lists (case-insensitive), preserving the second
+// list's original casing for display.
+function sharedInterests(a, b) {
+  const setA = new Set(normInt(a).map((s) => s.toLowerCase()));
+  const out = [];
+  for (const it of normInt(b)) if (setA.has(it.toLowerCase())) out.push(it);
+  return out;
+}
+
 // Base completeness after onboarding; each answered "extra" deep question is +20.
 const BASE_PROFILE_DEPTH = 40;
 const EXTRA_QUESTION_STEP = 20;
@@ -169,7 +183,7 @@ export default async function handler(req, res) {
       if (hidden.has(m.partnerId)) continue;
       const { data: partner } = await supabase
         .from('users')
-        .select('name, age, city, goal, interests, bio, photo_url, dark_mode_active, kink_markers, shadow_hidden')
+        .select('name, age, city, goal, interests, bio, photo_url, dark_mode_active, kink_markers, last_active, shadow_hidden')
         .eq('id', m.partnerId)
         .maybeSingle();
       if (!partner || partner.shadow_hidden) continue;
@@ -199,6 +213,8 @@ export default async function handler(req, res) {
         score: m.score,
         // Big Five (OCEAN) math compatibility 0..100, or null if not scored yet.
         compatibility: m.partnerId in compatByUser ? compatByUser[m.partnerId] : null,
+        // Interests shared with this partner → the "спільне: …" line on the card.
+        common: sharedInterests(user.interests, partner.interests).slice(0, 3),
         lastMessage: lm
           ? { text: lm.text, mine: lm.sender_id === user.id, createdAt: lm.created_at }
           : null,
@@ -210,6 +226,8 @@ export default async function handler(req, res) {
           interests: partner.interests || [],
           bio: partner.bio,
           photoUrl: partner.photo_url,
+          // Live presence for the online dot in the chat list.
+          online: isOnline(partner.last_active),
           traits: (partnerProfile && partnerProfile.traits_json) || [],
           vibe: (partnerProfile && partnerProfile.vibe) || '',
         },
