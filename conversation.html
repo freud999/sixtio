@@ -59,8 +59,9 @@
   .msg{ max-width:80%; padding:11px 14px; border-radius:18px; font-size:15px; line-height:1.4;
     word-wrap:break-word; animation:pop .2s ease; }
   @keyframes pop{ from{ opacity:0; transform:translateY(4px); } to{ opacity:1; transform:translateY(0); } }
-  .msg.them{ align-self:flex-start; background:var(--faux-glass);
-    border:1px solid var(--glass-border); color:var(--text); border-bottom-left-radius:5px; }
+  .msg.them{ align-self:flex-start; background:var(--surface);
+    border:1px solid var(--hair); color:var(--ink); border-bottom-left-radius:5px;
+    box-shadow:0 8px 22px -16px rgba(60,45,30,.5); }
   .msg.me{ align-self:flex-end; color:#fff; border-bottom-right-radius:5px;
     background:linear-gradient(120deg, var(--a2), var(--a1));
     box-shadow:0 8px 22px -10px var(--glow); }
