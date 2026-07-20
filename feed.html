@@ -197,12 +197,70 @@
   .spin{ display:inline-block; width:22px; height:22px; border-radius:50%;
     border:2.5px solid var(--glass-border); border-top-color:var(--a1); animation:spin .7s linear infinite; }
   @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  /* Clarity feed header (wordmark + kicker · theme toggle + Stars) */
+  .scr-head{ width:100%; max-width:420px; flex:none;
+    display:flex; align-items:center; justify-content:space-between; }
+  .scr-title{ font-size:25px; font-weight:600; letter-spacing:-.02em; color:var(--ink); line-height:1.1; }
+  .scr-kicker{ font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); margin-top:2px; }
+
+  /* ---- deep-compatibility sheet (tap the % ring) ---- */
+  .sheet-back{ position:fixed; inset:0; z-index:40; background:rgba(30,25,18,.42);
+    -webkit-backdrop-filter:blur(3px); backdrop-filter:blur(3px);
+    opacity:0; pointer-events:none; transition:opacity .25s ease; }
+  .sheet-back.show{ opacity:1; pointer-events:auto; }
+  .sheet{ position:fixed; left:0; right:0; bottom:0; z-index:41; box-sizing:border-box;
+    max-width:460px; margin:0 auto; padding:22px 22px calc(30px + env(safe-area-inset-bottom));
+    border-radius:30px 30px 46px 46px; background:var(--surface);
+    box-shadow:0 -20px 60px -20px rgba(60,45,30,.4);
+    transform:translateY(102%); transition:transform .34s cubic-bezier(.2,.8,.25,1); }
+  .sheet-back.show .sheet{ transform:translateY(0); }
+  .sheet-grip{ width:38px; height:4px; border-radius:999px; background:rgba(23,22,28,.16); margin:0 auto 18px; }
+  .sheet-hero{ display:flex; flex-direction:column; align-items:center; gap:2px; margin-bottom:6px; }
+  .sheet-ringwrap{ position:relative; width:132px; height:132px; }
+  .sheet-ringwrap svg{ transform:rotate(-90deg); }
+  .sheet-ringc{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .sheet-scorenum{ display:flex; align-items:baseline; }
+  .sheet-scorenum .n{ font-weight:700; font-size:40px; line-height:1; letter-spacing:-.04em; color:var(--ink); }
+  .sheet-scorenum .p{ font-weight:700; font-size:19px; color:var(--acc); }
+  .sheet-scorelbl{ font-size:8px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); margin-top:3px; }
+  .sheet-verdict{ font-size:22px; font-weight:600; letter-spacing:-.02em; color:var(--ink); margin-top:4px; text-align:center; }
+  .sheet-why{ font-size:11.5px; line-height:1.4; color:var(--muted2); text-align:center; max-width:270px; }
+  .sheet-legend{ display:flex; align-items:center; justify-content:center; gap:18px; margin:18px 0 14px; }
+  .sheet-legend > span{ display:flex; align-items:center; gap:6px; font-size:11px; color:var(--ink3); }
+  .sheet-legend .dot{ width:9px; height:9px; border-radius:50%; }
+  .sheet-traits{ display:flex; flex-direction:column; gap:15px; }
+  .sheet-traits:empty{ display:none; }
+  .trow{ opacity:0; transform:translateY(8px); }
+  .trow.reveal{ opacity:1; transform:none; }
+  .trow-head{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; }
+  .trow-k{ font-size:12.5px; color:var(--ink2); }
+  .trow-close{ font-size:11.5px; font-weight:600; }
+  .trow-bar{ position:relative; height:10px; }
+  .trow-track{ position:absolute; top:3px; left:0; right:0; height:4px; border-radius:999px; background:var(--track); }
+  .trow-band{ position:absolute; top:3px; height:4px; border-radius:999px; background:rgba(var(--acc-rgb),.28); }
+  .trow-dot{ position:absolute; top:-2px; width:14px; height:14px; border-radius:50%; border:2px solid var(--surface); }
+  .sheet-cta{ margin-top:24px; border:none; cursor:pointer; width:100%; padding:16px; border-radius:20px;
+    font-family:inherit; font-size:15px; font-weight:600; color:#fff; background:var(--acc);
+    box-shadow:0 14px 30px -10px rgba(var(--acc-rgb),.6); transition:transform .1s ease; }
+  .sheet-cta:active{ transform:scale(.98); }
 </style>
 </head>
 <body class="has-tab-bar">
   <div class="bg-dots" aria-hidden="true"></div>
   <div class="bg-aura one" aria-hidden="true"></div>
   <div class="bg-aura two" aria-hidden="true"></div>
+
+  <div class="scr-head">
+    <div>
+      <div class="scr-title">Sixtio</div>
+      <div class="scr-kicker" data-i18n="feed_kicker">Твоя добірка на сьогодні</div>
+    </div>
+    <div class="hbar">
+      <button class="theme-toggle" data-theme-toggle type="button"></button>
+      <button class="stars-pill" id="starsPill" type="button"><span class="sstar">⭐</span><span id="starsVal">0</span></button>
+    </div>
+  </div>
 
   <div class="mystery" id="mysteryCard" hidden>
     <div class="mystery-orb" id="mysteryOrb"><span class="q">?</span></div>
@@ -216,11 +274,6 @@
 
   <div class="deck" id="deck">
     <div class="state" id="loadingState"><span class="spin"></span></div>
-  </div>
-
-  <div class="actions" id="actions" hidden>
-    <button class="act nope" id="nopeBtn" data-i18n-aria="act_skip" aria-label="Пропустити">✕</button>
-    <button class="act like" id="likeBtn" data-i18n-aria="act_like" aria-label="Подобається">💜</button>
   </div>
 
   <div class="loot-back" id="lootBack">
@@ -243,10 +296,37 @@
     </div>
   </div>
 
-  <nav class="tab-bar">
-    <a class="tab-item active" href="matches.html"><span class="ico">💜</span><span data-i18n="tab_matches">Метчі</span></a>
-    <a class="tab-item" href="chat.html"><span class="ico">💬</span><span data-i18n="tab_chat">Чат</span></a>
-    <a class="tab-item" href="profile.html"><span class="ico">👤</span><span data-i18n="tab_profile">Профіль</span></a>
+  <div class="sheet-back" id="sheetBack">
+    <div class="sheet" id="sheetPanel" role="dialog" aria-modal="true">
+      <div class="sheet-grip"></div>
+      <div class="sheet-hero">
+        <div class="sheet-ringwrap">
+          <svg viewBox="0 0 120 120" width="132" height="132">
+            <circle cx="60" cy="60" r="52" fill="none" stroke="var(--track)" stroke-width="11"></circle>
+            <circle id="sheetRing" cx="60" cy="60" r="52" fill="none" stroke="var(--acc)" stroke-width="11" stroke-linecap="round"></circle>
+          </svg>
+          <div class="sheet-ringc">
+            <span class="sheet-scorenum"><span class="n" id="sheetScore">0</span><span class="p">%</span></span>
+            <span class="sheet-scorelbl" data-i18n="sheet_compat_label">сумісність</span>
+          </div>
+        </div>
+        <div class="sheet-verdict" id="sheetVerdict"></div>
+        <div class="sheet-why" id="sheetWhy"></div>
+      </div>
+      <div class="sheet-legend">
+        <span><span class="dot" style="background:var(--strong)"></span><span data-i18n="legend_you">Ти</span></span>
+        <span><span class="dot" style="background:var(--acc)"></span><span id="sheetName"></span></span>
+      </div>
+      <div class="sheet-traits" id="sheetTraits"></div>
+      <button class="sheet-cta" id="sheetClose" type="button" data-i18n="sheet_close">Закрити</button>
+    </div>
+  </div>
+
+  <nav class="tab-bar" aria-label="Навігація">
+    <a class="tab-item active" href="feed.html" aria-label="Стрічка"><span class="tico"><svg viewBox="0 0 24 24"><rect x="4" y="4.5" width="16" height="7" rx="2.2"/><rect x="4" y="14" width="16" height="5.5" rx="2"/></svg></span></a>
+    <a class="tab-item" href="matches.html" aria-label="Метчі"><span class="tico"><svg viewBox="0 0 24 24"><path d="M12 20.4S3.6 15.4 3.6 9.3C3.6 6.2 5.9 4.2 8.3 4.6 10 4.9 11.3 6 12 7.3 12.7 6 14 4.9 15.7 4.6c2.4-.4 4.7 1.6 4.7 4.7 0 6.1-8.4 11.1-8.4 11.1z"/></svg></span></a>
+    <a class="tab-item" href="chat.html" aria-label="Чат"><span class="tico"><svg viewBox="0 0 24 24"><path d="M20 3.5H4A1.6 1.6 0 0 0 2.4 5.1v9.6A1.6 1.6 0 0 0 4 16.3h3.2v4L11.7 16.3H20a1.6 1.6 0 0 0 1.6-1.6V5.1A1.6 1.6 0 0 0 20 3.5z"/></svg></span></a>
+    <a class="tab-item" href="profile.html" aria-label="Профіль"><span class="tico"><svg viewBox="0 0 24 24"><circle cx="12" cy="7.6" r="3.8"/><path d="M4.8 20a7.2 7.2 0 0 1 14.4 0z"/></svg></span></a>
   </nav>
 
   <script>
@@ -270,7 +350,6 @@
       } catch(e){}
 
       var deckEl = document.getElementById('deck');
-      var actionsEl = document.getElementById('actions');
       var loadingState = document.getElementById('loadingState');
 
       var deck = [];             // candidates fetched, not yet swiped
@@ -279,6 +358,9 @@
       // null = unlimited (female / premium male); a number = free male's remaining
       // right-swipes this rolling 24h. Dislikes never touch it.
       var likesLeft = null, paywallOpen = false;
+      // Deep-compatibility sheet state: this viewer's Big Five + the raf handle.
+      var viewerBig5 = null, sheetRaf = null;
+      var RING_C = 2 * Math.PI * 52;   // ring circumference (r=52), matches design
 
       function haptic(kind){
         if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred(kind); } catch(e){} }
@@ -370,6 +452,10 @@
         var inner = document.createElement('div'); inner.className = 'inner';
         inner.innerHTML = '<div class="num">' + pctVal + '<i>%</i></div><div class="lbl">' + t('match_short') + '</div>';
         badge.appendChild(inner);
+        // Tapping the ring opens the deep-compatibility sheet. Stop the pointer
+        // from reaching the card so the tap never starts a drag.
+        badge.addEventListener('pointerdown', function(e){ e.stopPropagation(); });
+        badge.addEventListener('click', function(e){ e.stopPropagation(); openSheet(c); });
         el.appendChild(badge);
 
         return el;
@@ -379,7 +465,6 @@
         deckEl.innerHTML =
           '<div class="state"><div class="emo">💜</div>' +
           '<div class="txt">' + t('feed_empty') + '</div></div>';
-        actionsEl.hidden = true;
       }
 
       function render(){
@@ -389,7 +474,6 @@
           return;
         }
         deckEl.innerHTML = '';
-        actionsEl.hidden = false;
         var top2 = deck.slice(0, 2);
         for (var i = top2.length - 1; i >= 0; i--) {   // back first, front painted last
           var el = buildCard(top2[i]);
@@ -412,6 +496,12 @@
           return (me && me.user && me.user.starsBalance) || 0;
         } catch(e){ return 0; }
       }
+      function updateStarsPill(){ var sv = document.getElementById('starsVal'); if (sv) sv.textContent = starsBalance(); }
+      updateStarsPill();
+      (function(){
+        var pill = document.getElementById('starsPill');
+        if (pill) pill.addEventListener('click', function(){ haptic('light'); openPaywall(); });
+      })();
 
       function openPaywall(){
         if (paywallOpen || !window.SixtioPaywall) return;
@@ -424,6 +514,7 @@
             premium = !!res.premium;
             // null after Premium (unlimited); 30 after a top-up pack.
             likesLeft = (typeof res.likesLeft === 'number') ? res.likesLeft : null;
+            updateStarsPill();
             render();   // repaint: Premium drops the blur immediately
           }
         });
@@ -513,19 +604,110 @@
         el.addEventListener('pointercancel', end);
       }
 
-      function swipeTop(action){
-        if (busy || !deck.length) return;
-        if (action === 'like' && !canLike()) return;   // paywall shown by canLike
-        var front = deckEl.querySelector('.is-front');
-        if (!front) return;
-        var badge = front.querySelector(action === 'like' ? '.badge.like' : '.badge.nope');
-        if (badge) badge.style.opacity = 1;
-        fly(front, action === 'like' ? 1 : -1);
-        commit(deck[0], action);
-      }
+      // Feed is swipe-only (Clarity design): like = swipe right, pass = swipe left,
+      // tap the % badge for the deep-compatibility sheet. No action buttons.
 
-      document.getElementById('likeBtn').addEventListener('click', function(){ swipeTop('like'); });
-      document.getElementById('nopeBtn').addEventListener('click', function(){ swipeTop('dislike'); });
+      // ---- deep-compatibility sheet -------------------------------------------
+      // Big Five display order + i18n label keys (canonical keys from the API).
+      var TRAIT_ORDER = [
+        { key: 'openness',          i18n: 'trait_openness' },
+        { key: 'conscientiousness', i18n: 'trait_conscientiousness' },
+        { key: 'extraversion',      i18n: 'trait_extraversion' },
+        { key: 'agreeableness',     i18n: 'trait_agreeableness' },
+        { key: 'stability',         i18n: 'trait_stability' }
+      ];
+      function clamp100(n){ return Math.max(0, Math.min(100, Math.round(Number(n) || 0))); }
+      function verdictText(v){
+        return v >= 90 ? t('verdict_exceptional')
+             : v >= 80 ? t('verdict_strong')
+             : v >= 65 ? t('verdict_good')
+             : t('verdict_base');
+      }
+      var sheetBack   = document.getElementById('sheetBack');
+      var sheetRing   = document.getElementById('sheetRing');
+      var sheetScore  = document.getElementById('sheetScore');
+      var sheetVerd   = document.getElementById('sheetVerdict');
+      var sheetWhy    = document.getElementById('sheetWhy');
+      var sheetName   = document.getElementById('sheetName');
+      var sheetTraits = document.getElementById('sheetTraits');
+
+      function reducedMotion(){
+        return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      }
+      function animateRing(target){
+        if (reducedMotion()){
+          sheetScore.textContent = Math.round(target);
+          sheetRing.setAttribute('stroke-dashoffset', (RING_C * (1 - target / 100)).toFixed(2));
+          return;
+        }
+        var dur = 950, t0 = performance.now();
+        function ease(x){ return 1 - Math.pow(1 - x, 3); }   // ease-out-cubic
+        function step(now){
+          var p = Math.min(1, (now - t0) / dur);
+          var v = target * ease(p);
+          sheetScore.textContent = Math.round(v);
+          sheetRing.setAttribute('stroke-dashoffset', (RING_C * (1 - v / 100)).toFixed(2));
+          if (p < 1) sheetRaf = requestAnimationFrame(step);
+        }
+        sheetRaf = requestAnimationFrame(step);
+      }
+      function openSheet(c){
+        if (sheetRaf) cancelAnimationFrame(sheetRaf);
+        var target = clamp100(c.compatibility || 0);
+        sheetName.textContent = c.name || '';
+        sheetVerd.textContent = verdictText(target);
+        var why = (c.tags && c.tags.length) ? c.tags.join(' · ') : '';
+        sheetWhy.textContent = why;
+        sheetWhy.style.display = why ? '' : 'none';
+
+        // ring starts empty; count up after the panel is on screen
+        sheetRing.setAttribute('stroke-dasharray', RING_C.toFixed(2));
+        sheetRing.setAttribute('stroke-dashoffset', RING_C.toFixed(2));
+        sheetScore.textContent = '0';
+
+        // paired Big Five bars — only when we have both sides' traits
+        sheetTraits.innerHTML = '';
+        var rows = [];
+        if (viewerBig5 && c.big5){
+          TRAIT_ORDER.forEach(function(tr, idx){
+            var her = clamp100(c.big5[tr.key]), mine = clamp100(viewerBig5[tr.key]);
+            var close = 100 - Math.abs(mine - her);
+            var lo = Math.min(mine, her), diff = Math.abs(mine - her);
+            var mc = close >= 85 ? '#3B9E6B' : (close >= 70 ? 'var(--acc)' : '#C98A2E');
+            var d = idx * 0.06;
+            var row = document.createElement('div');
+            row.className = 'trow';
+            row.style.transition = 'opacity .4s ease ' + d + 's, transform .4s cubic-bezier(.2,.8,.25,1) ' + d + 's';
+            row.innerHTML =
+              '<div class="trow-head"><span class="trow-k">' + t(tr.i18n) + '</span>' +
+              '<span class="trow-close" style="color:' + mc + '">' + close + '% ' + t('close_match_suffix') + '</span></div>' +
+              '<div class="trow-bar"><div class="trow-track"></div>' +
+              '<div class="trow-band" style="left:' + lo + '%; width:' + diff + '%"></div>' +
+              '<div class="trow-dot md" style="left:calc(' + mine + '% - 7px); background:var(--ink); box-shadow:0 2px 5px rgba(23,22,28,.35); opacity:0; transition:opacity .3s ease ' + (d + 0.2) + 's"></div>' +
+              '<div class="trow-dot hd" style="left:calc(' + her + '% - 7px); background:var(--acc); box-shadow:0 2px 6px rgba(var(--acc-rgb),.5); opacity:0; transition:opacity .3s ease ' + (d + 0.28) + 's"></div></div>';
+            sheetTraits.appendChild(row);
+            rows.push(row);
+          });
+        }
+
+        sheetBack.classList.add('show');
+        haptic('light');
+        requestAnimationFrame(function(){
+          rows.forEach(function(r){
+            r.classList.add('reveal');
+            var dots = r.querySelectorAll('.trow-dot');
+            if (dots[0]) dots[0].style.opacity = 1;
+            if (dots[1]) dots[1].style.opacity = 1;
+          });
+          animateRing(target);
+        });
+      }
+      function closeSheet(){
+        if (sheetRaf) cancelAnimationFrame(sheetRaf);
+        sheetBack.classList.remove('show');
+      }
+      document.getElementById('sheetClose').addEventListener('click', closeSheet);
+      sheetBack.addEventListener('click', function(e){ if (e.target === sheetBack) closeSheet(); });
 
       function maybeLoadMore(){
         if (deck.length <= 3 && hasMore && !loading) loadMore();
@@ -539,6 +721,7 @@
           if (!res.registered) { window.location.replace('onboarding.html'); return; }
           premium = !!res.premium;
           likesLeft = (typeof res.likesLeft === 'number') ? res.likesLeft : null;
+          if (res.viewerBig5) viewerBig5 = res.viewerBig5;   // for the sheet's paired bars
           // Mystery Match rides only on the first page's payload.
           if (reqOffset === 0) renderMystery(res.mysteryMatch);
           // Male out of likes on load — pop the luck boxes before they even drag.
@@ -577,6 +760,7 @@
           var me = JSON.parse(localStorage.getItem('sixtio_me') || 'null');
           if (me && me.user) { me.user.starsBalance = bal; localStorage.setItem('sixtio_me', JSON.stringify(me)); }
         } catch(e){}
+        updateStarsPill();
       }
 
       function renderMystery(m){

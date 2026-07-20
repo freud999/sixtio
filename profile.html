@@ -42,10 +42,11 @@
     border-radius:999px; color:var(--acc); background:rgba(var(--acc-rgb),.1);
     border:1px solid rgba(var(--acc-rgb),.2); }
 
-  /* Persistent Stars wallet — Clarity star pill, pinned top-right, tappable → shop. */
-  .stars-badge{ position:fixed; z-index:6;
+  /* Top-right actions: sun/moon theme toggle + Stars wallet pill (design top-bar). */
+  .top-actions{ position:fixed; z-index:6;
     top:calc(env(safe-area-inset-top) + 12px); right:14px;
-    display:inline-flex; align-items:center; gap:6px; padding:8px 13px;
+    display:flex; align-items:center; gap:8px; }
+  .stars-badge{ display:inline-flex; align-items:center; gap:6px; padding:8px 13px;
     border-radius:16px; text-decoration:none; color:var(--star-ink);
     font-size:13px; font-weight:700; letter-spacing:.01em;
     background:var(--star-bg); border:1px solid var(--star-border);
@@ -237,13 +238,16 @@
   <div class="bg-aura one" aria-hidden="true"></div>
   <div class="bg-aura two" aria-hidden="true"></div>
 
-  <a class="stars-badge" id="starsBadge" href="#shop" data-i18n-aria="aria_shop" aria-label="Магазин Stars">
-    <span class="sb-star" aria-hidden="true">⭐️</span><b id="starsBalance">0</b>
-  </a>
+  <div class="top-actions">
+    <button class="theme-toggle" data-theme-toggle type="button"></button>
+    <a class="stars-badge" id="starsBadge" href="#shop" data-i18n-aria="aria_shop" aria-label="Магазин Stars">
+      <span class="sb-star" aria-hidden="true">⭐️</span><b id="starsBalance">0</b>
+    </a>
+  </div>
 
 
   <div class="profile-head">
-    <button class="edit-gear" id="editBtn" data-i18n-aria="aria_edit" aria-label="Редагувати анкету">⚙️</button>
+    <button class="edit-gear" id="editBtn" data-i18n-aria="aria_settings" aria-label="Налаштування">⚙️</button>
     <button class="ava-btn" id="avaBtn" data-i18n-aria="aria_photo" aria-label="Змінити фото">
       <img class="story-avatar" id="avatar" data-i18n-alt="alt_profile_photo" alt="Фото профілю" hidden />
       <div class="story-avatar-ph" id="avatarPlaceholder">🙂</div>
@@ -400,10 +404,11 @@
 
   <input type="file" id="photoInput" accept="image/*" hidden />
 
-  <nav class="tab-bar">
-    <a class="tab-item" href="matches.html"><span class="ico">💜</span><span data-i18n="tab_matches">Метчі</span></a>
-    <a class="tab-item" href="chat.html"><span class="ico">💬</span><span data-i18n="tab_chat">Чат</span></a>
-    <a class="tab-item active" href="profile.html"><span class="ico">👤</span><span data-i18n="tab_profile">Профіль</span></a>
+  <nav class="tab-bar" aria-label="Навігація">
+    <a class="tab-item" href="feed.html" aria-label="Стрічка"><span class="tico"><svg viewBox="0 0 24 24"><rect x="4" y="4.5" width="16" height="7" rx="2.2"/><rect x="4" y="14" width="16" height="5.5" rx="2"/></svg></span></a>
+    <a class="tab-item" href="matches.html" aria-label="Метчі"><span class="tico"><svg viewBox="0 0 24 24"><path d="M12 20.4S3.6 15.4 3.6 9.3C3.6 6.2 5.9 4.2 8.3 4.6 10 4.9 11.3 6 12 7.3 12.7 6 14 4.9 15.7 4.6c2.4-.4 4.7 1.6 4.7 4.7 0 6.1-8.4 11.1-8.4 11.1z"/></svg></span></a>
+    <a class="tab-item" href="chat.html" aria-label="Чат"><span class="tico"><svg viewBox="0 0 24 24"><path d="M20 3.5H4A1.6 1.6 0 0 0 2.4 5.1v9.6A1.6 1.6 0 0 0 4 16.3h3.2v4L11.7 16.3H20a1.6 1.6 0 0 0 1.6-1.6V5.1A1.6 1.6 0 0 0 20 3.5z"/></svg></span></a>
+    <a class="tab-item active" href="profile.html" aria-label="Профіль"><span class="tico"><svg viewBox="0 0 24 24"><circle cx="12" cy="7.6" r="3.8"/><path d="M4.8 20a7.2 7.2 0 0 1 14.4 0z"/></svg></span></a>
   </nav>
 
   <script>
@@ -434,6 +439,8 @@
       var initData = (tg && tg.initData) || '';
       var current = null; // last known user fields
       var referralLink = ''; // this user's shareable invite link
+      // Deep-link from Settings → open the edit form once profile data is ready.
+      var wantEdit = /[?&]edit=1(?:&|$)/.test(window.location.search);
 
       function api(path, payload){
         return fetch(path, {
@@ -510,6 +517,13 @@
         current = u;
 
         if (u.gender && window.SixtioTheme) window.SixtioTheme.setGender(u.gender);
+
+        // Honor a ?edit=1 deep-link from Settings (once, after data is present).
+        if (wantEdit) {
+          wantEdit = false;
+          try { history.replaceState(null, '', 'profile.html'); } catch(e){}
+          openEditForm();
+        }
 
         if (u.photoUrl) {
           var avatar = document.getElementById('avatar');
@@ -687,7 +701,9 @@
       var editSection = document.getElementById('editSection');
       var saveNote = document.getElementById('saveNote');
 
-      document.getElementById('editBtn').addEventListener('click', function(){
+      // The gear opens Settings (Clarity design); profile editing is reached from
+      // there via "Редагувати профіль" (settings.html → profile.html?edit=1).
+      function openEditForm(){
         if (!current) return;
         document.getElementById('fSeeking').value = current.seekingGender || 'any';
         document.getElementById('fGoal').value = current.goal || 'situational';
@@ -710,6 +726,12 @@
         saveNote.textContent = '';
         editSection.hidden = false;
         editSection.scrollIntoView({ behavior: 'smooth' });
+      }
+
+      // Gear → full Settings screen.
+      document.getElementById('editBtn').addEventListener('click', function(){
+        if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('light'); } catch(e){} }
+        window.location.href = 'settings.html';
       });
 
       document.getElementById('cancelBtn').addEventListener('click', function(){

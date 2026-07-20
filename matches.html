@@ -94,6 +94,10 @@
       <div class="scr-title" data-i18n="tab_matches">Метчі</div>
       <div class="scr-sub" id="matchCount" data-i18n="matches_sub">Твої збіги</div>
     </div>
+    <div class="hbar">
+      <button class="theme-toggle" data-theme-toggle type="button"></button>
+      <button class="stars-pill" id="starsPill" type="button"><span class="sstar">⭐</span><span id="starsVal">0</span></button>
+    </div>
   </div>
 
   <button class="btn-primary find-btn" id="findBtn" data-i18n="find_btn">🔍 Знайти пару зараз</button>
@@ -108,10 +112,11 @@
 
   <div class="match-list" id="matchList"></div>
 
-  <nav class="tab-bar">
-    <a class="tab-item active" href="matches.html"><span class="ico">💜</span><span data-i18n="tab_matches">Метчі</span></a>
-    <a class="tab-item" href="chat.html"><span class="ico">💬</span><span data-i18n="tab_chat">Чат</span></a>
-    <a class="tab-item" href="profile.html"><span class="ico">👤</span><span data-i18n="tab_profile">Профіль</span></a>
+  <nav class="tab-bar" aria-label="Навігація">
+    <a class="tab-item" href="feed.html" aria-label="Стрічка"><span class="tico"><svg viewBox="0 0 24 24"><rect x="4" y="4.5" width="16" height="7" rx="2.2"/><rect x="4" y="14" width="16" height="5.5" rx="2"/></svg></span></a>
+    <a class="tab-item active" href="matches.html" aria-label="Метчі"><span class="tico"><svg viewBox="0 0 24 24"><path d="M12 20.4S3.6 15.4 3.6 9.3C3.6 6.2 5.9 4.2 8.3 4.6 10 4.9 11.3 6 12 7.3 12.7 6 14 4.9 15.7 4.6c2.4-.4 4.7 1.6 4.7 4.7 0 6.1-8.4 11.1-8.4 11.1z"/></svg></span></a>
+    <a class="tab-item" href="chat.html" aria-label="Чат"><span class="tico"><svg viewBox="0 0 24 24"><path d="M20 3.5H4A1.6 1.6 0 0 0 2.4 5.1v9.6A1.6 1.6 0 0 0 4 16.3h3.2v4L11.7 16.3H20a1.6 1.6 0 0 0 1.6-1.6V5.1A1.6 1.6 0 0 0 20 3.5z"/></svg></span></a>
+    <a class="tab-item" href="profile.html" aria-label="Профіль"><span class="tico"><svg viewBox="0 0 24 24"><circle cx="12" cy="7.6" r="3.8"/><path d="M4.8 20a7.2 7.2 0 0 1 14.4 0z"/></svg></span></a>
   </nav>
 
   <script>
@@ -221,6 +226,7 @@
           window.SixtioTheme.setGender(me.user.gender);
         }
         if (me.user && typeof me.user.starsBalance === 'number') starsBal = me.user.starsBalance;
+        var sv = document.getElementById('starsVal'); if (sv) sv.textContent = starsBal;
         var matches = me.matches || [];
         listEl.innerHTML = '';
         // "Find match" is always available (unlimited matches).
@@ -251,6 +257,16 @@
       findBtn.addEventListener('click', function(){
         if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('medium'); } catch(e){} }
         window.location.href = 'feed.html';
+      });
+
+      // Header Stars pill → open the Stars shop.
+      var starsPill = document.getElementById('starsPill');
+      if (starsPill) starsPill.addEventListener('click', function(){
+        if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('light'); } catch(e){} }
+        if (window.SixtioPaywall) window.SixtioPaywall.open({
+          initData: initData, starsBalance: starsBal,
+          onSuccess: function(){ window.location.reload(); }
+        });
       });
 
       load().catch(function(){ /* offline — cache already shown */ });

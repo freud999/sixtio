@@ -30,6 +30,25 @@ const normInterests = (arr) => new Set(
 const MYSTERY_MIN_SCORE = 80;
 const MYSTERY_REFRESH_MS = 24 * 60 * 60 * 1000;
 
+// Columns holding the stored Big Five (0..100) on the `profiles` row.
+const TRAIT_COLS = 'user_id, trait_openness, trait_conscientiousness, trait_extraversion, trait_agreeableness, trait_neuroticism';
+const clamp100 = (n) => Math.max(0, Math.min(100, Math.round(Number(n) || 0)));
+// Read-only surfacing of the ALREADY-computed personality scores for the deep-
+// compatibility sheet (feed.html). This does NOT feed the matching algorithm —
+// `calculate_compatibility` remains the sole ranker. Returns canonical keys the
+// client localizes; "stability" is the inverse of neuroticism. null when the
+// profile has no analysed traits yet (unscored → sheet hides the trait bars).
+function big5FromTraits(p) {
+  if (!p || p.trait_openness == null) return null;
+  return {
+    openness: clamp100(p.trait_openness),
+    conscientiousness: clamp100(p.trait_conscientiousness),
+    extraversion: clamp100(p.trait_extraversion),
+    agreeableness: clamp100(p.trait_agreeableness),
+    stability: 100 - clamp100(p.trait_neuroticism),
+  };
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -188,6 +207,23 @@ export default async function handler(req, res) {
     const size = Math.min(50, Math.max(1, parseInt(limit, 10) || DEFAULT_LIMIT));
     const page = ranked.slice(start, start + size);
 
+    // Big Five for the deep-compatibility sheet: batch-load the paged candidates'
+    // stored traits (+ this viewer's) in ONE query and attach them read-only.
+    // Never blocks the feed — on any error cards simply carry no `big5`.
+    let viewerBig5 = null;
+    try {
+      const ids = page.map((c) => c.userId);
+      const { data: profRows } = await supabase
+        .from('profiles')
+        .select(TRAIT_COLS)
+        .in('user_id', ids.concat(me.id));
+      const byId = new Map((profRows || []).map((p) => [p.user_id, p]));
+      viewerBig5 = big5FromTraits(byId.get(me.id));
+      for (const card of page) card.big5 = big5FromTraits(byId.get(card.userId));
+    } catch (traitErr) {
+      console.error('big5 surface failed:', traitErr.message);
+    }
+
     // Mystery Match is a once-per-load concern: only compute (and possibly
     // refresh) it on the first page so paginated scroll stays a pure read.
     let mysteryMatch = null;
@@ -209,6 +245,8 @@ export default async function handler(req, res) {
       rateLimited: ent.rateLimited,
       candidates: page,
       hasMore: start + size < ranked.length,
+      // This viewer's own Big Five (canonical keys), for the sheet's paired bars.
+      viewerBig5,
       // Anonymized-until-unlocked daily tease (null when no match clears the floor).
       mysteryMatch,
     });

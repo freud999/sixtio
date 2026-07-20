@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Sixtio — налаштування</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="i18n.js?v=36"></script>
+<script src="theme.js?v=36"></script>
+<link rel="stylesheet" href="theme.css?v=36" />
+<style>
+  body{
+    display:flex; flex-direction:column; align-items:center;
+    padding:calc(env(safe-area-inset-top) + 14px) 16px 24px;
+    overflow-y:auto; gap:0;
+  }
+  body > *{ position:relative; z-index:1; }
+  .bg-dots, .bg-aura{ z-index:0; }
+
+  .set-wrap{ width:100%; max-width:460px; }
+
+  /* header */
+  .set-head{ display:flex; align-items:center; gap:12px; margin-bottom:6px; }
+  .set-back{ width:40px; height:40px; flex:none; border-radius:14px; border:1px solid var(--hair2);
+    background:var(--surface); cursor:pointer; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 4px 14px -8px rgba(60,45,30,.5); transition:transform .12s ease; color:var(--ink2); }
+  .set-back:active{ transform:scale(.9); }
+  .set-title{ font-size:26px; font-weight:600; letter-spacing:-.02em; color:var(--ink); }
+
+  /* sections */
+  .set-label{ font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin:24px 6px 4px; }
+  .set-group{ margin-top:8px; border-radius:22px; background:var(--surface); overflow:hidden;
+    box-shadow:0 14px 34px -20px rgba(60,45,30,.4); }
+  .set-row{ display:flex; align-items:center; gap:13px; padding:15px 16px; border-top:1px solid var(--track);
+    width:100%; box-sizing:border-box; background:none; font-family:inherit; text-align:left; }
+  .set-group > .set-row:first-child{ border-top:none; }
+  button.set-row{ border-left:none; border-right:none; border-bottom:none; cursor:pointer; }
+  button.set-row:active{ opacity:.6; }
+  .set-row .lbl{ flex:1; font-size:14.5px; color:var(--ink); }
+  .set-row .lbl .sub{ display:block; font-size:11.5px; color:var(--muted2); margin-top:2px; }
+  .set-row .val{ font-size:13.5px; color:var(--muted); margin-right:2px; }
+  .set-row .chev{ flex:none; color:var(--faint); display:flex; }
+  .set-ok{ display:inline-flex; align-items:center; gap:6px; font-size:12.5px; font-weight:600; color:#3B9E6B; }
+  .set-ok .dot{ width:7px; height:7px; border-radius:50%; background:#3B9E6B; }
+
+  /* iOS-style switch (50×30 track, 24px knob) */
+  .sw{ width:50px; height:30px; flex:none; border-radius:999px; border:none; cursor:pointer; position:relative;
+    padding:0; background:var(--track); box-shadow:inset 0 1px 3px rgba(0,0,0,.12); transition:background .25s; }
+  .sw.on{ background:var(--acc-grad); box-shadow:0 6px 16px -7px rgba(var(--acc-rgb),.55); }
+  .sw.inc.on{ background:linear-gradient(90deg,#FF5A2C,#FF8A5C); }
+  .sw .knob{ position:absolute; top:3px; left:3px; width:24px; height:24px; border-radius:50%;
+    background:#fff; box-shadow:0 2px 6px rgba(0,0,0,.25); transition:left .28s cubic-bezier(.34,1.4,.5,1); }
+  .sw.on .knob{ left:23px; }
+
+  /* footer actions */
+  .set-logout{ margin-top:24px; width:100%; padding:15px; border-radius:18px; border:1px solid var(--hair2);
+    background:var(--surface); cursor:pointer; display:flex; align-items:center; justify-content:center; gap:9px;
+    font-family:inherit; font-size:14.5px; font-weight:600; color:var(--ink2);
+    box-shadow:0 10px 26px -18px rgba(60,45,30,.4); transition:transform .12s ease; }
+  .set-logout:active{ transform:scale(.98); }
+  .set-delete{ margin-top:10px; width:100%; padding:15px; border-radius:18px; border:none; background:none;
+    cursor:pointer; display:flex; align-items:center; justify-content:center; gap:9px;
+    font-family:inherit; font-size:13.5px; font-weight:600; color:#E5472B; transition:transform .12s ease; }
+  .set-delete:active{ transform:scale(.98); }
+  .set-ver{ text-align:center; margin-top:18px; font-size:11px; color:var(--faint); }
+</style>
+</head>
+<body>
+  <div class="bg-dots" aria-hidden="true"></div>
+  <div class="bg-aura one" aria-hidden="true"></div>
+  <div class="bg-aura two" aria-hidden="true"></div>
+
+  <div class="set-wrap">
+    <div class="set-head">
+      <button class="set-back" id="backBtn" type="button" data-i18n-aria="aria_back" aria-label="Назад">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+      </button>
+      <span class="set-title" data-i18n="settings_title">Налаштування</span>
+    </div>
+
+    <!-- Акаунт -->
+    <div class="set-label" data-i18n="set_sec_account">Акаунт</div>
+    <div class="set-group">
+      <button class="set-row" id="editProfileRow" type="button">
+        <span class="lbl" data-i18n="set_edit_profile">Редагувати профіль</span>
+        <span class="chev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>
+      </button>
+      <div class="set-row">
+        <span class="lbl" data-i18n="set_verification">Верифікація</span>
+        <span class="set-ok"><span class="dot"></span><span data-i18n="set_verif_val">Telegram</span></span>
+      </div>
+    </div>
+
+    <!-- Показ у стрічці -->
+    <div class="set-label" data-i18n="set_sec_feed">Показ у стрічці</div>
+    <div class="set-group">
+      <div class="set-row">
+        <span class="lbl"><span data-i18n="set_show_me">Показувати мене</span><span class="sub" data-i18n="set_show_me_sub">Твій профіль бачитимуть інші</span></span>
+        <button class="sw" id="swShow" type="button" role="switch" aria-label="Показувати мене"><span class="knob"></span></button>
+      </div>
+      <div class="set-row">
+        <span class="lbl" data-i18n="set_age_range">Вікові межі</span>
+        <span class="val" data-i18n="set_age_range_val">±10 років</span>
+      </div>
+      <div class="set-row">
+        <span class="lbl" data-i18n="set_distance">Максимальна відстань</span>
+        <span class="val" data-i18n="set_distance_val">Без обмежень</span>
+      </div>
+    </div>
+
+    <!-- Приватність -->
+    <div class="set-label" data-i18n="set_sec_privacy">Приватність</div>
+    <div class="set-group">
+      <div class="set-row">
+        <span class="lbl"><span data-i18n="set_incognito">Режим інкогніто</span><span class="sub" data-i18n="set_incognito_sub">Тебе бачать лише ті, кого ти вподобав</span></span>
+        <button class="sw inc" id="swInc" type="button" role="switch" aria-label="Режим інкогніто"><span class="knob"></span></button>
+      </div>
+      <div class="set-row">
+        <span class="lbl" data-i18n="set_read_receipts">Позначки прочитання</span>
+        <button class="sw" id="swRead" type="button" role="switch" aria-label="Позначки прочитання"><span class="knob"></span></button>
+      </div>
+      <div class="set-row">
+        <span class="lbl" data-i18n="set_blocked">Заблоковані</span>
+        <span class="val" id="blockedCount">0</span>
+      </div>
+    </div>
+
+    <!-- Сповіщення -->
+    <div class="set-label" data-i18n="set_sec_notif">Сповіщення</div>
+    <div class="set-group">
+      <div class="set-row">
+        <span class="lbl" data-i18n="set_notif_match">Нові метчі</span>
+        <button class="sw" id="swMatch" type="button" role="switch" aria-label="Нові метчі"><span class="knob"></span></button>
+      </div>
+      <div class="set-row">
+        <span class="lbl" data-i18n="set_notif_msg">Повідомлення</span>
+        <button class="sw" id="swMsg" type="button" role="switch" aria-label="Повідомлення"><span class="knob"></span></button>
+      </div>
+    </div>
+
+    <!-- Вигляд -->
+    <div class="set-label" data-i18n="set_sec_appearance">Вигляд</div>
+    <div class="set-group">
+      <div class="set-row">
+        <span class="lbl" data-i18n="set_dark_theme">Темна тема</span>
+        <button class="sw" id="swTheme" type="button" role="switch" aria-label="Темна тема"><span class="knob"></span></button>
+      </div>
+    </div>
+
+    <button class="set-logout" id="logoutBtn" type="button">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h3.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H15"/><path d="M10 12h9M16 8l4 4-4 4"/></svg>
+      <span data-i18n="set_logout">Вийти з акаунта</span>
+    </button>
+    <button class="set-delete" id="deleteBtn" type="button">
+      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 5v2M6 7l1 13a1.5 1.5 0 0 0 1.5 1.4h7a1.5 1.5 0 0 0 1.5-1.4L18 7"/></svg>
+      <span data-i18n="delete_account">Видалити акаунт</span>
+    </button>
+    <div class="set-ver" id="verLine"></div>
+  </div>
+
+  <script>
+    (function(){
+      var tg = window.Telegram && window.Telegram.WebApp;
+      if (tg) {
+        tg.ready(); tg.expand();
+        try { tg.setHeaderColor && tg.setHeaderColor('bg_color'); } catch(e){}
+      }
+      var initData = (tg && tg.initData) || '';
+      var t = SixtioI18n.t;
+      var APP_VERSION = '1.0.4';
+
+      // Gender tint + blocked count from the cached profile.
+      var cachedMe = null;
+      try { cachedMe = JSON.parse(localStorage.getItem('sixtio_me') || 'null'); } catch(e){}
+      if (cachedMe && cachedMe.user && cachedMe.user.gender && window.SixtioTheme) {
+        window.SixtioTheme.setGender(cachedMe.user.gender);
+      }
+      var blocked = (cachedMe && cachedMe.user && cachedMe.user.blockedUsers) ||
+                    (cachedMe && cachedMe.user && cachedMe.user.blocked_users) || [];
+      document.getElementById('blockedCount').textContent = Array.isArray(blocked) ? blocked.length : 0;
+
+      var verLine = document.getElementById('verLine');
+      if (verLine) verLine.textContent = t('set_version', { v: APP_VERSION });
+
+      function haptic(kind){
+        if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred(kind); } catch(e){} }
+      }
+      function api(path, payload){
+        return fetch(path, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(Object.assign({ initData: initData }, payload))
+        }).then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+      }
+
+      // ---- back + edit profile ----
+      document.getElementById('backBtn').addEventListener('click', function(){
+        haptic('light'); window.location.href = 'profile.html';
+      });
+      document.getElementById('editProfileRow').addEventListener('click', function(){
+        haptic('light'); window.location.href = 'profile.html?edit=1';
+      });
+
+      // ---- local visual preferences (no backend field — persisted client-side) ----
+      var SET = {};
+      try { SET = JSON.parse(localStorage.getItem('sixtio_settings') || '{}') || {}; } catch(e){ SET = {}; }
+      function def(k, d){ if (typeof SET[k] !== 'boolean') SET[k] = d; }
+      def('showMe', true); def('incognito', false); def('readReceipts', true);
+      def('notifMatch', true); def('notifMsg', true);
+      function saveSet(){ try { localStorage.setItem('sixtio_settings', JSON.stringify(SET)); } catch(e){} }
+
+      function bindSwitch(id, key){
+        var el = document.getElementById(id);
+        if (!el) return;
+        function paint(){ el.classList.toggle('on', !!SET[key]); el.setAttribute('aria-checked', SET[key] ? 'true' : 'false'); }
+        paint();
+        el.addEventListener('click', function(){ SET[key] = !SET[key]; saveSet(); paint(); haptic('light'); });
+      }
+      bindSwitch('swShow', 'showMe');
+      bindSwitch('swInc', 'incognito');
+      bindSwitch('swRead', 'readReceipts');
+      bindSwitch('swMatch', 'notifMatch');
+      bindSwitch('swMsg', 'notifMsg');
+
+      // ---- theme switch (wired to the real, persisted theme) ----
+      var swTheme = document.getElementById('swTheme');
+      function paintTheme(){
+        var dark = window.SixtioTheme && window.SixtioTheme.get && window.SixtioTheme.get() === 'dark';
+        swTheme.classList.toggle('on', !!dark);
+        swTheme.setAttribute('aria-checked', dark ? 'true' : 'false');
+      }
+      paintTheme();
+      swTheme.addEventListener('click', function(){
+        haptic('light');
+        if (window.SixtioTheme) window.SixtioTheme.toggle();
+        paintTheme();
+      });
+      window.addEventListener('sixtio:themechange', paintTheme);
+
+      // ---- logout (closes the Mini App) ----
+      document.getElementById('logoutBtn').addEventListener('click', function(){
+        haptic('light');
+        if (tg && tg.close) tg.close();
+        else window.location.href = 'index.html';
+      });
+
+      // ---- delete account (double confirm, same flow as profile) ----
+      function doDelete(){
+        api('/api/delete-account', {}).then(function(){
+          try { localStorage.clear(); } catch(e){}
+          if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.notificationOccurred('success'); } catch(e){} }
+          window.location.replace('index.html');
+        }).catch(function(){
+          if (tg && tg.showAlert) tg.showAlert(t('delete_fail'));
+        });
+      }
+      document.getElementById('deleteBtn').addEventListener('click', function(){
+        var bal = (cachedMe && cachedMe.user && cachedMe.user.starsBalance) || 0;
+        var msg = t('delete_confirm', { bal: bal });
+        if (tg && tg.showConfirm) tg.showConfirm(msg, function(ok){ if (ok) doDelete(); });
+        else if (window.confirm(msg)) doDelete();
+      });
+    })();
+  </script>
+</body>
+</html>
