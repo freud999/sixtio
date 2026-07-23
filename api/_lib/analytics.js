@@ -1,6 +1,7 @@
 import { getSupabase } from './supabase.js';
 import { callBot, botLang } from './bot.js';
 import { handleUserCommand, handleUserCallback } from './commands.js';
+import { captureStartSource, sourceStats } from './sources.js';
 
 // --- /start welcome (Task 28) ---------------------------------------------
 // The webhook used to ignore /start entirely, so users saw only BotFather's
@@ -47,12 +48,62 @@ async function sendStartWelcome(msg) {
   }
 }
 
+// --- /stats_sources: per-source acquisition funnel (admin only) --------------
+// Plain-text table (wrapped in <pre> for monospace alignment in Telegram) of
+// clicks -> registrations -> key action per acquisition source.
+async function sendSourceStats(chatId) {
+  let rows;
+  try {
+    rows = await sourceStats();
+  } catch (e) {
+    console.error('sourceStats failed:', e.message);
+    await callBot('sendMessage', { chat_id: chatId, text: '⚠️ stats_sources failed: ' + e.message })
+      .catch(() => {});
+    return;
+  }
+  if (!rows.length) {
+    await callBot('sendMessage', { chat_id: chatId, text: '📊 No source data yet.' }).catch(() => {});
+    return;
+  }
+
+  const cell = (v, w, right) => {
+    const s = String(v);
+    return right ? s.padStart(w) : s.slice(0, w).padEnd(w);
+  };
+  const header =
+    cell('source', 14) + cell('clk', 5, true) + cell('reg', 5, true) +
+    cell('7d', 4, true) + cell('30d', 5, true) + cell('key', 5, true) + cell('cvr', 6, true);
+  const lines = rows.map((r) => {
+    const cvr = r.completionRate == null ? '—' : Math.round(r.completionRate * 100) + '%';
+    return cell(r.source == null ? '(none)' : r.source, 14) +
+      cell(r.clicks, 5, true) + cell(r.registrations, 5, true) +
+      cell(r.reg7d, 4, true) + cell(r.reg30d, 5, true) +
+      cell(r.keyAction, 5, true) + cell(cvr, 6, true);
+  });
+  // Escape only the dynamic table body; the labels are static & safe.
+  const body = [header, ...lines].join('\n').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const text = '📊 <b>Acquisition sources</b>\n' +
+    '<i>clk=clicks · reg=registrations · key=match|paid · cvr=reg/clicks</i>\n' +
+    '<pre>' + body + '</pre>';
+  await callBot('sendMessage', { chat_id: chatId, text, parse_mode: 'HTML' }).catch((e) =>
+    console.error('sendSourceStats send failed:', e.message));
+}
+
 // Owner-only executive analytics (Task 11). The Telegram webhook is pointed at
 // /api/chat; chat.js forwards raw updates here when they carry `update_id`. Only
 // OWNER_TELEGRAM_ID may use /stats; every other update is silently ignored (the
 // bot exposes no other commands). Kept in _lib so it adds no Vercel function.
 const OWNER_TELEGRAM_ID = Number(process.env.OWNER_TELEGRAM_ID || 0);
 const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET || '';
+
+// Admins allowed to run /stats_sources: a comma-separated ADMIN_TELEGRAM_IDS env,
+// unioned with the existing single OWNER_TELEGRAM_ID (so the owner always counts).
+const ADMIN_TELEGRAM_IDS = new Set(
+  String(process.env.ADMIN_TELEGRAM_IDS || '')
+    .split(',').map((s) => Number(s.trim())).filter((n) => Number.isInteger(n) && n > 0)
+);
+if (OWNER_TELEGRAM_ID) ADMIN_TELEGRAM_IDS.add(OWNER_TELEGRAM_ID);
+function isAdmin(from) { return !!from && ADMIN_TELEGRAM_IDS.has(Number(from.id)); }
 
 const PERIODS = {
   '24h': { label: '🕐 Останні 24 години', ms: 24 * 60 * 60 * 1000 },
@@ -118,9 +169,23 @@ export async function handleTelegramUpdate(req, res, update) {
       return res.status(200).json({ ok: true });
     }
 
+    // Admin-only acquisition-source funnel (migration 029). Checked before the
+    // generic /start branch so "/stats_sources" is never treated as a /start.
+    if (msg && typeof msg.text === 'string' && msg.text.trim().split(/\s+/)[0].split('@')[0] === '/stats_sources') {
+      if (isAdmin(msg.from)) {
+        await sendSourceStats(msg.chat.id);
+      } else {
+        console.log('stats_sources but not admin:', msg.from && msg.from.id);
+      }
+      return res.status(200).json({ ok: true });   // non-admin: silently ignore
+    }
+
     // Open to every user (not owner-gated). Handles bare /start and payloads
-    // like "/start ref_123" (referral deep-links use ?startapp=, but be lenient).
-    if (msg && typeof msg.text === 'string' && msg.text.trim().split(/\s+/)[0] === '/start') {
+    // like "/start tgads1" (acquisition source, captured best-effort below).
+    if (msg && typeof msg.text === 'string' && msg.text.trim().split(/\s+/)[0].split('@')[0] === '/start') {
+      // Capture acquisition source BEFORE the welcome (best-effort, never blocks).
+      await captureStartSource(msg.from && msg.from.id, msg.text)
+        .catch((e) => console.error('captureStartSource:', e.message));
       await sendStartWelcome(msg);
       return res.status(200).json({ ok: true });
     }

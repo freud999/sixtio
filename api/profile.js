@@ -4,6 +4,7 @@ import { generateProfile } from './_lib/claude.js';
 import { questionLabel } from './_lib/questions.js';
 import { runMatching } from './_lib/matching.js';
 import { captureReferral } from './_lib/referrals.js';
+import { applySourceOnRegistration } from './_lib/sources.js';
 import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
 
 export default async function handler(req, res) {
@@ -68,6 +69,15 @@ export default async function handler(req, res) {
       await captureReferral(userId, getStartParam(initData));
     } catch (refError) {
       console.error('referral capture failed:', refError.message);
+    }
+
+    // Acquisition-source attribution (migration 029): copy the pending /start
+    // source (or a non-referral ?startapp= param) onto users.source, once, on
+    // first registration. Never overwrites; must never fail the profile response.
+    try {
+      await applySourceOnRegistration(userId, tgUser.id, getStartParam(initData));
+    } catch (srcError) {
+      console.error('source attribution failed:', srcError.message);
     }
 
     // Instant matchmaking: try to pair this user right after their profile is ready.
