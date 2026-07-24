@@ -117,6 +117,46 @@ export function sourceLang(stored, fallbackLang) {
 }
 
 /**
+ * The AI report (migration 035) in the reader's language.
+ *
+ * Same contract as the Twin: written once in the buyer's language, translated
+ * on demand, cached per language so it costs one call ever. Its own function
+ * rather than another `items` shape because a report is always exactly one row
+ * belonging to the reader — there is no batch to amortise, and folding it into
+ * localizeProfiles would mean threading a third field kind through every branch
+ * for a single caller.
+ *
+ * `report` is an ai_reports row. Returns the sections array, always — on any
+ * failure the originals come back, because a report in the wrong language is
+ * still the thing the user paid for.
+ */
+export async function localizeReport(report, lang, fallbackLang) {
+  const sections = Array.isArray(report && report.sections) ? report.sections : [];
+  if (!sections.length) return sections;
+
+  const src = sourceLang(report.lang, fallbackLang);
+  if (src === lang) return sections;
+
+  const cached = (report.i18n || {})[lang];
+  const applyCache = (c) => sections.map((s) => ({ key: s.key, body: c[s.key] || s.body }));
+  if (cached) return applyCache(cached);
+
+  const bundle = {};
+  for (const s of sections) if (s.body) bundle[s.key] = s.body;
+  const translated = await translateBundle(bundle, lang);
+  if (!Object.keys(translated).length) return sections;
+
+  try {
+    await getSupabase()
+      .from('ai_reports')
+      .update({ i18n: { ...(report.i18n || {}), [lang]: translated }, lang: src })
+      .eq('user_id', report.user_id);
+  } catch (e) { console.error('report i18n cache write failed:', e.message); }
+
+  return applyCache(translated);
+}
+
+/**
  * Localizes many profiles at once.
  *
  * `items` is [{ profile, user, key }] where `profile` is a profiles row (may be

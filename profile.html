@@ -6,10 +6,10 @@
 <title>Sixtio — мій профіль</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="i18n.js?v=40"></script>
-<script src="theme.js?v=40"></script>
-<script src="paywall.js?v=40"></script>
-<link rel="stylesheet" href="theme.css?v=40" />
+<script src="i18n.js?v=41"></script>
+<script src="theme.js?v=41"></script>
+<script src="paywall.js?v=41"></script>
+<link rel="stylesheet" href="theme.css?v=41" />
 <style>
   body{
     display:flex; flex-direction:column; align-items:center;
@@ -157,6 +157,64 @@
     background:var(--bg); outline:none; resize:none; min-height:72px; line-height:1.5; }
   .depth-submit{ width:100%; margin-top:12px; }
   .depth-note{ font-size:12.5px; color:var(--hint); text-align:center; min-height:16px; margin-top:10px; }
+
+  /* AI-звіт entry row — same menu-row grammar as the depth row, with a mark
+     instead of a ring because there is no progress to show, only a door. */
+  .rp-orb{ width:46px; height:46px; flex:none; border-radius:50%; display:flex;
+    align-items:center; justify-content:center; font-size:20px; color:#fff;
+    background:linear-gradient(140deg, var(--acc), var(--acc2, var(--acc)));
+    box-shadow:0 10px 24px -12px var(--acc); }
+
+  /* Report sheet — the app's own surface, deliberately NOT the coral 18+ sheet:
+     this is a psychological read, not the intimate layer, and reusing that skin
+     would imply a relationship between them that does not exist. */
+  .rp-overlay{ position:fixed; inset:0; z-index:1100; display:flex; flex-direction:column;
+    align-items:center; justify-content:flex-end; background:rgba(20,16,12,.5);
+    -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); opacity:0;
+    transition:opacity .22s ease; padding:16px;
+    padding-bottom:calc(env(safe-area-inset-bottom) + 16px);
+    overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  .rp-overlay.show{ opacity:1; }
+  .rp-sheet{ width:100%; max-width:440px; border-radius:26px; padding:22px 20px 20px;
+    margin-top:auto; position:relative; background:var(--surface); color:var(--ink);
+    border:1px solid var(--glass-border); box-shadow:0 24px 60px -24px rgba(0,0,0,.45);
+    transform:translateY(24px); transition:transform .26s cubic-bezier(.2,.8,.2,1); }
+  .rp-overlay.show .rp-sheet{ transform:translateY(0); }
+  .rp-close{ position:absolute; top:14px; right:14px; width:34px; height:34px; border-radius:50%;
+    border:1px solid var(--glass-border); background:var(--faux-glass); color:var(--ink);
+    font-size:15px; cursor:pointer; font-family:inherit; line-height:1; }
+  .rp-title{ font-size:15px; font-weight:800; letter-spacing:.04em; }
+  .rp-block{ margin-top:18px; padding:14px; border-radius:16px;
+    background:var(--faux-glass); border:1px solid var(--glass-border); }
+  .rp-h{ font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--muted2); }
+  .rp-pair{ display:flex; gap:10px; margin-top:12px; }
+  .rp-cell{ flex:1; min-width:0; }
+  .rp-k{ font-size:11px; color:var(--muted2); }
+  .rp-v{ font-size:15px; font-weight:700; color:var(--ink); margin-top:2px; }
+  .rp-v small{ display:block; font-size:11.5px; font-weight:500; color:var(--muted); margin-top:2px; }
+  .rp-axes{ display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
+  .rp-ax{ font-size:11.5px; padding:5px 10px; border-radius:999px;
+    background:var(--bg); border:1px solid var(--glass-border); color:var(--ink3); }
+  .rp-ax.weak{ opacity:.55; }
+  .rp-note{ margin-top:11px; font-size:12px; line-height:1.45; color:var(--hint); }
+  /* The weak-axis note opens with an interpolated axis name, which is lowercase
+     because it is also used as a chip. Capitalize the sentence, not the data. */
+  .rp-note::first-letter{ text-transform:uppercase; }
+  .rp-lead{ margin-top:8px; font-size:13.5px; line-height:1.55; color:var(--ink3); }
+  .rp-sec{ margin-top:16px; }
+  .rp-sec h4{ margin:0 0 6px; font-size:13px; font-weight:700; color:var(--acc); }
+  .rp-sec p{ margin:0; font-size:14px; line-height:1.6; color:var(--ink3); }
+  .rp-field{ width:100%; margin-top:10px; border:1px solid var(--glass-border); border-radius:14px;
+    padding:12px 14px; font-size:15px; font-family:inherit; color:var(--text);
+    background:var(--bg); outline:none; }
+  .rp-btn{ width:100%; margin-top:14px; border:none; border-radius:999px; padding:15px; font-size:15px;
+    font-weight:700; color:#fff; font-family:inherit; cursor:pointer;
+    background:linear-gradient(120deg, var(--acc), var(--acc2, var(--acc)));
+    box-shadow:0 12px 30px -14px var(--acc); }
+  .rp-btn:disabled{ opacity:.5; cursor:default; box-shadow:none; }
+  .rp-msg{ font-size:12.5px; color:var(--hint); text-align:center; min-height:16px; margin-top:10px; }
+  .rp-disc{ margin-top:16px; font-size:11.5px; line-height:1.45; color:var(--muted2); }
 
   /* achievements — dot chips, earned vs locked, with an "N з 6" counter (design) */
   .achieve-head{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:13px; }
@@ -343,6 +401,18 @@
     <div class="chips" id="traits" style="margin-bottom:15px;"></div>
     <div class="mono-text" id="summary" style="padding-top:15px; border-top:1px solid var(--track);"></div>
   </div>
+
+  <!-- AI-звіт. Sits right under the psychotype because it is the same subject
+       read at depth — and because the free half of it (sign + socionics type)
+       is derived from the very Big Five vector shown above. -->
+  <button class="depth-row" id="reportRow" type="button" style="margin-top:14px;">
+    <span class="rp-orb" aria-hidden="true">✦</span>
+    <span class="depth-row-main">
+      <span class="depth-row-t" data-i18n="report_title">AI-звіт про тебе</span>
+      <span class="depth-row-s" id="reportSub"></span>
+    </span>
+    <span class="depth-chev" aria-hidden="true">›</span>
+  </button>
 
   <!-- Інтереси — own card -->
   <div class="section" id="interestsBlock" hidden>
@@ -802,6 +872,14 @@
       // already dropped the cached payload, so this cannot paint the old one.)
       window.addEventListener('sixtio:langchange', function(){
         load().catch(function(){ /* offline — keep what is on screen */ });
+        // The report splits cleanly here: the sign and type are CODES, so their
+        // labels re-render from i18n instantly, while the report body is server
+        // text in the old language and has to be dropped and re-fetched. Keeping
+        // the codes is what lets the row stay correct even offline.
+        try { localStorage.removeItem('sixtio_report'); } catch (e) {}
+        if (reportState) reportState.sections = null;
+        renderReportRow();
+        loadReport().catch(function(){ /* offline — codes still read correctly */ });
       });
 
       // ---- edit form -----------------------------------------------------
@@ -1219,7 +1297,222 @@
           .then(function(){ btn.disabled = false; });
       });
 
+      // ---- AI-звіт -------------------------------------------------------
+      // The free half (sun sign + socionics type) is computed server-side from
+      // the birth date and the Big Five vector, so this file only ever RENDERS
+      // it — it never derives a type of its own. A client that could decide the
+      // type would disagree with the report the moment either input changed.
+      var reportState = null;
+      var REPORT_CACHE = 'sixtio_report';
+      var SECTION_KEYS = ['core', 'love', 'strength', 'fit', 'next'];
+
+      function signLabel(s){ return s ? t('sign_' + s) : ''; }
+      function typeLabel(code){ return code ? t('soc_' + code) : ''; }
+
+      function renderReportRow(){
+        var sub = document.getElementById('reportSub');
+        if (!sub) return;
+        var st = reportState;
+        if (!st || !st.birthDate) { sub.textContent = t('report_sub_setup'); return; }
+        if (st.sections) { sub.textContent = t('report_sub_ready'); return; }
+        sub.textContent = t('report_sub_free', {
+          sign: signLabel(st.sign),
+          type: st.socionics ? typeLabel(st.socionics.code) : '—',
+          p: st.price
+        });
+      }
+
+      // Paint from the last known state first so the row is never blank on open,
+      // then refresh. The cache is display-only — every price and entitlement in
+      // it is re-decided server-side on the next call.
+      try {
+        var cachedReport = JSON.parse(localStorage.getItem(REPORT_CACHE) || 'null');
+        if (cachedReport) { reportState = cachedReport; renderReportRow(); }
+      } catch (e) {}
+
+      function loadReport(){
+        return api('/api/interact', { op: 'ai_report' }).then(function(r){
+          if (!r || !r.ok) return null;
+          reportState = r;
+          try { localStorage.setItem(REPORT_CACHE, JSON.stringify(r)); } catch (e) {}
+          renderReportRow();
+          return r;
+        });
+      }
+
+      function openReport(){
+        var overlay = document.createElement('div');
+        overlay.className = 'rp-overlay';
+        overlay.innerHTML =
+          '<div class="rp-sheet" role="dialog" aria-modal="true">' +
+            '<button class="rp-close" type="button" aria-label="×">✕</button>' +
+            '<div class="rp-title"></div>' +
+            '<div id="rpBody"></div>' +
+            '<div class="rp-disc"></div>' +
+          '</div>';
+        overlay.querySelector('.rp-title').textContent = t('report_title');
+        overlay.querySelector('.rp-disc').textContent = t('report_disclaimer');
+        document.body.appendChild(overlay);
+        requestAnimationFrame(function(){ overlay.classList.add('show'); });
+
+        function close(){
+          overlay.classList.remove('show');
+          setTimeout(function(){ overlay.remove(); }, 240);
+        }
+        overlay.querySelector('.rp-close').addEventListener('click', close);
+        overlay.addEventListener('click', function(e){ if (e.target === overlay) close(); });
+
+        var body = overlay.querySelector('#rpBody');
+        var el = function(tag, cls, text){
+          var n = document.createElement(tag);
+          if (cls) n.className = cls;
+          if (text != null) n.textContent = text;
+          return n;
+        };
+
+        function paint(){
+          body.innerHTML = '';
+          var st = reportState;
+          if (!st) { body.appendChild(el('div', 'rp-msg', '…')); return; }
+
+          // --- birth data: the one thing we cannot derive -------------------
+          if (!st.birthDate) {
+            var ask = el('div', 'rp-block');
+            ask.appendChild(el('div', 'rp-h', t('report_free_title')));
+            ask.appendChild(el('div', 'rp-lead',
+              t(current && current.gender === 'female' ? 'report_birth_q_f' : 'report_birth_q')));
+            var dIn = el('input', 'rp-field'); dIn.type = 'date';
+            var tIn = el('input', 'rp-field'); tIn.type = 'text'; tIn.placeholder = t('report_time_ph');
+            var pIn = el('input', 'rp-field'); pIn.type = 'text'; pIn.placeholder = t('report_place_ph');
+            var save = el('button', 'rp-btn', t('report_save')); save.type = 'button';
+            var msg = el('div', 'rp-msg', '');
+            ask.appendChild(dIn); ask.appendChild(tIn); ask.appendChild(pIn);
+            ask.appendChild(save); ask.appendChild(msg);
+            ask.appendChild(el('div', 'rp-note', t('report_birth_hint')));
+            body.appendChild(ask);
+
+            save.addEventListener('click', function(){
+              if (!dIn.value) { msg.textContent = t('report_err_date'); return; }
+              save.disabled = true; msg.textContent = '';
+              api('/api/interact', {
+                op: 'save_birth', birthDate: dIn.value,
+                birthTime: tIn.value, birthPlace: pIn.value
+              }).then(function(r){
+                if (!r || !r.ok) throw new Error('save failed');
+                return loadReport();
+              }).then(paint).catch(function(){
+                save.disabled = false; msg.textContent = t('report_err_date');
+              });
+            });
+            return;
+          }
+
+          // --- the free reading, always shown in full -----------------------
+          var free = el('div', 'rp-block');
+          free.appendChild(el('div', 'rp-h', t('report_free_title')));
+          var pair = el('div', 'rp-pair');
+          var c1 = el('div', 'rp-cell');
+          c1.appendChild(el('div', 'rp-k', t('report_sign_l')));
+          var v1 = el('div', 'rp-v', signLabel(st.sign));
+          if (st.element) v1.appendChild(el('small', null, t('elem_' + st.element)));
+          c1.appendChild(v1);
+          var c2 = el('div', 'rp-cell');
+          c2.appendChild(el('div', 'rp-k', t('report_type_l')));
+          var v2 = el('div', 'rp-v', st.socionics ? typeLabel(st.socionics.code) : '—');
+          if (st.socionics) v2.appendChild(el('small', null, st.socionics.code + ' · ' + st.socionics.mbti));
+          c2.appendChild(v2);
+          pair.appendChild(c1); pair.appendChild(c2);
+          free.appendChild(pair);
+
+          if (st.socionics) {
+            var axes = el('div', 'rp-axes');
+            var weak = [];
+            st.socionics.axes.forEach(function(a){
+              axes.appendChild(el('span', 'rp-ax' + (a.weak ? ' weak' : ''), t('soc_axis_' + a.letter)));
+              if (a.weak) weak.push(t('soc_axis_' + a.letter));
+            });
+            free.appendChild(axes);
+            // An axis that landed on 51 is a coin flip, and saying so is the
+            // difference between a reading and a horoscope generator.
+            if (weak.length) free.appendChild(el('div', 'rp-note', t('report_weak_note', { x: weak.join(', ') })));
+          } else {
+            free.appendChild(el('div', 'rp-note', t('report_err_traits')));
+          }
+          body.appendChild(free);
+
+          // --- the paid report ---------------------------------------------
+          if (st.sections && st.sections.length) {
+            var out = el('div', 'rp-block');
+            out.appendChild(el('div', 'rp-h', t('report_paid_title')));
+            // Rendered in the fixed server order; a section the model left empty
+            // was dropped server-side, so there is never a heading over nothing.
+            st.sections.forEach(function(s){
+              if (SECTION_KEYS.indexOf(s.key) < 0) return;
+              var sec = el('div', 'rp-sec');
+              sec.appendChild(el('h4', null, t('report_sec_' + s.key)));
+              sec.appendChild(el('p', null, s.body));
+              out.appendChild(sec);
+            });
+            out.appendChild(el('div', 'rp-note', t('report_paid_note')));
+            body.appendChild(out);
+            return;
+          }
+
+          var offer = el('div', 'rp-block');
+          offer.appendChild(el('div', 'rp-h', t('report_paid_title')));
+          offer.appendChild(el('div', 'rp-lead', t('report_paid_lead')));
+          var buy = el('button', 'rp-btn', st.paid ? t('report_retry') : t('report_buy', { p: st.price }));
+          buy.type = 'button';
+          // No traits means no report worth selling — the button is refused here
+          // as well as server-side, so the dead end is visible before the tap.
+          if (!st.socionics) buy.disabled = true;
+          var bmsg = el('div', 'rp-msg', st.socionics ? '' : t('report_err_traits'));
+          offer.appendChild(buy); offer.appendChild(bmsg);
+          body.appendChild(offer);
+
+          buy.addEventListener('click', function(){
+            buy.disabled = true;
+            bmsg.textContent = t('report_writing');
+            api('/api/interact', { op: 'buy_ai_report' }).then(function(r){
+              if (r && r.ok) {
+                reportState = r;
+                try { localStorage.setItem(REPORT_CACHE, JSON.stringify(r)); } catch (e) {}
+                renderReportRow();
+                if (typeof r.starsBalance === 'number') {
+                  document.getElementById('starsBalance').textContent = r.starsBalance;
+                }
+                paint();
+                return;
+              }
+              buy.disabled = false;
+              var reason = r && r.reason;
+              // paid:true on a failure means the Stars are already spent and the
+              // retry is free — the copy has to say that, or it reads as a loss.
+              if (reason === 'insufficient') bmsg.textContent = t('report_err_low');
+              else if (reason === 'no_traits') bmsg.textContent = t('report_err_traits');
+              else if (reason === 'no_birth_date') bmsg.textContent = t('report_err_date');
+              else bmsg.textContent = t('report_err_fail');
+              if (r && r.paid) buy.textContent = t('report_retry');
+            }).catch(function(){
+              buy.disabled = false;
+              bmsg.textContent = t('report_err_fail');
+            });
+          });
+        }
+
+        paint();
+        // The cached state may be stale (bought on another device, traits
+        // re-scored); refresh behind the already-painted sheet.
+        loadReport().then(function(r){ if (r) paint(); }).catch(function(){});
+      }
+
+      document.getElementById('reportRow').addEventListener('click', openReport);
+      // Deep-link from the Stars shop: the report is bought inside its own sheet,
+      // because it cannot be sold before the birth date exists.
+      if (/#report$/.test(window.location.hash)) setTimeout(openReport, 300);
+
       load().catch(function(){ /* offline */ });
+      loadReport().catch(function(){ /* offline — the cached row stays */ });
     })();
   </script>
 </body>

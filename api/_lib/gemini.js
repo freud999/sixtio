@@ -166,3 +166,108 @@ export async function generateWhyFactor(me, partner, lang) {
 
   return callGemini(prompt, { temperature: 0.9, thinkingConfig: { thinkingBudget: 0 } });
 }
+
+// --- AI-звіт (50 ⭐) -----------------------------------------------------
+//
+// The paid long-form report. The five sections are fixed and enforced by a
+// response schema rather than parsed out of prose: a report that sometimes has
+// four sections and sometimes seven cannot be rendered, cached or translated
+// consistently, and a missing "who fits you" is exactly the part people paid
+// for.
+const REPORT_SECTIONS = [
+  { key: 'core',      brief: 'хто ця людина насправді — ядро характеру, як вона влаштована всередині' },
+  { key: 'love',      brief: 'як вона любить і привʼязується: що дає в стосунках, чого потребує, як поводиться, коли близько' },
+  { key: 'strength',  brief: 'її головна сила у стосунках — і зворотний бік цієї ж сили, пастка, в яку вона через неї потрапляє' },
+  { key: 'fit',       brief: 'хто їй підходить: тип партнера, з яким це працює, і тип, з яким вигорає' },
+  { key: 'next',      brief: 'що конкретно робити далі — 2-3 практичні, здійсненні кроки, без загальних слів' },
+];
+
+const REPORT_SCHEMA = {
+  type: 'object',
+  properties: Object.fromEntries(
+    REPORT_SECTIONS.map((s) => [s.key, { type: 'string' }])
+  ),
+  required: REPORT_SECTIONS.map((s) => s.key),
+  propertyOrdering: REPORT_SECTIONS.map((s) => s.key),
+};
+
+/**
+ * Writes the paid report. Everything factual is passed IN — the Big Five vector,
+ * the sun sign and the socionics type are computed elsewhere (deterministically,
+ * see _lib/astro.js) and handed over as givens. The model's whole job is to read
+ * them together and write; it never decides what type someone is, because a
+ * model asked twice would answer differently and the report would stop being
+ * about the person.
+ *
+ * @param {object} input { gender, goal, values[], interests[], traits (profiles row),
+ *                         sign, element, socionics: { code, mbti, axes[] } }
+ * @returns {Promise<Array<{key:string, body:string}>>} sections in fixed order
+ */
+export async function generateAiReport(input, lang) {
+  const OCEAN = {
+    trait_openness: 'відкритість до нового',
+    trait_conscientiousness: 'сумлінність',
+    trait_extraversion: 'екстраверсія',
+    trait_agreeableness: 'доброзичливість',
+    trait_neuroticism: 'емоційна реактивність',
+  };
+  const p = input.traits || {};
+  const oceanLine = Object.keys(OCEAN)
+    .filter((k) => typeof p[k] === 'number')
+    .map((k) => `${OCEAN[k]} ${p[k]}/100`)
+    .join(', ') || 'немає даних';
+
+  // Axes that landed near the midpoint are a coin flip, not a reading. Naming
+  // them forces the text to hedge exactly there instead of asserting a 51 as a
+  // verdict — the difference between an analysis and a horoscope generator.
+  const weak = (input.socionics && input.socionics.axes || [])
+    .filter((a) => a.weak).map((a) => a.axis);
+
+  const parts = [
+    'Ти — Sixtio: геніальний психолог стосунків. Пишеш глибоко, конкретно й тепло, ' +
+    'звертаючись на «ти». Це платний персональний звіт — він має бути вартий своїх грошей: ' +
+    'жодної води, жодних гороскопних банальностей, жодних компліментів заради компліментів. ' +
+    genderLine(input.gender) +
+    'Головне джерело правди — профіль Big Five (OCEAN): саме він побудований на реальних ' +
+    'відповідях людини. Знак зодіаку та соціотип — це додаткові лінзи й мова опису, а не докази: ' +
+    'спирайся на них лише там, де вони збігаються з Big Five, і НІКОЛИ не подавай астрологію ' +
+    'як факт про характер. Якщо лінзи суперечать Big Five — вір Big Five і скажи про це прямо. ' +
+    'Не став діагнозів і не давай медичних порад. ' +
+    langLine(lang),
+    '',
+    'ДАНІ ПРО ЛЮДИНУ:',
+    `Big Five: ${oceanLine}.`,
+    Array.isArray(p.traits_json) && p.traits_json.length ? `Ключові риси: ${p.traits_json.slice(0, 8).join(', ')}.` : '',
+    p.summary_text ? `Портрет: ${p.summary_text}` : '',
+    input.sign ? `Сонячний знак: ${input.sign}${input.element ? ` (стихія: ${input.element})` : ''}.` : '',
+    input.socionics ? `Соціотип: ${input.socionics.code} (${input.socionics.mbti}).` : '',
+    weak.length ? `УВАГА: осі ${weak.join(', ')} майже посередині — тут пиши обережно, «швидше…, ніж…», без категоричності.` : '',
+    input.goal ? `Мета в застосунку: ${input.goal}.` : '',
+    Array.isArray(input.values) && input.values.length ? `Цінності: ${input.values.slice(0, 8).join(', ')}.` : '',
+    Array.isArray(input.interests) && input.interests.length ? `Інтереси: ${input.interests.slice(0, 10).join(', ')}.` : '',
+    '',
+    'СТРУКТУРА ВІДПОВІДІ — рівно ці ключі, кожен зі своїм текстом на 4–6 речень, суцільним абзацом без списків і заголовків усередині:',
+    ...REPORT_SECTIONS.map((s) => `- ${s.key}: ${s.brief}`),
+  ];
+
+  const text = await callGemini(parts.filter(Boolean).join('\n'), {
+    temperature: 0.85,
+    responseMimeType: 'application/json',
+    responseSchema: REPORT_SCHEMA,
+  });
+
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw new Error('AI report returned non-JSON');
+  }
+
+  // Fixed order, and a section that came back empty is dropped rather than
+  // rendered as a blank card with a heading over nothing.
+  const sections = REPORT_SECTIONS
+    .map((s) => ({ key: s.key, body: String(parsed[s.key] || '').trim() }))
+    .filter((s) => s.body);
+  if (!sections.length) throw new Error('AI report came back empty');
+  return sections;
+}

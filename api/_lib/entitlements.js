@@ -19,6 +19,7 @@ export const WHY_FACTOR_PRICE = 10;       // ⭐ per "The Why Factor" AI reveal 
 export const LIKE_REVEAL_PRICE = 5;       // ⭐ to reveal ONE person who liked you
 export const LIKES_PASS_PRICE = 40;       // ⭐ to reveal everyone for LIKES_PASS_DAYS
 export const LIKES_PASS_DAYS = 7;
+export const AI_REPORT_PRICE = 50;        // ⭐ for the written personal report (bought once, kept forever)
 export const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function entitlements(user) {

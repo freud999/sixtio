@@ -6,8 +6,11 @@ import {
   entitlements, likesLeftForClient, likesPassActive,
   FREE_DAILY_LIMIT, PREMIUM_PRICE, PREMIUM_DAYS, SWIPE_PACK_PRICE,
   MYSTERY_UNLOCK_PRICE, LOOTBOX_PRICE,
-  LIKE_REVEAL_PRICE, LIKES_PASS_PRICE, LIKES_PASS_DAYS,
+  LIKE_REVEAL_PRICE, LIKES_PASS_PRICE, LIKES_PASS_DAYS, AI_REPORT_PRICE,
 } from './_lib/entitlements.js';
+import { zodiacSign, signElement, socionicsType, parseBirthDate } from './_lib/astro.js';
+import { generateAiReport } from './_lib/gemini.js';
+import { localizeReport } from './_lib/translate.js';
 import { processKinkInterview } from './_lib/kink.js';
 import {
   darkActive, darkModeEnabled, recordDarkConsent,
@@ -59,6 +62,9 @@ function rollLootboxReward() {
 //   op: 'open_lootbox'         -> {}                          open a luck box (first free, then 5 ⭐)
 //   op: 'likers'               -> {}                          who liked you (count free, names gated)
 //   op: 'reveal_liker'         -> body { targetId }           reveal one of them (5 ⭐)
+//   op: 'save_birth'           -> body { birthDate, ... }     birth data for the AI report
+//   op: 'ai_report'            -> {}                          free reading + the report if owned
+//   op: 'buy_ai_report'        -> {}                          write the report (50 ⭐, once ever)
 // (Legacy callers that omit `op` but send targetId/action still swipe.)
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -76,7 +82,10 @@ export default async function handler(req, res) {
     // Per-op rate limit: Stars spends are the costliest to abuse, the kink
     // interview spends AI budget, everything else is a cheap write.
     const MONEY_OPS = ['create_stars_invoice', 'purchase', 'unlock_mystery_match', 'open_lootbox', 'reveal_liker'];
-    const rlPreset = op === 'submit_kink_interview'
+    // buy_ai_report spends BOTH Stars and AI budget, and its free-retry path
+    // spends AI without Stars — so it takes the stricter of the two presets.
+    const AI_OPS = ['submit_kink_interview', 'buy_ai_report'];
+    const rlPreset = AI_OPS.includes(op)
       ? LIMITS.ai_heavy
       : MONEY_OPS.includes(op) ? LIMITS.money : LIMITS.write;
     const rl = rateLimit(`interact:${op}:${tgUser.id}`, rlPreset);
@@ -91,6 +100,9 @@ export default async function handler(req, res) {
     if (op === 'track') return trackClientEvent(res, tgUser, body);
     if (op === 'likers') return listLikers(res, tgUser);
     if (op === 'reveal_liker') return revealLiker(res, tgUser, body);
+    if (op === 'save_birth') return saveBirth(res, tgUser, body);
+    if (op === 'ai_report') return aiReport(res, tgUser, body, false);
+    if (op === 'buy_ai_report') return aiReport(res, tgUser, body, true);
     if (op === 'block' || op === 'unblock') return blockOrUnblock(res, tgUser, body, op);
     if (op === 'report') return report(res, tgUser, body);
     return swipe(req, res, tgUser, body);
@@ -586,6 +598,161 @@ async function revealLiker(res, tgUser, body) {
       photoUrl: u.photo_url || '',
       locked: false,
     },
+  });
+}
+
+// --- AI-звіт: birth data ------------------------------------------------
+// The date is the only required field. Time and place are optional and exist so
+// the reading can say "sun sign only" honestly rather than implying a natal
+// chart it does not have. Validated with the same pure parser the sign math uses
+// (parseBirthDate), so a date the reading cannot use can never be stored.
+//
+// Deliberately does NOT touch users.age. Age drives matching and the feed, it
+// was confirmed at onboarding, and silently re-deriving it here would let a
+// typo in an optional field quietly change who a person is shown to.
+async function saveBirth(res, tgUser, body) {
+  const parsed = parseBirthDate(body.birthDate);
+  if (!parsed) return res.status(400).json({ error: 'birthDate must be YYYY-MM-DD' });
+
+  const userId = await findUserId(tgUser.id);
+  if (!userId) return res.status(200).json({ ok: false });
+
+  const patch = { birth_date: body.birthDate };
+  // Optional, free-text, and length-capped: they are only ever fed to the model
+  // as context, never parsed, so precision is the user's business.
+  if (typeof body.birthTime === 'string') patch.birth_time = body.birthTime.trim().slice(0, 10) || null;
+  if (typeof body.birthPlace === 'string') patch.birth_place = body.birthPlace.trim().slice(0, 120) || null;
+
+  const { error } = await getSupabase().from('users').update(patch).eq('id', userId);
+  if (error) throw error;
+
+  return res.status(200).json({ ok: true, birthDate: body.birthDate });
+}
+
+// --- AI-звіт: the reading, and the paid report --------------------------
+// One function serves both ops because they answer the same question ("what do
+// we have for this user?") and differ only in whether a missing report is
+// allowed to be written. Splitting them would mean duplicating the whole
+// gather-and-shape half.
+//
+// FREE, always, for everyone:
+//   * the sun sign, derived from the birth date;
+//   * the socionics type, derived from the Big Five vector the user already has.
+// Both are computed in plain JS (_lib/astro.js) — they cost nothing, so charging
+// for them would be charging for arithmetic. Nobody pays to learn their own type.
+//
+// PAID (50 ⭐, once ever): the written report. That is the part with a real
+// marginal cost, so that is the part that is sold.
+async function aiReport(res, tgUser, body, buying) {
+  const supabase = getSupabase();
+  const { data: me, error } = await supabase
+    .from('users')
+    .select('id, gender, goal, core_values, interests, language_code, ' +
+            'birth_date, birth_time, birth_place, ai_report_paid_at, stars_balance')
+    .eq('telegram_id', tgUser.id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!me) return res.status(200).json({ ok: false });
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('traits_json, summary_text, trait_extraversion, trait_agreeableness, ' +
+            'trait_conscientiousness, trait_neuroticism, trait_openness')
+    .eq('user_id', me.id)
+    .maybeSingle();
+
+  const lang = pickLang(body.lang, tgUser);
+  const sign = zodiacSign(me.birth_date);
+  const socionics = socionicsType(profile);
+
+  // The free reading, and the shape every early return below shares.
+  const base = {
+    ok: true,
+    price: AI_REPORT_PRICE,
+    birthDate: me.birth_date || null,
+    birthTime: me.birth_time || null,
+    birthPlace: me.birth_place || null,
+    sign,
+    element: signElement(sign),
+    socionics,
+    paid: !!me.ai_report_paid_at,
+    starsBalance: me.stars_balance || 0,
+  };
+
+  const { data: existing } = await supabase
+    .from('ai_reports')
+    .select('user_id, sections, sign, socionics, lang, i18n')
+    .eq('user_id', me.id)
+    .maybeSingle();
+
+  // Already written: re-reading is free forever, in the reader's current
+  // language. `reportSign`/`reportType` come from the STORED row, not from the
+  // recomputed values above — a report has to keep saying what it said when it
+  // was written, even if the birth date is corrected or the Big Five re-run.
+  if (existing) {
+    let sections = existing.sections;
+    try { sections = await localizeReport(existing, lang, me.language_code); }
+    catch (e) { console.error('report localization failed:', e.message); }
+    return res.status(200).json({
+      ...base, sections,
+      reportSign: existing.sign || null,
+      reportType: existing.socionics || null,
+    });
+  }
+
+  if (!buying) return res.status(200).json({ ...base, sections: null });
+
+  // --- buying -------------------------------------------------------------
+  // The two things the report is actually made of. Refusing here, before any
+  // charge, is the difference between "we can't write this yet" and "you paid
+  // for a report about nothing".
+  if (!me.birth_date) return res.status(200).json({ ...base, ok: false, reason: 'no_birth_date' });
+  if (!socionics) return res.status(200).json({ ...base, ok: false, reason: 'no_traits' });
+
+  // Charge FIRST, then generate. The RPC sets ai_report_paid_at and refuses to
+  // fire twice, so if generation then fails the retry below regenerates for
+  // free instead of charging again for a report that was never delivered. A
+  // refund path would have to be exactly right under concurrency; not needing
+  // one is better than getting one right.
+  let starsBalance = me.stars_balance || 0;
+  if (!me.ai_report_paid_at) {
+    const { data: newBalance, error: rpcError } = await supabase.rpc('purchase_ai_report', {
+      buyer: me.id, price: AI_REPORT_PRICE,
+    });
+    if (rpcError) throw rpcError;
+    if (newBalance === null || newBalance === undefined) {
+      return res.status(200).json({ ...base, ok: false, reason: 'insufficient' });
+    }
+    starsBalance = newBalance;
+  }
+
+  let sections;
+  try {
+    sections = await generateAiReport({
+      gender: me.gender, goal: me.goal,
+      values: me.core_values || [], interests: me.interests || [],
+      traits: profile, sign, element: signElement(sign), socionics,
+    }, lang);
+  } catch (e) {
+    console.error('ai report generation failed:', e.message);
+    // Paid, undelivered, and retryable at no further cost — the client shows a
+    // "try again" rather than a dead end, and paid:true says the Stars are safe.
+    return res.status(200).json({ ...base, ok: false, reason: 'generation_failed', paid: true, starsBalance });
+  }
+
+  const { error: saveError } = await supabase.from('ai_reports').upsert({
+    user_id: me.id, sections, sign, socionics: socionics.code,
+    lang,                       // written in the buyer's language; translated on read
+    i18n: {},
+    created_at: new Date().toISOString(),
+  }, { onConflict: 'user_id' });
+  if (saveError) throw saveError;
+
+  await track(me.id, EVENTS.PURCHASE, { item: 'ai_report' });
+
+  return res.status(200).json({
+    ...base, paid: true, starsBalance, sections,
+    reportSign: sign, reportType: socionics.code,
   });
 }
 

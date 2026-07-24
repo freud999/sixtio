@@ -7,6 +7,7 @@
   var PACK_PRICE = 10;
   var LIKES_PASS_PRICE = 40;
   var LIKES_PASS_DAYS = 7;
+  var AI_REPORT_PRICE = 50;
   var injected = false;
 
   // Real Telegram Stars top-up packs (Task 19). Ids MUST match STAR_PACKS in
@@ -158,6 +159,15 @@
           '<span class="pw-price">' + LIKES_PASS_PRICE + ' ⭐</span></div>' +
           '<div class="pw-opt-note">' + t('pw_likes_note', { d: LIKES_PASS_DAYS }) + '</div>' +
         '</button>') +
+        // The AI report is the one shop item that cannot be bought from here: it
+        // needs a birth date first, and a purchase that immediately asks for
+        // more input is a purchase people feel tricked by. So this entry is a
+        // door to the sheet that owns the whole flow, not a checkout button.
+        '<button class="pw-opt" data-nav="profile.html#report">' +
+          '<div class="pw-opt-head"><span class="pw-opt-name">' + t('pw_report_name') + '</span>' +
+          '<span class="pw-price">' + AI_REPORT_PRICE + ' ⭐</span></div>' +
+          '<div class="pw-opt-note">' + t('pw_report_note') + '</div>' +
+        '</button>' +
         '<div class="pw-deposit-h">' + t('pw_deposit_h') + '</div>' +
         '<div class="pw-deps">' +
           STAR_PACKS.map(function (p) {
@@ -274,6 +284,9 @@
     Array.prototype.forEach.call(overlay.querySelectorAll('.pw-opt'), function (btn) {
       btn.addEventListener('click', function () {
         if (busy) return;
+        // Navigational entries (the AI report) leave the shop instead of buying.
+        var nav = btn.getAttribute('data-nav');
+        if (nav) { window.location.href = nav; return; }
         var item = btn.getAttribute('data-item');
         // Price rides on the button so adding a shop item can never silently
         // charge the wrong balance check (the server is authoritative anyway).
