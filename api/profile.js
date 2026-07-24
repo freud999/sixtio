@@ -55,6 +55,11 @@ export default async function handler(req, res) {
         vibe: profile.vibe || null,
         summary_text: profile.summary,
         portrait_json: profile.portrait || null,
+        // Record which language this was written in, so readers never have to
+        // guess — and drop any cached translations, which now describe text that
+        // no longer exists (migration 034).
+        lang,
+        i18n: {},
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'user_id' }

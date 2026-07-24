@@ -1203,6 +1203,14 @@
     apply(document);
     syncSwitchers();
     if (changed) {
+      // The cached /api/me payload holds SERVER-rendered text — the Digital Twin,
+      // bios, match reasons — in the language it was fetched in. apply() cannot
+      // touch any of that (it is not static markup), so leaving the cache in
+      // place would let every screen paint the old language from it and only
+      // correct itself once the network came back. Dropping it means the next
+      // cache-first paint has nothing stale to show and goes straight to the
+      // server, which now returns that text translated (see _lib/translate.js).
+      try { window.localStorage.removeItem('sixtio_me'); } catch (e) {}
       try { window.dispatchEvent(new CustomEvent('sixtio:langchange', { detail: next })); } catch (e) {}
     }
     return changed;

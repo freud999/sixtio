@@ -39,7 +39,14 @@ export default async function handler(req, res) {
     if (parsedAge >= 18 && parsedAge <= 100) fields.age = parsedAge;
 
     if (typeof city === 'string' && city.trim()) fields.city = city.trim().slice(0, 100);
-    if (typeof bio === 'string' && bio.trim()) fields.bio = bio.trim().slice(0, 600);
+    if (typeof bio === 'string' && bio.trim()) {
+      fields.bio = bio.trim().slice(0, 600);
+      // Whatever language the UI is in right now is the language they just typed
+      // in. Any cached translations describe the PREVIOUS text and would now be
+      // served as if they were this one — drop them (migration 034).
+      fields.bio_lang = fields.language_code;
+      fields.bio_i18n = {};
+    }
     if (Array.isArray(interests)) {
       const cleaned = interests
         .filter((i) => typeof i === 'string' && i.trim())

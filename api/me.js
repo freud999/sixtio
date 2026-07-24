@@ -2,6 +2,7 @@ import { resolveUser, pickLang } from './_lib/telegram.js';
 import { getSupabase, getMatchesFor, getHiddenUserIds, getPendingLikers } from './_lib/supabase.js';
 import { buildReferralLink, rewardReferrerOnEngagement } from './_lib/referrals.js';
 import { trackReturn } from './_lib/events.js';
+import { localizeProfiles } from './_lib/translate.js';
 import { entitlements, likesLeftForClient, likesPassActive, intimateCompatibility } from './_lib/entitlements.js';
 import { darkActive, darkModeEnabled, consentStale, DARK_COLUMNS } from './_lib/darkmode.js';
 import { notifyRetention } from './_lib/bot.js';
@@ -146,10 +147,18 @@ export default async function handler(req, res) {
 
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('traits_json, vibe, summary_text, trait_extraversion, trait_agreeableness, trait_conscientiousness, trait_neuroticism, trait_openness')
+      .select('traits_json, vibe, summary_text, i18n, lang, trait_extraversion, trait_agreeableness, trait_conscientiousness, trait_neuroticism, trait_openness')
       .eq('user_id', user.id)
       .maybeSingle();
     if (profileError) throw profileError;
+
+    // The user's own text, in the language they are CURRENTLY reading in.
+    // Seeded with the originals so every path below has a valid value even if
+    // localization is skipped or fails; localizeProfiles overwrites them.
+    let ownTraits = (profile && profile.traits_json) || [];
+    let ownVibe = (profile && profile.vibe) || '';
+    let ownSummary = (profile && profile.summary_text) || '';
+    let ownBio = user.bio || '';
 
     // Sync psychological badges from the latest Big Five vector. Persist only
     // when the set actually changed, so a plain fetch stays read-mostly.
@@ -196,17 +205,20 @@ export default async function handler(req, res) {
     try { hidden = await getHiddenUserIds(user.id, user.blocked_users); }
     catch (e) { console.error('matches block-filter failed:', e.message); }
     const matches = [];
+    // Collected across the whole loop so every partner needing translation goes
+    // into ONE Gemini call after it, never one call per card (see _lib/translate.js).
+    const localeItems = [];
     for (const m of rows) {
       if (hidden.has(m.partnerId)) continue;
       const { data: partner } = await supabase
         .from('users')
-        .select('name, age, city, goal, interests, bio, photo_url, ' + DARK_COLUMNS + ', kink_markers, last_active, shadow_hidden')
+        .select('name, age, city, goal, interests, bio, bio_i18n, bio_lang, language_code, photo_url, ' + DARK_COLUMNS + ', kink_markers, last_active, shadow_hidden')
         .eq('id', m.partnerId)
         .maybeSingle();
       if (!partner || partner.shadow_hidden) continue;
       const { data: partnerProfile } = await supabase
         .from('profiles')
-        .select('traits_json, vibe')
+        .select('traits_json, vibe, summary_text, i18n, lang')
         .eq('user_id', m.partnerId)
         .maybeSingle();
       // Last message for the chat-list preview.
@@ -270,8 +282,34 @@ export default async function handler(req, res) {
         card.intimateMyMarkers = user.kink_markers || [];
       }
 
+      localeItems.push({
+        key: 'm:' + m.partnerId, userId: m.partnerId,
+        profile: partnerProfile, user: partner,
+      });
       matches.push(card);
     }
+
+    // The Digital Twin and the bio are written ONCE, in the language their owner
+    // used — so switching the interface language used to leave a fully localized
+    // chrome wrapped around text the reader cannot read, on the one screen where
+    // the text is the content. Translate into the READER's language, cached per
+    // (profile, language) so it costs one call ever. Never fatal: on failure the
+    // cards keep the originals they were already built with.
+    try {
+      const localized = await localizeProfiles(
+        [{ key: 'me', userId: user.id, profile, user }, ...localeItems],
+        lang
+      );
+      const mine = localized.me;
+      if (mine) { ownTraits = mine.traits; ownVibe = mine.vibe; ownSummary = mine.summary; ownBio = mine.bio; }
+      for (const card of matches) {
+        const loc = localized['m:' + card.partnerId];
+        if (!loc) continue;
+        card.partner.traits = loc.traits;
+        card.partner.vibe = loc.vibe;
+        card.partner.bio = loc.bio;
+      }
+    } catch (e) { console.error('profile localization failed:', e.message); }
 
     // "Хто тебе лайкнув" badge. The count is free for everyone — it is the hook,
     // and only the identities behind it are ever sold. Self-guarded: this is a
@@ -292,7 +330,11 @@ export default async function handler(req, res) {
         city: user.city,
         interests: user.interests || [],
         values: user.core_values || [],
-        bio: user.bio,
+        // Localized for reading. bioOriginal is what they actually TYPED — the
+        // edit field must load that, never the translation, or saving would
+        // silently overwrite their own words with a machine rendering of them.
+        bio: ownBio,
+        bioOriginal: user.bio || '',
         photoUrl: user.photo_url,
         // Telegram Stars wallet + this user's shareable referral link.
         starsBalance: user.stars_balance || 0,
@@ -324,7 +366,7 @@ export default async function handler(req, res) {
         achievementProgress,
       },
       profile: profile
-        ? { traits: profile.traits_json || [], vibe: profile.vibe || '', summary: profile.summary_text || '' }
+        ? { traits: ownTraits, vibe: ownVibe, summary: ownSummary }
         : null,
       matches,
       // Back-compat: the first match, same shape older clients expected.
