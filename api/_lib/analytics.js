@@ -2,6 +2,7 @@ import { getSupabase } from './supabase.js';
 import { callBot, botLang } from './bot.js';
 import { handleUserCommand, handleUserCallback } from './commands.js';
 import { captureStartSource, sourceStats } from './sources.js';
+import { trackStart } from './events.js';
 
 // --- /start welcome (Task 28) ---------------------------------------------
 // The webhook used to ignore /start entirely, so users saw only BotFather's
@@ -186,6 +187,7 @@ export async function handleTelegramUpdate(req, res, update) {
       // Capture acquisition source BEFORE the welcome (best-effort, never blocks).
       await captureStartSource(msg.from && msg.from.id, msg.text)
         .catch((e) => console.error('captureStartSource:', e.message));
+      await trackStart(msg.from && msg.from.id);   // funnel step 1
       await sendStartWelcome(msg);
       return res.status(200).json({ ok: true });
     }
@@ -307,8 +309,29 @@ async function buildDashboard(periodKey) {
   }
 
   const p = PERIODS[periodKey] || PERIODS['24h'];
-  const d = await rpc(supabase, new Date(now.getTime() - p.ms), now);
-  return renderPeriod(d, p.label);
+  const since = new Date(now.getTime() - p.ms);
+  const [d, funnel] = await Promise.all([
+    rpc(supabase, since, now),
+    funnelRpc(supabase, since, now),
+  ]);
+  return renderPeriod(d, p.label, funnel);
+}
+
+// Funnel events (migration 033) keyed by event name. Never fatal: the funnel is
+// an addition to the dashboard, and a missing RPC must not blank the whole thing.
+async function funnelRpc(supabase, since, until) {
+  try {
+    const { data, error } = await supabase.rpc('stats_funnel', {
+      p_since: since.toISOString(), p_until: until.toISOString(),
+    });
+    if (error) throw error;
+    const by = {};
+    for (const r of data || []) by[r.event] = { users: num(r.users), events: num(r.events) };
+    return by;
+  } catch (e) {
+    console.error('stats_funnel failed:', e.message);
+    return null;
+  }
 }
 
 async function rpc(supabase, since, until) {
@@ -327,7 +350,45 @@ const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const fmtTime = (dt) => `${dt.toISOString().slice(11, 16)} UTC`;
 
-function renderPeriod(d, label) {
+// The funnel block. Each step shows DISTINCT PEOPLE plus, from the second step
+// on, the share of the step ABOVE it — a funnel whose percentages are all
+// relative to the top hides exactly where people are actually falling out.
+// Retention is shown against onboarded users rather than against /start, because
+// someone who never finished onboarding was never really in the product to
+// return TO. Renders nothing at all when no events have been recorded yet, so a
+// fresh install shows an honest blank instead of a wall of zeros.
+export function renderFunnel(f) {
+  if (!f) return [];
+  const u = (k) => (f[k] ? f[k].users : 0);
+  const start = u('start'), onb = u('onboarding_complete');
+  const like = u('first_like'), match = u('first_match');
+  const shop = u('paywall_open'), buys = f.purchase ? f.purchase.events : 0;
+  const buyers = u('purchase');
+  if (!start && !onb && !like && !match && !shop && !buyers) return [];
+
+  const step = (icon, name, n, base) => {
+    const share = base > 0 ? `  <i>(${pct(n, base)}%)</i>` : '';
+    return `• ${icon} ${name}: <b>${n}</b>${share}`;
+  };
+
+  return [
+    '',
+    '🔻 <b>ВОРОНКА</b>',
+    step('1️⃣', 'Старт', start, 0),
+    step('2️⃣', 'Онбординг', onb, start),
+    step('3️⃣', 'Перший лайк', like, onb),
+    step('4️⃣', 'Перший метч', match, like),
+    step('5️⃣', 'Відкрив магазин', shop, onb),
+    step('6️⃣', 'Купив', buyers, shop) + (buys > buyers ? `  <i>· ${buys} покупок</i>` : ''),
+    '',
+    '🔁 <b>УТРИМАННЯ</b> <i>(від тих, хто пройшов онбординг)</i>',
+    `• D1 <b>${u('return_d1')}</b> (${pct(u('return_d1'), onb)}%) · ` +
+    `D3 <b>${u('return_d3')}</b> (${pct(u('return_d3'), onb)}%) · ` +
+    `D7 <b>${u('return_d7')}</b> (${pct(u('return_d7'), onb)}%)`,
+  ];
+}
+
+function renderPeriod(d, label, funnel) {
   const total = num(d.total_users);
   const male = num(d.male), female = num(d.female);
   const tx = d.tx_all || {}, txP = d.tx_period_by_feature || {};
@@ -364,6 +425,7 @@ function renderPeriod(d, label) {
     '🚀 <b>ВІРАЛЬНІСТЬ &amp; AI</b>',
     `• Реферальних реєстрацій: <b>${refs}</b>  ·  K-фактор: <b>${kFactor}</b>`,
     `• AI: 🧠 Why Factor <b>${num(tx.why_factor)}</b> · 🎤 Інтерв'ю <b>${num(d.ai_interviews)}</b> · 💞 Скоринг <b>${num(d.ai_matches)}</b>`,
+    ...renderFunnel(funnel),
     '',
     `📈 <i>Оновлено ${fmtTime(new Date())}</i>`,
   ].join('\n');

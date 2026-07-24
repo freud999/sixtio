@@ -1,6 +1,7 @@
 import { resolveUser, pickLang } from './_lib/telegram.js';
 import { getSupabase, getMatchesFor, getHiddenUserIds, getPendingLikers } from './_lib/supabase.js';
-import { buildReferralLink } from './_lib/referrals.js';
+import { buildReferralLink, rewardReferrerOnEngagement } from './_lib/referrals.js';
+import { trackReturn } from './_lib/events.js';
 import { entitlements, likesLeftForClient, likesPassActive, intimateCompatibility } from './_lib/entitlements.js';
 import { darkActive, darkModeEnabled, consentStale, DARK_COLUMNS } from './_lib/darkmode.js';
 import { notifyRetention } from './_lib/bot.js';
@@ -105,7 +106,7 @@ export default async function handler(req, res) {
     const supabase = getSupabase();
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, name, gender, seeking_gender, goal, age, city, interests, core_values, bio, photo_url, stars_balance, premium, premium_until, daily_likes_count, last_like_reset, ' + DARK_COLUMNS + ', kink_markers, liked_users, disliked_users, blocked_users, likes_pass_until, profile_depth, achievements')
+      .select('id, name, gender, seeking_gender, goal, age, city, interests, core_values, bio, photo_url, stars_balance, premium, premium_until, daily_likes_count, last_like_reset, ' + DARK_COLUMNS + ', kink_markers, liked_users, disliked_users, blocked_users, likes_pass_until, profile_depth, achievements, referred_by, referral_rewarded')
       .eq('telegram_id', tgUser.id)
       .maybeSingle();
     if (error) throw error;
@@ -123,6 +124,21 @@ export default async function handler(req, res) {
         .update({ last_active: new Date().toISOString(), language_code: pickLang(body.lang, tgUser) })
         .eq('id', user.id);
     } catch (e) { console.error('last_active stamp failed:', e.message); }
+
+    // Retention funnel: last_active only ever remembers the MOST RECENT visit,
+    // so it cannot tell a user who came back on D1 and vanished from one who
+    // never returned. These events can (migration 033). Best-effort by design.
+    await trackReturn(user.id);
+
+    // Referral qualification (migration 032). The moment an invited user BECOMES
+    // eligible is a day-3 app open, not any particular action — so the check has
+    // to live on the app-open path, right after last_active is stamped. The RPC
+    // no-ops on anything unqualified, and the outer guard means the round trip
+    // only happens for users who still have a reward pending at all.
+    if (user.referred_by != null && user.referral_rewarded === false) {
+      try { await rewardReferrerOnEngagement(user.id); }
+      catch (e) { console.error('referral reward on open failed:', e.message); }
+    }
 
     // Paywall entitlement (gender-biased): drives blur, deepen gating, and the
     // remaining-likes counter on every screen from one cached payload.

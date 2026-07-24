@@ -1,14 +1,18 @@
 import { getSupabase } from './supabase.js';
 import { notifyReferralBonus, notifyOwner } from './bot.js';
 
-// Bonus credited to the referrer once their invited friend actually engages
-// (their first swipe) — not merely on signup. See rewardReferrerOnEngagement.
+// Bonus credited to the referrer once their invited friend proves to be a real
+// user — see rewardReferrerOnEngagement for what "real" means here.
 const REFERRAL_BONUS = 15;
-// Anti-abuse caps: any one referrer earns at most this many rewards per rolling
-// 24h and this many in total, bounding a multi-account farm (migration 025).
-const REWARD_DAILY_CAP = 10;
-const REWARD_TOTAL_CAP = 100;
-// More than this many rewards to one referrer within an hour pings the owner.
+// The qualification (migration 032). A farm can fake either of these alone; the
+// point is that faking BOTH, per fake invite, costs more than earning the Stars.
+const QUALIFY_MIN_DEPTH = 60;   // the invited user actually filled a profile in
+const QUALIFY_MIN_DAYS = 3;     // …and was still opening the app on D3
+// Stamped on every reward row so a later rule change leaves distinguishable
+// cohorts in the stats instead of one undifferentiated pile.
+const QUALIFY_RULE = 'depth60_d3';
+// There is no cap any more, but velocity is still worth a look: many qualifying
+// invites inside one hour is either a viral moment or a well-funded farm.
 const VELOCITY_ALERT_PER_HOUR = 5;
 const REF_PREFIX = 'ref_';
 // @Sixtiobot — overridable so a rename doesn't require a code change.
@@ -60,39 +64,35 @@ export async function captureReferral(userId, startParam) {
 }
 
 /**
- * Credits the referrer +15 stars once the invited user actually ENGAGES (their
- * first real swipe), applying per-referrer anti-abuse caps. Safe to call on every
- * swipe: the reward_referrer_capped RPC (migration 025) does an atomic once-only
- * flip of referral_rewarded, so 99% of calls no-op cheaply and the bonus is
- * granted at most once per invited user even under concurrent swipes.
- * Fire-and-forget-safe: callers wrap it so a failure never breaks a swipe.
+ * Credits the referrer +15 ⭐ once the invited user has PROVEN to be real: a
+ * profile filled to at least 60% depth AND still opening the app on day 3.
+ *
+ * Deliberately not "on signup" and no longer "on first swipe" — both are one tap
+ * and so are exactly what a farm produces cheaply. Depth costs effort and a D3
+ * return costs time, and no amount of Stars makes buying both worthwhile.
+ *
+ * Because the qualification lives inside the RPC's WHERE clause, an unqualified
+ * call matches no rows and is a cheap no-op. That is what makes it safe to
+ * re-check on every app open — which is necessary, since the moment a user
+ * BECOMES qualified is a day 3 app open, not any particular action.
+ *
+ * Fire-and-forget-safe: callers wrap it so a failure never breaks their request.
  */
 export async function rewardReferrerOnEngagement(invitedUserId) {
   const supabase = getSupabase();
 
-  const { data, error } = await supabase.rpc('reward_referrer_capped', {
+  const { data, error } = await supabase.rpc('reward_referrer_qualified', {
     p_invited: invitedUserId,
     p_bonus: REFERRAL_BONUS,
-    p_daily_cap: REWARD_DAILY_CAP,
-    p_total_cap: REWARD_TOTAL_CAP,
+    p_min_depth: QUALIFY_MIN_DEPTH,
+    p_min_days: QUALIFY_MIN_DAYS,
+    p_rule: QUALIFY_RULE,
   });
   if (error) throw error;
 
   const row = Array.isArray(data) ? data[0] : data;
-  if (!row || !row.status) return;          // no referrer, or already processed
+  if (!row || !row.status) return;   // no referrer, already paid, or not yet qualified
   const referrerTg = row.referrer_tg;
-
-  // Cap hit: nothing credited. A referrer legitimately maxing out is rare, so a
-  // cap trip is a useful farm signal — tell the owner (best-effort, HTML-safe id).
-  if (row.status === 'capped') {
-    console.warn(`referral reward capped for referrer ${referrerTg} (day=${row.day_count})`);
-    await notifyOwner(
-      '⚠️ <b>Реферали Sixtio</b>\n' +
-      `Реферер: <code>${referrerTg}</code>\n` +
-      `Досягнуто ліміт (${row.day_count}/добу або ${REWARD_TOTAL_CAP} всього) — нову нагороду НЕ нараховано.`
-    );
-    return;
-  }
 
   // Credited. Ping the referrer in THEIR stored language (Task 28) — best-effort.
   let referrerLang = null;
@@ -108,7 +108,8 @@ export async function rewardReferrerOnEngagement(invitedUserId) {
     await notifyOwner(
       '⚠️ <b>Реферали Sixtio</b>\n' +
       `Реферер: <code>${referrerTg}</code>\n` +
-      `${row.hour_count} нагород за годину — можлива накрутка.`
+      `${row.hour_count} нагород за годину — можлива накрутка.\n` +
+      `<i>Лімітів немає; кваліфікація: глибина ≥${QUALIFY_MIN_DEPTH}% + повернення D${QUALIFY_MIN_DAYS}.</i>`
     );
   }
 }

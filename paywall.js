@@ -183,6 +183,17 @@
     document.body.style.overflow = 'hidden';
     requestAnimationFrame(function () { overlay.classList.add('show'); });
 
+    // Funnel: opening the shop is a pure UI moment with no server side, so it is
+    // the one event the client has to report. Fire-and-forget — a failed beacon
+    // must never be visible to the person trying to buy something.
+    try {
+      fetch('/api/interact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ op: 'track', initData: initData, event: 'paywall_open' }),
+      }).catch(function () {});
+    } catch (e) {}
+
     var note = overlay.querySelector('#pwNote');
     var busy = false;
 

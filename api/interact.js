@@ -16,6 +16,7 @@ import {
 import { notifyInstantMatch, callBot } from './_lib/bot.js';
 import { rewardReferrerOnEngagement } from './_lib/referrals.js';
 import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
+import { track, EVENTS } from './_lib/events.js';
 
 // Real Telegram Stars top-up packs (Task 19). Server-authoritative so the client
 // can never forge the price/amount: buying pack P pays P.stars Telegram Stars
@@ -87,6 +88,7 @@ export default async function handler(req, res) {
     if (op === 'submit_kink_interview') return submitKinkInterview(res, tgUser, body);
     if (op === 'unlock_mystery_match') return unlockMysteryMatch(res, tgUser);
     if (op === 'open_lootbox') return openLootbox(res, tgUser);
+    if (op === 'track') return trackClientEvent(res, tgUser, body);
     if (op === 'likers') return listLikers(res, tgUser);
     if (op === 'reveal_liker') return revealLiker(res, tgUser, body);
     if (op === 'block' || op === 'unblock') return blockOrUnblock(res, tgUser, body, op);
@@ -141,11 +143,14 @@ async function swipe(req, res, tgUser, body) {
   });
   if (error) throw error;
 
-  // Referral quality gate: the +15 bonus is credited to the referrer only once
-  // the invited user actually engages — this, their first recorded swipe — not
-  // merely on signup. The RPC is atomic/once-only/capped; we only bother calling
-  // it while a reward is still pending, so it adds no round trip for anyone else.
-  // Self-guarded: a reward failure must never break the swipe.
+  // Funnel: only the FIRST like is interesting (the index dedupes the rest).
+  if (action === 'like') await track(me.id, EVENTS.FIRST_LIKE);
+
+  // Referral quality gate: the +15 ⭐ is credited only once the invited user has
+  // proven real (profile depth ≥ 60 AND a D3 return — migration 032), never on
+  // signup and no longer on a first swipe. A swipe can still be the call that
+  // finds them already qualified, so we keep the hook here as well as on app
+  // open; the RPC no-ops otherwise. Self-guarded: never breaks the swipe.
   if (me.referred_by != null && me.referral_rewarded === false) {
     try { await rewardReferrerOnEngagement(me.id); }
     catch (e) { console.error('referral reward on swipe failed:', e.message); }
@@ -179,6 +184,9 @@ async function swipe(req, res, tgUser, body) {
 
         if (Array.isArray(inserted) && inserted.length) {
           matched = true;
+          // A match is mutual, so it is a first_match for BOTH sides.
+          await track(me.id, EVENTS.FIRST_MATCH);
+          await track(target.id, EVENTS.FIRST_MATCH);
           await notifyInstantMatch(
             { telegram_id: tgUser.id, name: me.name, language_code: pickLang(body.lang, tgUser) },
             { telegram_id: target.telegram_id, name: target.name, language_code: target.language_code }
@@ -252,6 +260,10 @@ async function purchase(req, res, tgUser, body) {
     .eq('id', userId)
     .maybeSingle();
   const ent = entitlements(fresh);
+
+  // Funnel: repeat purchases are the signal, so this one is deliberately not
+  // deduplicated. `item` rides along so the shop mix is readable later.
+  await track(userId, EVENTS.PURCHASE, { item });
 
   return res.status(200).json({
     ok: true,
@@ -437,6 +449,26 @@ async function revealMysteryCard(supabase, meId, targetId) {
     age: u.age, city: u.city || '', photoUrl: u.photo_url || '',
     compatibility, tags, isMysteryMatch: true, unlocked: true,
   };
+}
+
+// --- Client-reported funnel event ---------------------------------------
+// Only ONE event is reportable from the client, and it is on the whitelist by
+// name: opening the shop is a pure UI moment with no server side, so there is
+// nothing else to observe it. Everything else in the funnel (likes, matches,
+// purchases, retention) is derived server-side from the action itself, which is
+// the only way those numbers stay trustworthy — a client that can post arbitrary
+// events is a client that can fake the funnel.
+const CLIENT_EVENTS = new Set([EVENTS.PAYWALL_OPEN]);
+
+async function trackClientEvent(res, tgUser, body) {
+  const event = typeof body.event === 'string' ? body.event : '';
+  if (!CLIENT_EVENTS.has(event)) return res.status(400).json({ error: 'unknown event' });
+
+  const userId = await findUserId(tgUser.id);
+  if (!userId) return res.status(200).json({ ok: false });
+
+  await track(userId, event);
+  return res.status(200).json({ ok: true });
 }
 
 // --- Who liked you ------------------------------------------------------

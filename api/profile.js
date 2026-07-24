@@ -6,6 +6,7 @@ import { runMatching } from './_lib/matching.js';
 import { captureReferral } from './_lib/referrals.js';
 import { applySourceOnRegistration } from './_lib/sources.js';
 import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
+import { track, EVENTS } from './_lib/events.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -60,10 +61,13 @@ export default async function handler(req, res) {
     );
     if (upsertError) throw upsertError;
 
+    // Funnel: the Digital Twin existing IS the definition of "onboarded".
+    await track(userId, EVENTS.ONBOARDING_COMPLETE);
+
     // Onboarding is complete once the Digital Twin exists — attribute the referrer
-    // now (covers the rare case it wasn't captured on an earlier step). The +15
+    // now (covers the rare case it wasn't captured on an earlier step). The +15 ⭐
     // bonus itself is NOT paid here: it is credited only once this invited user
-    // actually engages (their first swipe), gated + capped in api/interact.js.
+    // proves real (profile depth ≥ 60 plus a D3 return — see _lib/referrals.js).
     // Attribution must never fail the profile response.
     try {
       await captureReferral(userId, getStartParam(initData));
