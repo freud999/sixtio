@@ -1,7 +1,7 @@
 import { resolveUser, pickLang } from './_lib/telegram.js';
-import { getSupabase, getMatchesFor, getHiddenUserIds } from './_lib/supabase.js';
+import { getSupabase, getMatchesFor, getHiddenUserIds, getPendingLikers } from './_lib/supabase.js';
 import { buildReferralLink } from './_lib/referrals.js';
-import { entitlements, likesLeftForClient, intimateCompatibility } from './_lib/entitlements.js';
+import { entitlements, likesLeftForClient, likesPassActive, intimateCompatibility } from './_lib/entitlements.js';
 import { darkActive, darkModeEnabled, consentStale, DARK_COLUMNS } from './_lib/darkmode.js';
 import { notifyRetention } from './_lib/bot.js';
 import { sanitizeAiText } from './_lib/claude.js';
@@ -105,7 +105,7 @@ export default async function handler(req, res) {
     const supabase = getSupabase();
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, name, gender, seeking_gender, goal, age, city, interests, core_values, bio, photo_url, stars_balance, premium, premium_until, daily_likes_count, last_like_reset, ' + DARK_COLUMNS + ', kink_markers, blocked_users, profile_depth, achievements')
+      .select('id, name, gender, seeking_gender, goal, age, city, interests, core_values, bio, photo_url, stars_balance, premium, premium_until, daily_likes_count, last_like_reset, ' + DARK_COLUMNS + ', kink_markers, liked_users, disliked_users, blocked_users, likes_pass_until, profile_depth, achievements')
       .eq('telegram_id', tgUser.id)
       .maybeSingle();
     if (error) throw error;
@@ -257,6 +257,14 @@ export default async function handler(req, res) {
       matches.push(card);
     }
 
+    // "Хто тебе лайкнув" badge. The count is free for everyone — it is the hook,
+    // and only the identities behind it are ever sold. Self-guarded: this is a
+    // nice-to-have badge and must never be able to fail an app boot.
+    let likersCount = 0;
+    try {
+      likersCount = (await getPendingLikers(user)).length;
+    } catch (e) { console.error('likers count failed:', e.message); }
+
     return res.status(200).json({
       registered: true,
       user: {
@@ -278,6 +286,10 @@ export default async function handler(req, res) {
         premiumUntil: ent.premiumUntil,
         likesLeft: likesLeftForClient(ent),   // null = unlimited
         blur: ent.blur,
+        // Who liked you: the number is always free, the names are what is gated.
+        likersCount,
+        likesPass: likesPassActive(user, ent),
+        likesPassUntil: user.likes_pass_until || null,
         // Dark Mode (18+): the user's own state, so the profile toggle + the
         // first-run kink interview can render. Markers are the user's own only.
         // darkMode reflects the EFFECTIVE state (all three gates), so the switch

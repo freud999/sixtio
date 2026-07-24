@@ -235,6 +235,32 @@ export async function getHiddenUserIds(userId, myBlockedList) {
   return set;
 }
 
+/**
+ * Everyone who right-swiped `me` and is still unanswered — the raw material of
+ * the "who liked you" screen. Excludes people this user already swiped (they are
+ * answered either way), blocks in both directions, and shadow-hidden accounts.
+ *
+ * `me` must carry: id, liked_users, disliked_users, blocked_users. Returns the
+ * selected rows in most-recently-active order, capped, so both the count badge
+ * and the list itself are built from exactly the same rule and can never
+ * disagree by one.
+ */
+export async function getPendingLikers(me, columns = 'id', limit = 100) {
+  const { data, error } = await getSupabase()
+    .from('users')
+    .select(columns + ', id, shadow_hidden, last_active')
+    .contains('liked_users', [me.id])
+    .order('last_active', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+
+  const answered = new Set([...(me.liked_users || []), ...(me.disliked_users || [])]);
+  const hidden = await getHiddenUserIds(me.id, me.blocked_users);
+  return (data || []).filter(
+    (u) => !u.shadow_hidden && !answered.has(u.id) && !hidden.has(u.id)
+  );
+}
+
 /** Upserts the Telegram user into public.users and returns the row id. */
 export async function upsertUser(tgUser) {
   const name = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ') || null;

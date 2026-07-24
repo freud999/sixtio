@@ -137,6 +137,20 @@
       depth_done: 'Готово ✓ Профіль глибший на +20%',
       about_me: 'Про мене',
       online: 'онлайн', why_match: 'Чому збіг', row_common: 'спільне: {x}', teaser_title: 'Розкрий усі можливості', teaser_sub: 'Sixtio Premium: фото без блюру · безліміт свайпів', time_now: 'зараз', time_min: '{n} хв', time_hour: '{n} год', time_yesterday: 'вчора', achieve_count: '{n} з {total}',
+      // Хто тебе лайкнув — кількість безкоштовна, платне тільки імʼя.
+      likers_title: 'Тебе лайкнули',
+      likers_sub_one: '{n} людина чекає на твою відповідь',
+      likers_sub_few: '{n} людини чекають на твою відповідь',
+      likers_sub_many: '{n} людей чекають на твою відповідь',
+      likers_empty: 'Поки що ніхто не лайкнув тебе. Свайпай — і симпатії прийдуть.',
+      likers_open: 'Подивитись',
+      likers_reveal: 'Показати · {p} ⭐',
+      likers_pass_btn: 'Показати всіх на {d} днів · {p} ⭐',
+      likers_pass_on: 'Усі відкриті ще {d} дн.',
+      likers_pass_premium: 'Відкрито назавжди з Premium',
+      likers_hidden: 'Хтось',
+      likers_low: 'Не вистачає зірок',
+      likers_swipe: 'Гортай далі',
       interests: 'Інтереси',
       values: 'Цінності',
       bio_nudge: '💬 Додай пару слів про себе (✎)',
@@ -298,6 +312,8 @@
       pw_b4: '📊 Аналітика Digital Twin',
       pw_pack_name: '+30 вподобань',
       pw_pack_note: 'Топ-ап на сьогодні. Фото лишаються розмитими.',
+      pw_likes_name: 'Хто тебе лайкнув',
+      pw_likes_note: 'Бачиш усіх, хто тебе лайкнув, {d} днів. Уже входить у Premium.',
       pw_deposit_h: 'Поповнити баланс зірками Telegram',
       pw_tag_popular: 'ПОПУЛЯРНЕ', pw_tag_value: 'ВИГІДНО',
       pw_invite_q: 'Мало зірок?',
@@ -427,6 +443,20 @@
       depth_done: 'Done ✓ Your profile is +20% deeper',
       about_me: 'About me',
       online: 'online', why_match: 'Why you match', row_common: 'in common: {x}', teaser_title: 'Unlock everything', teaser_sub: 'Sixtio Premium: unblurred photos · unlimited swipes', time_now: 'now', time_min: '{n} min', time_hour: '{n} h', time_yesterday: 'yesterday', achieve_count: '{n} of {total}',
+      // Who liked you — the count is free, only the name is paid.
+      likers_title: 'They liked you',
+      likers_sub_one: '{n} person is waiting for your answer',
+      likers_sub_few: '{n} people are waiting for your answer',
+      likers_sub_many: '{n} people are waiting for your answer',
+      likers_empty: 'Nobody has liked you yet. Keep swiping — they will come.',
+      likers_open: 'Take a look',
+      likers_reveal: 'Reveal · {p} ⭐',
+      likers_pass_btn: 'Reveal everyone for {d} days · {p} ⭐',
+      likers_pass_on: 'All revealed for {d} more days',
+      likers_pass_premium: 'Always revealed with Premium',
+      likers_hidden: 'Someone',
+      likers_low: 'Not enough Stars',
+      likers_swipe: 'Keep swiping',
       interests: 'Interests',
       values: 'Values',
       bio_nudge: '💬 Add a few words about yourself (✎)',
@@ -579,6 +609,8 @@
       pw_b4: '📊 Digital Twin analytics',
       pw_pack_name: '+30 likes',
       pw_pack_note: 'A top-up for today. Photos stay blurred.',
+      pw_likes_name: 'Who liked you',
+      pw_likes_note: 'See everyone who liked you for {d} days. Already included in Premium.',
       pw_deposit_h: 'Top up with Telegram Stars',
       pw_tag_popular: 'POPULAR', pw_tag_value: 'BEST VALUE',
       pw_invite_q: 'Short on Stars?',
@@ -708,6 +740,20 @@
       depth_done: 'Готово ✓ Профиль глубже на +20%',
       about_me: 'Обо мне',
       online: 'онлайн', why_match: 'Почему совпало', row_common: 'общее: {x}', teaser_title: 'Открой все возможности', teaser_sub: 'Sixtio Premium: фото без блюра · безлимит свайпов', time_now: 'сейчас', time_min: '{n} мин', time_hour: '{n} ч', time_yesterday: 'вчера', achieve_count: '{n} из {total}',
+      // Кто тебя лайкнул — количество бесплатно, платно только имя.
+      likers_title: 'Тебя лайкнули',
+      likers_sub_one: '{n} человек ждёт твоего ответа',
+      likers_sub_few: '{n} человека ждут твоего ответа',
+      likers_sub_many: '{n} человек ждут твоего ответа',
+      likers_empty: 'Пока никто тебя не лайкнул. Свайпай — симпатии придут.',
+      likers_open: 'Посмотреть',
+      likers_reveal: 'Показать · {p} ⭐',
+      likers_pass_btn: 'Показать всех на {d} дней · {p} ⭐',
+      likers_pass_on: 'Все открыты ещё {d} дн.',
+      likers_pass_premium: 'Открыто навсегда с Premium',
+      likers_hidden: 'Кто-то',
+      likers_low: 'Не хватает звёзд',
+      likers_swipe: 'Листай дальше',
       interests: 'Интересы',
       values: 'Ценности',
       bio_nudge: '💬 Добавь пару слов о себе (✎)',
@@ -860,6 +906,8 @@
       pw_b4: '📊 Аналитика Digital Twin',
       pw_pack_name: '+30 симпатий',
       pw_pack_note: 'Топ-ап на сегодня. Фото остаются размытыми.',
+      pw_likes_name: 'Кто тебя лайкнул',
+      pw_likes_note: 'Видишь всех, кто тебя лайкнул, {d} дней. Уже входит в Premium.',
       pw_deposit_h: 'Пополнить баланс звёздами Telegram',
       pw_tag_popular: 'ПОПУЛЯРНОЕ', pw_tag_value: 'ВЫГОДНО',
       pw_invite_q: 'Мало звёзд?',
@@ -1041,6 +1089,27 @@
     return s;
   }
 
+  // plural('likers_sub', 21) -> t('likers_sub_one', { n: 21 })
+  //
+  // uk/ru decline by the LAST digit, not by the magnitude: 21 людина, 22 людини,
+  // 25 людей — and the teens (11–14) are the exception that a naive modulo gets
+  // wrong. English has only one/other, so 21 must NOT take the singular form
+  // there; picking the rule per language is the whole point of doing this here
+  // instead of in each page. Every caller must define all three keys; in English
+  // _few and _many are simply the same string.
+  function plural(base, n) {
+    var key;
+    if (lang === 'uk' || lang === 'ru') {
+      var last = n % 10, teen = n % 100;
+      if (last === 1 && teen !== 11) key = '_one';
+      else if (last >= 2 && last <= 4 && (teen < 12 || teen > 14)) key = '_few';
+      else key = '_many';
+    } else {
+      key = n === 1 ? '_one' : '_many';
+    }
+    return t(base + key, { n: n });
+  }
+
   // Localized label for a standardized kink marker token; unknown tokens pass
   // through verbatim (server vocabulary may grow ahead of the client).
   function kink(marker) {
@@ -1197,7 +1266,7 @@
     syncSwitchers();
   }
 
-  var api = { lang: lang, t: t, kink: kink, interest: interest, interestTags: INTEREST_TAGS, value: value, valueTags: VALUE_TAGS, apply: apply, detect: detect, refresh: refresh, setLang: setLang, mountSwitchers: mountSwitchers };
+  var api = { lang: lang, t: t, plural: plural, kink: kink, interest: interest, interestTags: INTEREST_TAGS, value: value, valueTags: VALUE_TAGS, apply: apply, detect: detect, refresh: refresh, setLang: setLang, mountSwitchers: mountSwitchers };
   window.SixtioI18n = api;
 
   // Attach the ACTIVE UI language to every same-origin API call that already

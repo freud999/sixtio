@@ -5,6 +5,8 @@
 (function () {
   var PREMIUM_PRICE = 150;
   var PACK_PRICE = 10;
+  var LIKES_PASS_PRICE = 40;
+  var LIKES_PASS_DAYS = 7;
   var injected = false;
 
   // Real Telegram Stars top-up packs (Task 19). Ids MUST match STAR_PACKS in
@@ -112,6 +114,17 @@
     var balance = opts.starsBalance || 0;
     // Caller-supplied context line (shop vs swipe-limit) — defaults to the limit copy.
     var subtitle = opts.subtitle || t('pw_default_sub');
+    // Premium state decides which options are worth showing. Read from the cached
+    // profile rather than from opts, so no call site can forget to pass it (a
+    // miss would only ever show a redundant option, never sell a wrong one — the
+    // server is still the authority on every price and entitlement).
+    var isPremium = opts.premium;
+    if (isPremium === undefined) {
+      try {
+        var cached = JSON.parse(localStorage.getItem('sixtio_me') || 'null');
+        isPremium = !!(cached && cached.user && cached.user.premium);
+      } catch (e) { isPremium = false; }
+    }
 
     var overlay = document.createElement('div');
     overlay.className = 'pw-overlay';
@@ -121,7 +134,7 @@
         '<div class="pw-title led grad-text">SIXTIO PREMIUM</div>' +
         '<div class="pw-sub">' + subtitle + '</div>' +
         '<div class="pw-bal">' + t('pw_balance') + ' <b>' + balance + ' ⭐</b></div>' +
-        '<button class="pw-opt pw-premium" data-item="premium">' +
+        '<button class="pw-opt pw-premium" data-item="premium" data-price="' + PREMIUM_PRICE + '">' +
           '<div class="pw-opt-head"><span class="pw-opt-name">' + t('pw_premium_name') +
           '<span class="pw-tag">' + t('pw_hit') + '</span></span>' +
           '<span class="pw-price">150 ⭐</span></div>' +
@@ -132,11 +145,19 @@
             '<li>' + t('pw_b4') + '</li>' +
           '</ul>' +
         '</button>' +
-        '<button class="pw-opt" data-item="swipe_pack">' +
+        '<button class="pw-opt" data-item="swipe_pack" data-price="' + PACK_PRICE + '">' +
           '<div class="pw-opt-head"><span class="pw-opt-name">' + t('pw_pack_name') + '</span>' +
-          '<span class="pw-price">10 ⭐</span></div>' +
+          '<span class="pw-price">' + PACK_PRICE + ' ⭐</span></div>' +
           '<div class="pw-opt-note">' + t('pw_pack_note') + '</div>' +
         '</button>' +
+        // Who liked you, as a 7-day pass. Premium already includes it, so the
+        // option is pointless (and looks like a double charge) for subscribers.
+        (isPremium ? '' :
+        '<button class="pw-opt" data-item="likes_pass" data-price="' + LIKES_PASS_PRICE + '">' +
+          '<div class="pw-opt-head"><span class="pw-opt-name">' + t('pw_likes_name') + '</span>' +
+          '<span class="pw-price">' + LIKES_PASS_PRICE + ' ⭐</span></div>' +
+          '<div class="pw-opt-note">' + t('pw_likes_note', { d: LIKES_PASS_DAYS }) + '</div>' +
+        '</button>') +
         '<div class="pw-deposit-h">' + t('pw_deposit_h') + '</div>' +
         '<div class="pw-deps">' +
           STAR_PACKS.map(function (p) {
@@ -243,7 +264,9 @@
       btn.addEventListener('click', function () {
         if (busy) return;
         var item = btn.getAttribute('data-item');
-        var price = item === 'premium' ? PREMIUM_PRICE : PACK_PRICE;
+        // Price rides on the button so adding a shop item can never silently
+        // charge the wrong balance check (the server is authoritative anyway).
+        var price = parseInt(btn.getAttribute('data-price'), 10) || PACK_PRICE;
         if (balance < price) {
           note.textContent = t('pw_insufficient_invite');
           return;
@@ -279,6 +302,8 @@
               me.user.premiumUntil = res.premiumUntil;
               me.user.likesLeft = res.likesLeft;
               me.user.blur = res.blur;
+              if (typeof res.likesPass === 'boolean') me.user.likesPass = res.likesPass;
+              if (res.likesPassUntil !== undefined) me.user.likesPassUntil = res.likesPassUntil;
               localStorage.setItem('sixtio_me', JSON.stringify(me));
             }
           } catch (e) {}

@@ -6,10 +6,10 @@
 <title>Sixtio — метчі</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="i18n.js?v=38"></script>
-<script src="theme.js?v=38"></script>
-<script src="paywall.js?v=38"></script>
-<link rel="stylesheet" href="theme.css?v=38" />
+<script src="i18n.js?v=39"></script>
+<script src="theme.js?v=39"></script>
+<script src="paywall.js?v=39"></script>
+<link rel="stylesheet" href="theme.css?v=39" />
 <style>
   body{
     display:flex; flex-direction:column; align-items:center;
@@ -93,6 +93,64 @@
   .row-dark-tag{ font-size:10.5px; font-weight:600; padding:4px 9px; border-radius:999px;
     color:var(--coral-ink); background:rgba(255,90,44,.1); border:1px solid rgba(255,90,44,.24); }
 
+  /* "Хто тебе лайкнув" entry card. Deliberately states the real number: the
+     count is free, so the card must never feel like a tease for the count. */
+  .likes-card{ width:100%; max-width:460px; display:flex; align-items:center; gap:14px;
+    padding:14px 16px; border-radius:22px; cursor:pointer; font-family:inherit; text-align:left;
+    background:var(--surface); border:1px solid rgba(var(--acc-rgb),.2);
+    box-shadow:0 12px 30px -20px rgba(60,45,30,.5); transition:transform .12s ease; }
+  .likes-card:active{ transform:scale(.99); }
+  .lc-ico{ width:40px; height:40px; border-radius:13px; flex:none; display:flex; align-items:center;
+    justify-content:center; background:rgba(var(--acc-rgb),.1); font-size:18px; }
+  .lc-body{ flex:1; min-width:0; }
+  .lc-title{ font-size:14px; font-weight:600; color:var(--ink); }
+  .lc-sub{ font-size:11.5px; color:var(--muted); margin-top:2px; }
+  .lc-count{ flex:none; min-width:28px; height:28px; padding:0 9px; border-radius:999px;
+    display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700;
+    color:#fff; background:var(--acc); }
+
+  /* Likers sheet — Clarity surface (theme-aware), NOT the 18+ tinted one. */
+  .lk-overlay{ position:fixed; inset:0; z-index:1100; display:flex; flex-direction:column;
+    align-items:center; justify-content:flex-end; background:rgba(20,14,10,.5);
+    -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
+    opacity:0; transition:opacity .22s ease; padding:16px;
+    padding-bottom:calc(env(safe-area-inset-bottom) + 16px); overflow-y:auto; }
+  .lk-overlay.show{ opacity:1; }
+  .lk-sheet{ width:100%; max-width:440px; margin-top:auto; position:relative;
+    border-radius:26px; padding:22px 20px; background:var(--surface);
+    border:1px solid var(--hair); box-shadow:0 20px 60px -20px rgba(0,0,0,.45);
+    transform:translateY(24px); transition:transform .26s cubic-bezier(.2,.8,.2,1); }
+  .lk-overlay.show .lk-sheet{ transform:translateY(0); }
+  .lk-close{ position:absolute; top:14px; right:14px; width:34px; height:34px; border-radius:50%;
+    border:1px solid var(--hair); background:var(--chip); color:var(--ink);
+    font-size:15px; cursor:pointer; font-family:inherit; line-height:1; }
+  .lk-title{ font-size:17px; font-weight:600; letter-spacing:-.01em; color:var(--ink); }
+  .lk-sub{ font-size:12px; color:var(--muted); margin-top:3px; }
+  .lk-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; margin-top:18px; }
+  .lk-item{ display:flex; flex-direction:column; align-items:center; gap:6px;
+    border:none; background:none; padding:0; font-family:inherit; cursor:default; }
+  .lk-item.locked{ cursor:pointer; }
+  .lk-ava-wrap{ position:relative; width:100%; aspect-ratio:1; border-radius:18px; overflow:hidden;
+    background:var(--chip); border:1px solid var(--hair); }
+  .lk-ava{ width:100%; height:100%; object-fit:cover; display:block; }
+  /* The lock is drawn client-side, but the blur is NOT the security boundary —
+     a locked liker's photo/name never leaves the server (see api/interact.js). */
+  .lk-item.locked .lk-ava{ filter:blur(10px); transform:scale(1.15); }
+  .lk-ava-ph{ width:100%; height:100%; display:flex; align-items:center; justify-content:center;
+    font-size:26px; color:var(--muted); }
+  .lk-lock{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size:20px; color:#fff; text-shadow:0 2px 10px rgba(0,0,0,.5); }
+  .lk-name{ font-size:12px; font-weight:600; color:var(--ink); text-align:center;
+    max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .lk-name.dim{ color:var(--muted); font-weight:500; }
+  .lk-price{ font-size:10.5px; font-weight:700; color:var(--acc); }
+  .lk-pass{ width:100%; margin-top:18px; border:none; border-radius:999px; padding:15px;
+    font-size:14.5px; font-weight:700; color:#fff; font-family:inherit; cursor:pointer;
+    background:var(--acc); }
+  .lk-pass:disabled{ opacity:.55; cursor:default; }
+  .lk-note{ font-size:12px; color:var(--muted); text-align:center; margin-top:10px; min-height:16px; }
+  .lk-empty{ font-size:13px; line-height:1.6; color:var(--hint); text-align:center; padding:24px 8px; }
+
   .hint-empty{ max-width:340px; text-align:center; font-size:13px; line-height:1.6;
     color:var(--hint); padding:16px; }
   .spin{ display:inline-block; width:15px; height:15px; border-radius:50%;
@@ -126,6 +184,17 @@
   <div class="hint-empty glass" id="emptyHint" data-i18n="matches_empty" hidden>
     Поки що сумісних вільних кандидатів немає. Онови анкету через «Покращити профіль» — і спробуй ще 💜
   </div>
+
+  <!-- Who liked you. Hidden at zero — an empty "0 people liked you" card is a
+       worse experience than no card at all. -->
+  <button class="likes-card" id="likesCard" type="button" hidden>
+    <span class="lc-ico">💛</span>
+    <span class="lc-body">
+      <span class="lc-title" data-i18n="likers_title">Тебе лайкнули</span>
+      <span class="lc-sub" id="likesSub"></span>
+    </span>
+    <span class="lc-count" id="likesCount">0</span>
+  </button>
 
   <div class="match-list" id="matchList"></div>
 
@@ -263,7 +332,179 @@
         // (never a dead-end empty screen). Honest upsell — opens the Stars shop.
         var teaser = document.getElementById('premiumTeaser');
         if (teaser) teaser.hidden = !(matches.length && me.user && !me.user.premium);
+        renderLikes(me.user);
       }
+
+      // --- Who liked you --------------------------------------------------
+      // The count comes free with /api/me and is painted from cache instantly.
+      // The list is fetched only when the sheet is opened, so the extra query
+      // costs nothing on a normal app boot.
+      var likesCardEl = document.getElementById('likesCard');
+      // uk/ru decline "людина" by the last digit — SixtioI18n.plural owns that rule.
+      var likersSub = function(n){ return SixtioI18n.plural('likers_sub', n); };
+
+      function renderLikes(u){
+        var n = (u && u.likersCount) || 0;
+        likesCardEl.hidden = n === 0;
+        if (!n) return;
+        document.getElementById('likesCount').textContent = n;
+        document.getElementById('likesSub').textContent = likersSub(n);
+      }
+
+      function daysLeft(iso){
+        if (!iso) return 0;
+        return Math.max(1, Math.ceil((new Date(iso).getTime() - Date.now()) / 86400000));
+      }
+
+      function openLikers(){
+        var overlay = document.createElement('div');
+        overlay.className = 'lk-overlay';
+        overlay.innerHTML =
+          '<div class="lk-sheet">' +
+            '<button class="lk-close" type="button" aria-label="×">✕</button>' +
+            '<div class="lk-title">' + t('likers_title') + '</div>' +
+            '<div class="lk-sub" id="lkSub"></div>' +
+            '<div class="lk-grid" id="lkGrid"></div>' +
+            '<button class="lk-pass" id="lkPass" type="button" hidden></button>' +
+            '<div class="lk-note" id="lkNote"></div>' +
+          '</div>';
+        document.body.appendChild(overlay);
+        requestAnimationFrame(function(){ overlay.classList.add('show'); });
+
+        function close(){
+          overlay.classList.remove('show');
+          setTimeout(function(){ overlay.remove(); }, 220);
+        }
+        overlay.querySelector('.lk-close').addEventListener('click', close);
+        overlay.addEventListener('click', function(e){ if (e.target === overlay) close(); });
+
+        var grid = overlay.querySelector('#lkGrid');
+        var note = overlay.querySelector('#lkNote');
+        var passBtn = overlay.querySelector('#lkPass');
+        var subEl = overlay.querySelector('#lkSub');
+
+        // Prices are server-supplied — the sheet never hardcodes what it charges.
+        var state = { revealPrice: 5, passPrice: 40, passDays: 7 };
+
+        function tile(p){
+          var el = document.createElement('button');
+          el.type = 'button';
+          el.className = 'lk-item' + (p.locked ? ' locked' : '');
+          var wrap = document.createElement('span'); wrap.className = 'lk-ava-wrap';
+          if (p.photoUrl) {
+            var img = document.createElement('img');
+            img.className = 'lk-ava'; img.src = p.photoUrl; img.alt = '';
+            wrap.appendChild(img);
+          } else {
+            var ph = document.createElement('span'); ph.className = 'lk-ava-ph'; ph.textContent = '🙂';
+            wrap.appendChild(ph);
+          }
+          if (p.locked) {
+            var lock = document.createElement('span'); lock.className = 'lk-lock'; lock.textContent = '🔒';
+            wrap.appendChild(lock);
+          }
+          el.appendChild(wrap);
+
+          var nameEl = document.createElement('span');
+          nameEl.className = 'lk-name' + (p.locked ? ' dim' : '');
+          nameEl.textContent = p.locked
+            ? t('likers_hidden')
+            : (p.name || '') + (p.age ? ', ' + p.age : '');
+          el.appendChild(nameEl);
+
+          if (p.locked) {
+            var price = document.createElement('span');
+            price.className = 'lk-price';
+            price.textContent = t('likers_reveal', { p: state.revealPrice });
+            el.appendChild(price);
+            el.addEventListener('click', function(){ reveal(p.userId, el); });
+          }
+          return el;
+        }
+
+        function paint(data){
+          state.revealPrice = data.revealPrice;
+          state.passPrice = data.passPrice;
+          state.passDays = data.passDays;
+
+          grid.innerHTML = '';
+          if (!data.likers.length) {
+            var empty = document.createElement('div');
+            empty.className = 'lk-empty'; empty.textContent = t('likers_empty');
+            grid.appendChild(empty);
+          } else {
+            data.likers.forEach(function(p){ grid.appendChild(tile(p)); });
+          }
+          subEl.textContent = likersSub(data.count);
+
+          var anyLocked = data.likers.some(function(p){ return p.locked; });
+          if (data.pass) {
+            passBtn.hidden = true;
+            note.textContent = data.passUntil
+              ? t('likers_pass_on', { d: daysLeft(data.passUntil) })
+              : t('likers_pass_premium');
+          } else if (anyLocked) {
+            passBtn.hidden = false;
+            passBtn.textContent = t('likers_pass_btn', { d: data.passDays, p: data.passPrice });
+          } else {
+            passBtn.hidden = true;
+          }
+        }
+
+        function reveal(userId, el){
+          if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('light'); } catch(e){} }
+          el.disabled = true;
+          api('/api/interact', { op: 'reveal_liker', targetId: userId }).then(function(r){
+            el.disabled = false;
+            if (!r.ok) {
+              if (r.reason === 'insufficient') {
+                note.textContent = t('likers_low');
+                if (window.SixtioPaywall) window.SixtioPaywall.open({
+                  initData: initData, starsBalance: r.starsBalance || starsBal,
+                  onSuccess: function(){ window.location.reload(); }
+                });
+              }
+              return;
+            }
+            starsBal = r.starsBalance;
+            var sv = document.getElementById('starsVal'); if (sv) sv.textContent = starsBal;
+            el.replaceWith(tile(r.liker));
+            note.textContent = '';
+          }).catch(function(){ el.disabled = false; });
+        }
+
+        passBtn.addEventListener('click', function(){
+          if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('medium'); } catch(e){} }
+          passBtn.disabled = true;
+          api('/api/interact', { op: 'purchase', item: 'likes_pass' }).then(function(r){
+            passBtn.disabled = false;
+            if (!r.ok) {
+              if (r.reason === 'insufficient') {
+                note.textContent = t('likers_low');
+                if (window.SixtioPaywall) window.SixtioPaywall.open({
+                  initData: initData, starsBalance: r.starsBalance || starsBal,
+                  onSuccess: function(){ window.location.reload(); }
+                });
+              }
+              return;
+            }
+            starsBal = r.starsBalance;
+            var sv = document.getElementById('starsVal'); if (sv) sv.textContent = starsBal;
+            // Re-fetch rather than unlocking client-side: the freshly revealed
+            // names have to come from the server, they were never sent before.
+            return api('/api/interact', { op: 'likers' }).then(paint);
+          }).catch(function(){ passBtn.disabled = false; });
+        });
+
+        api('/api/interact', { op: 'likers' }).then(paint).catch(function(){
+          note.textContent = t('likers_swipe');
+        });
+      }
+
+      likesCardEl.addEventListener('click', function(){
+        if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('medium'); } catch(e){} }
+        openLikers();
+      });
 
       var teaserEl = document.getElementById('premiumTeaser');
       if (teaserEl) teaserEl.addEventListener('click', function(){

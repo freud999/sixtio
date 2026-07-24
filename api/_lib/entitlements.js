@@ -16,6 +16,9 @@ export const SWIPE_PACK_PRICE = 10;   // ⭐ for +30 likes today
 export const MYSTERY_UNLOCK_PRICE = 10;   // ⭐ to reveal the daily Mystery Match
 export const LOOTBOX_PRICE = 5;           // ⭐ per lootbox after the free daily one
 export const WHY_FACTOR_PRICE = 10;       // ⭐ per "The Why Factor" AI reveal (non-premium)
+export const LIKE_REVEAL_PRICE = 5;       // ⭐ to reveal ONE person who liked you
+export const LIKES_PASS_PRICE = 40;       // ⭐ to reveal everyone for LIKES_PASS_DAYS
+export const LIKES_PASS_DAYS = 7;
 export const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function entitlements(user) {
@@ -48,6 +51,19 @@ export function entitlements(user) {
 // JSON-safe likes counter: null means unlimited (never leak Infinity).
 export function likesLeftForClient(ent) {
   return ent.premiumActive ? null : ent.likesLeft;
+}
+
+/**
+ * May this user see WHO liked them, without paying per person? True while the
+ * 7-day pass is live, and always for Premium — subscribers (and therefore every
+ * female account) are not asked to pay a second time for the same thing.
+ * The COUNT of likes is free for everyone and is not gated by this.
+ */
+export function likesPassActive(user, ent) {
+  const e = ent || entitlements(user);
+  if (e.premiumActive) return true;
+  const until = user && user.likes_pass_until ? new Date(user.likes_pass_until).getTime() : 0;
+  return until > Date.now();
 }
 
 // --- Dark Mode (18+) intimate compatibility --------------------------------

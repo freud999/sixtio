@@ -1,11 +1,12 @@
 import { resolveUser, pickLang } from './_lib/telegram.js';
 import {
-  findUserId, getSupabase, blockUser, unblockUser, reportUser,
+  findUserId, getSupabase, blockUser, unblockUser, reportUser, getPendingLikers,
 } from './_lib/supabase.js';
 import {
-  entitlements, likesLeftForClient,
+  entitlements, likesLeftForClient, likesPassActive,
   FREE_DAILY_LIMIT, PREMIUM_PRICE, PREMIUM_DAYS, SWIPE_PACK_PRICE,
   MYSTERY_UNLOCK_PRICE, LOOTBOX_PRICE,
+  LIKE_REVEAL_PRICE, LIKES_PASS_PRICE, LIKES_PASS_DAYS,
 } from './_lib/entitlements.js';
 import { processKinkInterview } from './_lib/kink.js';
 import {
@@ -55,6 +56,8 @@ function rollLootboxReward() {
 //   op: 'submit_kink_interview'-> body { answers:string }     AI kink-marker analysis
 //   op: 'unlock_mystery_match' -> {}                          reveal the daily match (10 ⭐)
 //   op: 'open_lootbox'         -> {}                          open a luck box (first free, then 5 ⭐)
+//   op: 'likers'               -> {}                          who liked you (count free, names gated)
+//   op: 'reveal_liker'         -> body { targetId }           reveal one of them (5 ⭐)
 // (Legacy callers that omit `op` but send targetId/action still swipe.)
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -71,7 +74,7 @@ export default async function handler(req, res) {
 
     // Per-op rate limit: Stars spends are the costliest to abuse, the kink
     // interview spends AI budget, everything else is a cheap write.
-    const MONEY_OPS = ['create_stars_invoice', 'purchase', 'unlock_mystery_match', 'open_lootbox'];
+    const MONEY_OPS = ['create_stars_invoice', 'purchase', 'unlock_mystery_match', 'open_lootbox', 'reveal_liker'];
     const rlPreset = op === 'submit_kink_interview'
       ? LIMITS.ai_heavy
       : MONEY_OPS.includes(op) ? LIMITS.money : LIMITS.write;
@@ -84,6 +87,8 @@ export default async function handler(req, res) {
     if (op === 'submit_kink_interview') return submitKinkInterview(res, tgUser, body);
     if (op === 'unlock_mystery_match') return unlockMysteryMatch(res, tgUser);
     if (op === 'open_lootbox') return openLootbox(res, tgUser);
+    if (op === 'likers') return listLikers(res, tgUser);
+    if (op === 'reveal_liker') return revealLiker(res, tgUser, body);
     if (op === 'block' || op === 'unblock') return blockOrUnblock(res, tgUser, body, op);
     if (op === 'report') return report(res, tgUser, body);
     return swipe(req, res, tgUser, body);
@@ -197,8 +202,9 @@ async function swipe(req, res, tgUser, body) {
 // never double-spend or go negative.
 async function purchase(req, res, tgUser, body) {
   const { item } = body;
-  if (item !== 'premium' && item !== 'swipe_pack') {
-    return res.status(400).json({ error: "item must be 'premium' or 'swipe_pack'" });
+  const ITEMS = ['premium', 'swipe_pack', 'likes_pass'];
+  if (!ITEMS.includes(item)) {
+    return res.status(400).json({ error: `item must be one of ${ITEMS.join(', ')}` });
   }
 
   const userId = await findUserId(tgUser.id);
@@ -215,6 +221,14 @@ async function purchase(req, res, tgUser, body) {
     });
     if (error) throw error;
     newBalance = data;
+  } else if (item === 'likes_pass') {
+    // Returns the new expiry (or null when the balance did not cover it), so we
+    // read the balance back below rather than getting it from the RPC.
+    const { data, error } = await supabase.rpc('buy_likes_pass', {
+      buyer: userId, price: LIKES_PASS_PRICE, days: LIKES_PASS_DAYS,
+    });
+    if (error) throw error;
+    newBalance = data == null ? null : 0;   // sentinel: non-null = the buy went through
   } else {
     const { data, error } = await supabase.rpc('purchase_swipe_pack', {
       buyer: userId, price: SWIPE_PACK_PRICE,
@@ -234,7 +248,7 @@ async function purchase(req, res, tgUser, body) {
   // Re-read the fresh entitlement so the client can update instantly.
   const { data: fresh } = await supabase
     .from('users')
-    .select('gender, premium, premium_until, daily_likes_count, last_like_reset, stars_balance')
+    .select('gender, premium, premium_until, daily_likes_count, last_like_reset, stars_balance, likes_pass_until')
     .eq('id', userId)
     .maybeSingle();
   const ent = entitlements(fresh);
@@ -247,6 +261,8 @@ async function purchase(req, res, tgUser, body) {
     premiumUntil: ent.premiumUntil,
     likesLeft: likesLeftForClient(ent),
     blur: ent.blur,
+    likesPass: likesPassActive(fresh, ent),
+    likesPassUntil: fresh.likes_pass_until || null,
   });
 }
 
@@ -421,6 +437,124 @@ async function revealMysteryCard(supabase, meId, targetId) {
     age: u.age, city: u.city || '', photoUrl: u.photo_url || '',
     compatibility, tags, isMysteryMatch: true, unlocked: true,
   };
+}
+
+// --- Who liked you ------------------------------------------------------
+// Returns everyone who right-swiped this user and is still waiting for an
+// answer. The COUNT is always free — it is the whole hook, and a hidden count
+// would just read as an empty screen. IDENTITY is what is gated:
+//
+//   * Premium / the 7-day pass -> everyone is revealed;
+//   * otherwise               -> only the people already paid for individually,
+//                                the rest come back as blurred stubs carrying NO
+//                                name, age, city or sharp photo. The gating is
+//                                done HERE, server-side: a locked liker's real
+//                                data never crosses the wire, so nobody can read
+//                                it out of the network tab.
+//
+// People this user already swiped are excluded (they are answered), as are
+// blocks in either direction and shadow-hidden accounts.
+async function listLikers(res, tgUser) {
+  const supabase = getSupabase();
+  const { data: me, error } = await supabase
+    .from('users')
+    .select('id, gender, premium, premium_until, daily_likes_count, last_like_reset, ' +
+            'liked_users, disliked_users, blocked_users, likes_pass_until, revealed_likers')
+    .eq('telegram_id', tgUser.id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!me) return res.status(200).json({ ok: false });
+
+  const pending = await getPendingLikers(me, 'name, age, city, photo_url, photo_blur_url');
+
+  const ent = entitlements(me);
+  const pass = likesPassActive(me, ent);
+  const revealed = new Set(me.revealed_likers || []);
+
+  const likers = pending.map((u) => {
+    if (pass || revealed.has(u.id)) {
+      return {
+        userId: u.id,
+        name: (u.name || '').split(' ')[0] || '',
+        age: u.age, city: u.city || '',
+        photoUrl: u.photo_url || '',
+        locked: false,
+      };
+    }
+    // Locked: a blurred silhouette and nothing else. No name, no age, no city.
+    return { userId: u.id, photoUrl: u.photo_blur_url || '', locked: true };
+  });
+
+  return res.status(200).json({
+    ok: true,
+    count: likers.length,
+    likers,
+    pass,
+    passUntil: me.likes_pass_until || null,
+    revealPrice: LIKE_REVEAL_PRICE,
+    passPrice: LIKES_PASS_PRICE,
+    passDays: LIKES_PASS_DAYS,
+  });
+}
+
+// --- Reveal one liker (5 ⭐) ---------------------------------------------
+// The RPC is the guard, not this function: it charges only when the target
+// genuinely liked this user, was not already revealed, and the balance covers
+// it — all in one statement, so double taps cannot double-charge. A null return
+// means one of those failed, and we re-read the row to say which.
+async function revealLiker(res, tgUser, body) {
+  const targetId = body.targetId ? String(body.targetId) : '';
+  if (!targetId) return res.status(400).json({ error: 'targetId is required' });
+
+  const supabase = getSupabase();
+  const { data: me, error } = await supabase
+    .from('users')
+    .select('id, gender, premium, premium_until, stars_balance, likes_pass_until, revealed_likers')
+    .eq('telegram_id', tgUser.id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!me) return res.status(200).json({ ok: false });
+  if (targetId === me.id) return res.status(400).json({ error: 'cannot reveal yourself' });
+
+  // Already entitled (Premium or an active pass) or already bought: no charge.
+  const free = likesPassActive(me) || (me.revealed_likers || []).includes(targetId);
+
+  let starsBalance = me.stars_balance || 0;
+  if (!free) {
+    const { data: newBalance, error: rpcError } = await supabase.rpc('reveal_liker', {
+      viewer: me.id, liker: targetId, price: LIKE_REVEAL_PRICE,
+    });
+    if (rpcError) throw rpcError;
+    if (newBalance === null || newBalance === undefined) {
+      // Either the wallet was short or that person never actually liked us.
+      const { data: liker } = await supabase
+        .from('users').select('liked_users').eq('id', targetId).maybeSingle();
+      const reallyLiked = !!(liker && (liker.liked_users || []).includes(me.id));
+      return res.status(200).json({
+        ok: false, reason: reallyLiked ? 'insufficient' : 'not_a_liker', starsBalance,
+      });
+    }
+    starsBalance = newBalance;
+  }
+
+  const { data: u } = await supabase
+    .from('users')
+    .select('id, name, age, city, photo_url')
+    .eq('id', targetId)
+    .maybeSingle();
+  if (!u) return res.status(200).json({ ok: false, reason: 'gone', starsBalance });
+
+  return res.status(200).json({
+    ok: true,
+    starsBalance,
+    liker: {
+      userId: u.id,
+      name: (u.name || '').split(' ')[0] || '',
+      age: u.age, city: u.city || '',
+      photoUrl: u.photo_url || '',
+      locked: false,
+    },
+  });
 }
 
 // --- Block / Unblock ----------------------------------------------------
