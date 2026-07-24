@@ -2,6 +2,7 @@ import { resolveUser, pickLang } from './_lib/telegram.js';
 import { getSupabase, getMatchesFor, getHiddenUserIds } from './_lib/supabase.js';
 import { buildReferralLink } from './_lib/referrals.js';
 import { entitlements, likesLeftForClient, intimateCompatibility } from './_lib/entitlements.js';
+import { darkActive, darkModeEnabled, consentStale, DARK_COLUMNS } from './_lib/darkmode.js';
 import { notifyRetention } from './_lib/bot.js';
 import { sanitizeAiText } from './_lib/claude.js';
 import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
@@ -104,7 +105,7 @@ export default async function handler(req, res) {
     const supabase = getSupabase();
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, name, gender, seeking_gender, goal, age, city, interests, core_values, bio, photo_url, stars_balance, premium, premium_until, daily_likes_count, last_like_reset, dark_mode_active, kink_markers, blocked_users, profile_depth, achievements')
+      .select('id, name, gender, seeking_gender, goal, age, city, interests, core_values, bio, photo_url, stars_balance, premium, premium_until, daily_likes_count, last_like_reset, ' + DARK_COLUMNS + ', kink_markers, blocked_users, profile_depth, achievements')
       .eq('telegram_id', tgUser.id)
       .maybeSingle();
     if (error) throw error;
@@ -173,7 +174,7 @@ export default async function handler(req, res) {
       ru: 'Вы понравились друг другу 🔥',
     };
     const rows = await getMatchesFor(user.id);
-    const darkOn = !!user.dark_mode_active;
+    const darkOn = darkActive(user);
     // Blocked (either direction) partners never surface as match cards.
     let hidden = new Set();
     try { hidden = await getHiddenUserIds(user.id, user.blocked_users); }
@@ -183,7 +184,7 @@ export default async function handler(req, res) {
       if (hidden.has(m.partnerId)) continue;
       const { data: partner } = await supabase
         .from('users')
-        .select('name, age, city, goal, interests, bio, photo_url, dark_mode_active, kink_markers, last_active, shadow_hidden')
+        .select('name, age, city, goal, interests, bio, photo_url, ' + DARK_COLUMNS + ', kink_markers, last_active, shadow_hidden')
         .eq('id', m.partnerId)
         .maybeSingle();
       if (!partner || partner.shadow_hidden) continue;
@@ -237,16 +238,20 @@ export default async function handler(req, res) {
       // (api/feed.js): computed ONLY when BOTH sides have it on, and free males
       // get the % with the tags WITHHELD server-side (never recoverable from the
       // wire), so the intimate layer stays byte-for-byte private otherwise.
-      if (darkOn && partner.dark_mode_active) {
+      if (darkOn && darkActive(partner)) {
         const intim = intimateCompatibility(user.kink_markers, partner.kink_markers);
         card.darkMode = true;
         card.intimateCompatibility = intim.score;
-        card.intimateTagsBlurred = ent.blur;
-        card.intimateTags = ent.blur ? [] : intim.tags;
-        // Visibility B: a match is already mutual, so reveal the partner's FULL
-        // desire list (not just the shared markers). Same privacy gate — withheld
-        // from free males server-side, so it's never on the wire for them.
-        card.intimatePartnerMarkers = ent.blur ? [] : (partner.kink_markers || []);
+        // Stage 2 of two-stage disclosure: disclosure grows with the relationship.
+        // A match is already mutual and both sides consented to the same terms, so
+        // each now sees the OTHER'S FULL list and their own alongside it, with the
+        // shared markers flagged for highlighting. Strictly symmetric — she sees
+        // exactly what he sees — and free: ent.blur is deliberately not consulted,
+        // so intimate data can never be bought.
+        card.intimateTags = intim.tags;              // shared → highlighted client-side
+        card.intimateTagsBlurred = false;
+        card.intimatePartnerMarkers = partner.kink_markers || [];
+        card.intimateMyMarkers = user.kink_markers || [];
       }
 
       matches.push(card);
@@ -275,7 +280,14 @@ export default async function handler(req, res) {
         blur: ent.blur,
         // Dark Mode (18+): the user's own state, so the profile toggle + the
         // first-run kink interview can render. Markers are the user's own only.
-        darkMode: !!user.dark_mode_active,
+        // darkMode reflects the EFFECTIVE state (all three gates), so the switch
+        // can never sit "on" while the layer is actually withheld.
+        darkMode: darkOn,
+        // Kill switch is down → the whole card is hidden rather than shown broken.
+        darkModeAvailable: darkModeEnabled(),
+        // Opted in under superseded consent wording: the UI explains and re-asks
+        // instead of showing an unexplained empty intimate layer.
+        darkConsentStale: darkModeEnabled() && consentStale(user),
         kinkMarkers: user.kink_markers || [],
         // Gamification: completeness meter (0..100) + earned psychological badges.
         profileDepth: typeof user.profile_depth === 'number' ? user.profile_depth : BASE_PROFILE_DEPTH,

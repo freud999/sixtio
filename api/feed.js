@@ -1,6 +1,7 @@
 import { resolveUser, pickLang } from './_lib/telegram.js';
 import { getSupabase, getMatchesFor, getHiddenUserIds } from './_lib/supabase.js';
 import { entitlements, likesLeftForClient, intimateCompatibility } from './_lib/entitlements.js';
+import { darkActive, DARK_COLUMNS } from './_lib/darkmode.js';
 import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
 
 // Recommendation feed for the swipe deck (feed.html). Pure Supabase — no AI.
@@ -74,7 +75,7 @@ export default async function handler(req, res) {
     const supabase = getSupabase();
     const { data: me, error: meError } = await supabase
       .from('users')
-      .select('id, gender, seeking_gender, age, liked_users, disliked_users, blocked_users, premium, premium_until, daily_likes_count, last_like_reset, dark_mode_active, kink_markers, interests, last_mystery_match_id, last_mystery_match_time, mystery_match_unlocked')
+      .select('id, gender, seeking_gender, age, liked_users, disliked_users, blocked_users, premium, premium_until, daily_likes_count, last_like_reset, ' + DARK_COLUMNS + ', kink_markers, interests, last_mystery_match_id, last_mystery_match_time, mystery_match_unlocked')
       .eq('telegram_id', tgUser.id)
       .maybeSingle();
     if (meError) throw meError;
@@ -132,7 +133,7 @@ export default async function handler(req, res) {
     // wildcard 'any' preference skips the gender filter; JS still does final checks.
     let candQuery = supabase
       .from('users')
-      .select('id, name, gender, seeking_gender, age, city, photo_url, photo_blur_url, dark_mode_active, kink_markers, interests, last_active, shadow_hidden')
+      .select('id, name, gender, seeking_gender, age, city, photo_url, photo_blur_url, ' + DARK_COLUMNS + ', kink_markers, interests, last_active, shadow_hidden')
       .neq('id', me.id)
       .eq('shadow_hidden', false);
     if (me.seeking_gender && me.seeking_gender !== 'any') candQuery = candQuery.eq('gender', me.seeking_gender);
@@ -142,7 +143,9 @@ export default async function handler(req, res) {
 
     // Dark Mode (18+) is a mutual, opt-in layer: intimate data is computed ONLY
     // when this user has it on, and then only against candidates who also do.
-    const darkOn = !!me.dark_mode_active;
+    // darkActive() additionally requires a current, recorded consent on BOTH
+    // sides and the operator kill switch to be up (api/_lib/darkmode.js).
+    const darkOn = darkActive(me);
     const myInterests = normInterests(me.interests);
 
     const ranked = [];
@@ -186,17 +189,17 @@ export default async function handler(req, res) {
 
       // Only surface the intimate layer when BOTH sides opted in — otherwise the
       // card stays byte-for-byte standard, keeping opted-out users fully private.
-      if (darkOn && c.dark_mode_active) {
+      if (darkOn && darkActive(c)) {
         const intim = intimateCompatibility(me.kink_markers, c.kink_markers);
         card.darkMode = true;
         card.intimateCompatibility = intim.score;
-        // Privacy-first: free males get the % only — the actual matching tags are
-        // WITHHELD from the payload entirely (not just CSS-blurred), so they can
-        // never be recovered from the wire. Premium males & all females (never
-        // blurred) receive the full tag list. `intimateTagsBlurred` still tells
-        // the client to render the locked/upsell state.
-        card.intimateTagsBlurred = ent.blur;
-        card.intimateTags = ent.blur ? [] : intim.tags;
+        // Stage 1 of two-stage disclosure: BEFORE a match, both sides see only
+        // the markers they actually SHARE — never the other person's full list.
+        // Symmetric and free by design: the paywall (ent.blur) deliberately does
+        // not reach this layer, so nobody can buy their way into someone else's
+        // intimate data. Full lists unlock only on a mutual match, in api/me.js.
+        card.intimateTags = intim.tags;
+        card.intimateTagsBlurred = false;
       }
 
       ranked.push(card);

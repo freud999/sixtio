@@ -6,10 +6,10 @@
 <title>Sixtio — знайти пару</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="i18n.js?v=37"></script>
-<script src="theme.js?v=37"></script>
-<script src="paywall.js?v=37"></script>
-<link rel="stylesheet" href="theme.css?v=37" />
+<script src="i18n.js?v=38"></script>
+<script src="theme.js?v=38"></script>
+<script src="paywall.js?v=38"></script>
+<link rel="stylesheet" href="theme.css?v=38" />
 <style>
   body{
     display:flex; flex-direction:column; align-items:center;
@@ -417,6 +417,8 @@
 
         // Dark Mode (18+): second, glowing flame scale — only present when both
         // this user and the candidate opted in (server gates it in api/feed.js).
+        // Stage 1 of the two-stage disclosure: before a match these are strictly
+        // the SHARED markers, shown free to both sides — never a paid reveal.
         if (c.darkMode) {
           var dm = document.createElement('div'); dm.className = 'card-dark';
           var ds = document.createElement('div'); ds.className = 'dark-score';
@@ -430,10 +432,6 @@
               dt.appendChild(chip);
             });
             dm.appendChild(dt);
-          } else if (c.intimateTagsBlurred) {
-            var dh = document.createElement('div'); dh.className = 'dark-hint';
-            dh.textContent = t('dark_hint');
-            dm.appendChild(dh);
           }
           info.appendChild(dm);
         }

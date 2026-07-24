@@ -6,10 +6,10 @@
 <title>Sixtio — мій профіль</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="i18n.js?v=37"></script>
-<script src="theme.js?v=37"></script>
-<script src="paywall.js?v=37"></script>
-<link rel="stylesheet" href="theme.css?v=37" />
+<script src="i18n.js?v=38"></script>
+<script src="theme.js?v=38"></script>
+<script src="paywall.js?v=38"></script>
+<link rel="stylesheet" href="theme.css?v=38" />
 <style>
   body{
     display:flex; flex-direction:column; align-items:center;
@@ -240,6 +240,35 @@
   .kv-next:disabled{ opacity:.5; cursor:default; }
   .kv-note{ font-size:12.5px; color:#ffb3a3; text-align:center; min-height:16px; margin-top:10px; }
   .kv-priv{ font-size:11.5px; color:rgba(255,255,255,.55); text-align:center; margin-top:12px; line-height:1.45; }
+
+  /* consent sheet (18+) — same tinted surface as the interview, but a short,
+     read-and-agree screen: it is the record that the user was actually told
+     what happens to this data before any of it is processed. */
+  .dc-lead{ font-size:14px; line-height:1.5; margin-top:14px; color:rgba(255,255,255,.9); }
+  .dc-list{ list-style:none; margin:14px 0 0; padding:0; display:flex; flex-direction:column; gap:9px; }
+  .dc-list li{ position:relative; padding-left:20px; font-size:13.5px; line-height:1.45; color:rgba(255,255,255,.82); }
+  .dc-list li::before{ content:''; position:absolute; left:4px; top:8px; width:6px; height:6px;
+    border-radius:50%; background:#ff7a5c; }
+  /* The affirmation sits immediately above the button, so pressing it IS the
+     consent act — no extra checkboxes to tick. */
+  .dc-affirm{ margin-top:18px; padding:12px 14px; border-radius:14px;
+    font-size:13px; line-height:1.5; font-weight:600; color:#fff;
+    background:rgba(255,90,44,.16); border:1px solid rgba(255,120,90,.4); }
+  .dc-actions{ display:flex; gap:10px; margin-top:14px; }
+  .dc-cancel{ flex:0 0 auto; padding:15px 20px; border-radius:999px; font-size:15px; font-weight:600;
+    font-family:inherit; cursor:pointer; color:rgba(255,255,255,.8);
+    border:1px solid rgba(255,255,255,.22); background:transparent; }
+  .dc-ok{ flex:1; border:none; border-radius:999px; padding:15px; font-size:15px; font-weight:700;
+    color:#fff; font-family:inherit; cursor:pointer;
+    background:linear-gradient(120deg, #ff5640, #be2878); box-shadow:0 12px 30px -12px rgba(255,70,60,.8); }
+  .dc-ok:disabled{ opacity:.4; cursor:default; box-shadow:none; }
+  .dc-link{ color:#ffb3a3; text-decoration:underline; }
+
+  .ref-terms{ margin-top:12px; font-size:11.5px; line-height:1.45; color:var(--muted); }
+
+  /* inline status under the Dark Mode card: kill switch down, or stale consent */
+  .dark-note{ margin-top:13px; font-size:12.5px; line-height:1.45; color:var(--coral-desc);
+    padding:10px 12px; border-radius:12px; background:rgba(255,90,44,.1); }
 </style>
 </head>
 <body class="has-tab-bar">
@@ -336,8 +365,9 @@
     <div class="achieve-grid" id="achieveGrid"></div>
   </div>
 
-  <!-- 18+ layer isolated in its own coral card near the bottom (design order);
-       the toggle is locked until the age gate below is confirmed (client-side). -->
+  <!-- 18+ layer isolated in its own coral card near the bottom (design order).
+       Switching it ON always routes through the consent sheet (openConsent),
+       which carries the 18+ affirmation — there is no inline shortcut. -->
   <div class="section monolith-card dark-card" id="darkSection">
     <div class="dark-head">
       <div>
@@ -345,15 +375,11 @@
         <div class="dark-desc" data-i18n="dark_desc">Анонімний пошук за інтимною сумісністю. Видно лише тим, хто теж увімкнув Dark Mode.</div>
       </div>
       <label class="ios-switch">
-        <input type="checkbox" id="darkToggle" disabled />
+        <input type="checkbox" id="darkToggle" />
         <span class="ios-slider"></span>
       </label>
     </div>
-    <label class="age-gate">
-      <input type="checkbox" id="ageConfirm" />
-      <span class="age-box" aria-hidden="true"></span>
-      <span data-i18n="age_confirm">Мені є 18 років</span>
-    </label>
+    <div class="dark-note" id="darkNote" hidden></div>
     <div class="dark-markers" id="darkMarkers" hidden></div>
     <button class="dark-redo" id="darkRedo" data-i18n="dark_redo" hidden>Пройти інтерв'ю знову</button>
   </div>
@@ -367,6 +393,9 @@
       </div>
       <button class="btn-primary" id="inviteBtn" style="padding:12px 20px; font-size:14px; white-space:nowrap;" data-i18n="invite_btn">Запросити</button>
     </div>
+    <!-- Terms at the point of action: whether a referral counts is decided here,
+         so it is stated here rather than only in the policy. -->
+    <div class="ref-terms" data-i18n="referral_terms">Реферал зараховується, коли друг завершить реєстрацію та почне користуватись Sixtio. Діють ліміти: до 10 нагород на добу.</div>
   </div>
 
   <div class="section glass" id="editSection" hidden>
@@ -649,12 +678,29 @@
       // ---- Dark Mode (18+) — marker labels come from the i18n dictionary ----
 
       function renderDark(u){
+        var section = document.getElementById('darkSection');
         var toggle = document.getElementById('darkToggle');
         var wrap = document.getElementById('darkMarkers');
         var redo = document.getElementById('darkRedo');
+        var note = document.getElementById('darkNote');
         var markers = u.kinkMarkers || [];
+
+        // Operator kill switch (server-side DARK_MODE_ENABLED): hide the entire
+        // card rather than offer a switch that the API will refuse. Older cached
+        // /api/me payloads have no such field — absence must not hide the layer.
+        var available = u.darkModeAvailable !== false;
+        section.hidden = !available;
+        if (!available) return;
+
         toggle.checked = !!u.darkMode;
-        if (u.darkMode) setAgeConfirmed(true);   // already in the intimate layer ⇒ 18+ confirmed
+        // Consented under superseded wording: the layer is withheld until they
+        // read the current text, so say that instead of showing an empty card.
+        if (u.darkConsentStale) {
+          note.textContent = t('dark_stale');
+          note.hidden = false;
+        } else {
+          note.hidden = true;
+        }
         wrap.innerHTML = '';
         // Markers are shown only while Dark Mode is on (and only to the user).
         if (u.darkMode && markers.length) {
@@ -672,28 +718,64 @@
         }
       }
 
-      // ---- 18+ gate: the Dark Mode toggle is locked until age is confirmed ----
-      function setAgeConfirmed(ok){
-        document.getElementById('ageConfirm').checked = ok;
-        document.getElementById('darkToggle').disabled = !ok;
-        try { localStorage.setItem('sixtio_age_ok', ok ? '1' : ''); } catch(e){}
+      // ---- 18+ consent sheet -------------------------------------------------
+      // Must be shown, in full, every time the layer is switched on: the previous
+      // inline checkbox lived only in localStorage, which is neither a record nor
+      // a disclosure. DARK_CONSENT_VERSION is echoed to the API so the server can
+      // prove WHICH text was agreed to (api/_lib/darkmode.js).
+      var DARK_CONSENT_VERSION = 'v1';
+
+      // Resolves once both boxes are ticked and "Enable" is pressed; rejects on
+      // cancel/backdrop/✕ — the caller then reverts the switch.
+      function openConsent(){
+        return new Promise(function(resolve, reject){
+          var overlay = document.createElement('div');
+          overlay.className = 'kv-overlay';
+          overlay.innerHTML =
+            '<div class="kv-sheet">' +
+              '<button class="kv-close" aria-label="' + t('close') + '">✕</button>' +
+              '<div class="kv-title">' + t('dc_title') + ' <span class="dark-badge18">18+</span></div>' +
+              '<div class="dc-lead">' + t('dc_lead') + '</div>' +
+              '<ul class="dc-list">' +
+                '<li>' + t('dc_b1') + '</li>' +
+                '<li>' + t('dc_b2') + '</li>' +
+                '<li>' + t('dc_b3') + '</li>' +
+                '<li>' + t('dc_b4') + '</li>' +
+              '</ul>' +
+              '<div class="dc-affirm">' + t('dc_affirm') + '</div>' +
+              '<div class="dc-actions">' +
+                '<button class="dc-cancel" id="dcCancel">' + t('dc_cancel') + '</button>' +
+                '<button class="dc-ok" id="dcOk">' + t('dc_enable') + '</button>' +
+              '</div>' +
+              '<div class="kv-priv">' + t('dc_policy') +
+                ' <a href="privacy.html" class="dc-link">' + t('dc_more') + '</a></div>' +
+            '</div>';
+          document.body.appendChild(overlay);
+          requestAnimationFrame(function(){ overlay.classList.add('show'); });
+
+          var okBtn = overlay.querySelector('#dcOk');
+          var settled = false;
+
+          function close(){
+            overlay.classList.remove('show');
+            setTimeout(function(){ if (overlay.parentNode) overlay.remove(); }, 240);
+          }
+          function cancel(){ if (settled) return; settled = true; close(); reject(new Error('cancelled')); }
+
+          overlay.querySelector('.kv-close').addEventListener('click', cancel);
+          overlay.querySelector('#dcCancel').addEventListener('click', cancel);
+          overlay.addEventListener('click', function(e){ if (e.target === overlay) cancel(); });
+          // Pressing this button, right under the affirmation text, IS the consent
+          // act — it is what gets recorded against DARK_CONSENT_VERSION.
+          okBtn.addEventListener('click', function(){
+            if (settled) return;
+            settled = true;
+            if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('medium'); } catch(e){} }
+            close();
+            resolve();
+          });
+        });
       }
-      // Restore a prior confirmation so returning adults aren't re-gated each visit.
-      (function(){
-        var ok = false;
-        try { ok = localStorage.getItem('sixtio_age_ok') === '1'; } catch(e){}
-        if (ok) setAgeConfirmed(true);
-      })();
-      document.getElementById('ageConfirm').addEventListener('change', function(){
-        var ok = this.checked;
-        if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('light'); } catch(e){} }
-        setAgeConfirmed(ok);
-        if (!ok) {
-          // Withdrawing the confirmation re-locks the toggle and exits the layer.
-          var toggle = document.getElementById('darkToggle');
-          if (toggle.checked) { toggle.checked = false; setDarkMode(false).catch(function(){}); }
-        }
-      });
 
       // Cache-first: paint instantly from the last response, then refresh.
       try {
@@ -943,8 +1025,12 @@
         if (current) renderDark(current);
       }
 
+      // Switching ON carries the consent proof; switching OFF stays a bare call,
+      // so withdrawal is never harder than giving consent.
       function setDarkMode(active){
-        return api('/api/interact', { op: 'toggle_dark_mode', active: active })
+        var body = { op: 'toggle_dark_mode', active: active };
+        if (active) { body.consentVersion = DARK_CONSENT_VERSION; body.ageConfirmed = true; }
+        return api('/api/interact', body)
           .then(function(res){ syncDark(!!(res && res.darkModeActive)); });
       }
 
@@ -1029,7 +1115,11 @@
             var payload = KINK_QUESTIONS
               .map(function(q, i){ return t('kv_q_label') + ': ' + q + '\n' + t('kv_a_label') + ': ' + (answers[i] || '') + '\n'; })
               .join('');
-            api('/api/interact', { op: 'submit_kink_interview', answers: payload })
+            api('/api/interact', {
+              op: 'submit_kink_interview', answers: payload,
+              // The interview activates the layer too, so it carries the same proof.
+              consentVersion: DARK_CONSENT_VERSION, ageConfirmed: true,
+            })
               .then(function(res){
                 if (!res || !res.ok) throw new Error('failed');
                 if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.notificationOccurred('success'); } catch(e){} }
@@ -1055,20 +1145,25 @@
           setDarkMode(false).catch(function(){ toggle.checked = true; });
           return;
         }
-        // Turning ON: first-timers do the interview (which also flips it on
-        // server-side); returning users just re-enable.
-        var hasMarkers = current && current.kinkMarkers && current.kinkMarkers.length;
-        if (hasMarkers) {
-          setDarkMode(true).catch(function(){ toggle.checked = false; });
-        } else {
-          openInterview()
-            .then(function(markers){ syncDark(true, markers); })
-            .catch(function(){ toggle.checked = false; });   // cancelled
-        }
+        // Turning ON always starts with the consent sheet — including for returning
+        // users, because it is also where the current wording is disclosed. Only
+        // after they agree do first-timers go into the interview (which flips the
+        // layer on server-side); everyone else just re-enables.
+        openConsent().then(function(){
+          var hasMarkers = current && current.kinkMarkers && current.kinkMarkers.length;
+          if (hasMarkers) {
+            return setDarkMode(true);
+          }
+          return openInterview().then(function(markers){ syncDark(true, markers); });
+        }).catch(function(){
+          toggle.checked = false;   // declined, cancelled, or the API refused
+        });
       });
 
       document.getElementById('darkRedo').addEventListener('click', function(){
-        openInterview()
+        // Re-running the interview re-submits intimate data, so it re-asks too.
+        openConsent()
+          .then(function(){ return openInterview(); })
           .then(function(markers){ syncDark(true, markers); })
           .catch(function(){});
       });

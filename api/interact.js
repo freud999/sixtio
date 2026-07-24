@@ -8,6 +8,10 @@ import {
   MYSTERY_UNLOCK_PRICE, LOOTBOX_PRICE,
 } from './_lib/entitlements.js';
 import { processKinkInterview } from './_lib/kink.js';
+import {
+  darkActive, darkModeEnabled, recordDarkConsent,
+  DARK_CONSENT_VERSION, DARK_COLUMNS,
+} from './_lib/darkmode.js';
 import { notifyInstantMatch, callBot } from './_lib/bot.js';
 import { rewardReferrerOnEngagement } from './_lib/referrals.js';
 import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
@@ -284,23 +288,48 @@ async function createStarsInvoice(res, tgUser, body) {
 // Flips users.dark_mode_active. Intimate data is only ever computed between two
 // users who BOTH have this on (see api/feed.js), so switching off instantly and
 // fully hides this user from — and blinds them to — the intimate layer.
+//
+// Turning it ON is asymmetric on purpose: kink markers are special-category data,
+// so activation requires an explicit consent act carrying the CURRENT consent
+// version plus a separate 18+ affirmation, and both are recorded (migration 030).
+// Turning it OFF is unconditional and never asks for anything — withdrawal must
+// always be at least as easy as giving consent.
 async function toggleDarkMode(res, tgUser, body) {
   const active = !!body.active;
   const userId = await findUserId(tgUser.id);
   if (!userId) return res.status(200).json({ ok: false });
 
   const supabase = getSupabase();
-  const { data, error } = await supabase
+
+  if (active) {
+    // Operator kill switch: the layer can be taken offline without a deploy.
+    if (!darkModeEnabled()) {
+      return res.status(403).json({ error: 'Dark Mode is currently unavailable' });
+    }
+    // The client must echo back the version of the text it actually displayed —
+    // a bare `active:true` can no longer switch the layer on.
+    if (body.consentVersion !== DARK_CONSENT_VERSION || body.ageConfirmed !== true) {
+      return res.status(400).json({ error: 'consent required', consentVersion: DARK_CONSENT_VERSION });
+    }
+    await recordDarkConsent(userId);
+  } else {
+    const { error } = await supabase
+      .from('users')
+      .update({ dark_mode_active: false })
+      .eq('id', userId);
+    if (error) throw error;
+  }
+
+  const { data, error: readError } = await supabase
     .from('users')
-    .update({ dark_mode_active: active })
+    .select(DARK_COLUMNS + ', kink_markers')
     .eq('id', userId)
-    .select('dark_mode_active, kink_markers')
     .maybeSingle();
-  if (error) throw error;
+  if (readError) throw readError;
 
   return res.status(200).json({
     ok: true,
-    darkModeActive: !!(data && data.dark_mode_active),
+    darkModeActive: darkActive(data),
     // Lets the client decide whether the first-run interview is still needed.
     hasMarkers: !!(data && data.kink_markers && data.kink_markers.length),
   });
@@ -315,6 +344,17 @@ async function submitKinkInterview(res, tgUser, body) {
 
   const userId = await findUserId(tgUser.id);
   if (!userId) return res.status(200).json({ ok: false });
+
+  // The interview itself activates the layer, so it carries the same consent
+  // burden as the toggle — otherwise it would be a way in around it. Checked
+  // BEFORE the AI call so a consentless request costs nothing.
+  if (!darkModeEnabled()) {
+    return res.status(403).json({ error: 'Dark Mode is currently unavailable' });
+  }
+  if (body.consentVersion !== DARK_CONSENT_VERSION || body.ageConfirmed !== true) {
+    return res.status(400).json({ error: 'consent required', consentVersion: DARK_CONSENT_VERSION });
+  }
+  await recordDarkConsent(userId);
 
   const markers = await processKinkInterview(userId, answers);
   return res.status(200).json({ ok: true, darkModeActive: true, kinkMarkers: markers });
