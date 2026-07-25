@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>Sixtio — знайти пару</title>
+<title data-i18n="title_feed">Sixtio — знайти пару</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="i18n.js?v=42"></script>
-<script src="theme.js?v=42"></script>
-<script src="paywall.js?v=42"></script>
-<link rel="stylesheet" href="theme.css?v=42" />
+<script src="i18n.js?v=43"></script>
+<script src="theme.js?v=43"></script>
+<script src="paywall.js?v=43"></script>
+<link rel="stylesheet" href="theme.css?v=43" />
 <style>
   body{
     display:flex; flex-direction:column; align-items:center;
@@ -316,11 +316,11 @@
     </div>
   </div>
 
-  <nav class="tab-bar" aria-label="Навігація">
-    <a class="tab-item active" href="feed.html" aria-label="Стрічка"><span class="tico"><svg viewBox="0 0 24 24"><rect x="4" y="4.5" width="16" height="7" rx="2.2"/><rect x="4" y="14" width="16" height="5.5" rx="2"/></svg></span></a>
-    <a class="tab-item" href="matches.html" aria-label="Метчі"><span class="tico"><svg viewBox="0 0 24 24"><path d="M12 20.4S3.6 15.4 3.6 9.3C3.6 6.2 5.9 4.2 8.3 4.6 10 4.9 11.3 6 12 7.3 12.7 6 14 4.9 15.7 4.6c2.4-.4 4.7 1.6 4.7 4.7 0 6.1-8.4 11.1-8.4 11.1z"/></svg></span></a>
-    <a class="tab-item" href="chat.html" aria-label="Чат"><span class="tico"><svg viewBox="0 0 24 24"><path d="M20 3.5H4A1.6 1.6 0 0 0 2.4 5.1v9.6A1.6 1.6 0 0 0 4 16.3h3.2v4L11.7 16.3H20a1.6 1.6 0 0 0 1.6-1.6V5.1A1.6 1.6 0 0 0 20 3.5z"/></svg></span></a>
-    <a class="tab-item" href="profile.html" aria-label="Профіль"><span class="tico"><svg viewBox="0 0 24 24"><circle cx="12" cy="7.6" r="3.8"/><path d="M4.8 20a7.2 7.2 0 0 1 14.4 0z"/></svg></span></a>
+  <nav class="tab-bar" data-i18n-aria="aria_nav">
+    <a class="tab-item active" href="feed.html" data-i18n-aria="tab_feed"><span class="tico"><svg viewBox="0 0 24 24"><rect x="4" y="4.5" width="16" height="7" rx="2.2"/><rect x="4" y="14" width="16" height="5.5" rx="2"/></svg></span></a>
+    <a class="tab-item" href="matches.html" data-i18n-aria="tab_matches"><span class="tico"><svg viewBox="0 0 24 24"><path d="M12 20.4S3.6 15.4 3.6 9.3C3.6 6.2 5.9 4.2 8.3 4.6 10 4.9 11.3 6 12 7.3 12.7 6 14 4.9 15.7 4.6c2.4-.4 4.7 1.6 4.7 4.7 0 6.1-8.4 11.1-8.4 11.1z"/></svg></span></a>
+    <a class="tab-item" href="chat.html" data-i18n-aria="tab_chat"><span class="tico"><svg viewBox="0 0 24 24"><path d="M20 3.5H4A1.6 1.6 0 0 0 2.4 5.1v9.6A1.6 1.6 0 0 0 4 16.3h3.2v4L11.7 16.3H20a1.6 1.6 0 0 0 1.6-1.6V5.1A1.6 1.6 0 0 0 20 3.5z"/></svg></span></a>
+    <a class="tab-item" href="profile.html" data-i18n-aria="tab_profile"><span class="tico"><svg viewBox="0 0 24 24"><circle cx="12" cy="7.6" r="3.8"/><path d="M4.8 20a7.2 7.2 0 0 1 14.4 0z"/></svg></span></a>
   </nav>
 
   <script>

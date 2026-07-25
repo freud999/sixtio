@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>Sixtio — налаштування</title>
+<title data-i18n="title_settings">Sixtio — налаштування</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="i18n.js?v=42"></script>
-<script src="theme.js?v=42"></script>
-<link rel="stylesheet" href="theme.css?v=42" />
+<script src="i18n.js?v=43"></script>
+<script src="theme.js?v=43"></script>
+<link rel="stylesheet" href="theme.css?v=43" />
 <style>
   body{
     display:flex; flex-direction:column; align-items:center;
@@ -97,7 +97,7 @@
     <div class="set-group">
       <div class="set-row">
         <span class="lbl"><span data-i18n="set_show_me">Показувати мене</span><span class="sub" data-i18n="set_show_me_sub">Твій профіль бачитимуть інші</span></span>
-        <button class="sw" id="swShow" type="button" role="switch" aria-label="Показувати мене"><span class="knob"></span></button>
+        <button class="sw" id="swShow" type="button" role="switch" data-i18n-aria="set_show_me"><span class="knob"></span></button>
       </div>
       <div class="set-row">
         <span class="lbl" data-i18n="set_age_range">Вікові межі</span>
@@ -114,11 +114,11 @@
     <div class="set-group">
       <div class="set-row">
         <span class="lbl"><span data-i18n="set_incognito">Режим інкогніто</span><span class="sub" data-i18n="set_incognito_sub">Тебе бачать лише ті, кого ти вподобав</span></span>
-        <button class="sw inc" id="swInc" type="button" role="switch" aria-label="Режим інкогніто"><span class="knob"></span></button>
+        <button class="sw inc" id="swInc" type="button" role="switch" data-i18n-aria="set_incognito"><span class="knob"></span></button>
       </div>
       <div class="set-row">
         <span class="lbl" data-i18n="set_read_receipts">Позначки прочитання</span>
-        <button class="sw" id="swRead" type="button" role="switch" aria-label="Позначки прочитання"><span class="knob"></span></button>
+        <button class="sw" id="swRead" type="button" role="switch" data-i18n-aria="set_read_receipts"><span class="knob"></span></button>
       </div>
       <div class="set-row">
         <span class="lbl" data-i18n="set_blocked">Заблоковані</span>
@@ -135,11 +135,11 @@
     <div class="set-group">
       <div class="set-row">
         <span class="lbl" data-i18n="set_notif_match">Нові метчі</span>
-        <button class="sw" id="swMatch" type="button" role="switch" aria-label="Нові метчі"><span class="knob"></span></button>
+        <button class="sw" id="swMatch" type="button" role="switch" data-i18n-aria="set_notif_match"><span class="knob"></span></button>
       </div>
       <div class="set-row">
         <span class="lbl" data-i18n="set_notif_msg">Повідомлення</span>
-        <button class="sw" id="swMsg" type="button" role="switch" aria-label="Повідомлення"><span class="knob"></span></button>
+        <button class="sw" id="swMsg" type="button" role="switch" data-i18n-aria="set_notif_msg"><span class="knob"></span></button>
       </div>
     </div>
 
@@ -148,7 +148,7 @@
     <div class="set-group">
       <div class="set-row">
         <span class="lbl" data-i18n="set_dark_theme">Темна тема</span>
-        <button class="sw" id="swTheme" type="button" role="switch" aria-label="Темна тема"><span class="knob"></span></button>
+        <button class="sw" id="swTheme" type="button" role="switch" data-i18n-aria="set_dark_theme"><span class="knob"></span></button>
       </div>
     </div>
 

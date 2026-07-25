@@ -35,7 +35,11 @@
     var btns = document.querySelectorAll('[data-theme-toggle]');
     for (var i = 0; i < btns.length; i++){
       btns[i].innerHTML = themeIconSVG(t);
-      btns[i].setAttribute('aria-label', 'Змінити тему');
+      // theme.js must keep working with no dictionary loaded (it is the one
+      // shared asset a page can use on its own), so the Ukrainian default stays
+      // as the fallback rather than becoming a bare key.
+      var label = window.SixtioI18n ? window.SixtioI18n.t('aria_theme') : 'Змінити тему';
+      btns[i].setAttribute('aria-label', label);
     }
   }
   document.addEventListener('click', function(e){
@@ -45,6 +49,9 @@
     if (window.SixtioTheme) window.SixtioTheme.toggle();
   });
   window.addEventListener('sixtio:themechange', syncThemeToggles);
+  // The toggle's own label is localized, so it has to be repainted when the
+  // language changes — i18n's apply() cannot reach an attribute this file owns.
+  window.addEventListener('sixtio:langchange', syncThemeToggles);
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', syncThemeToggles);
   else syncThemeToggles();
 

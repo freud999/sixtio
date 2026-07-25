@@ -18,6 +18,14 @@
     uk: {
       // tab bar
       tab_matches: 'Метчі', tab_chat: 'Чат', tab_profile: 'Профіль', match_short: 'збіг', matches_sub: 'Твої збіги',
+      tab_feed: 'Стрічка', aria_nav: 'Навігація', aria_theme: 'Змінити тему',
+      // Page titles. A <title> is chrome like any other: it is what the user
+      // sees in the task switcher, and what a screen reader announces first.
+      title_feed: 'Sixtio — знайти пару', title_matches: 'Sixtio — метчі',
+      title_match: 'Sixtio — наш метч', title_chat: 'Sixtio — чат',
+      title_conversation: 'Sixtio — розмова', title_profile: 'Sixtio — мій профіль',
+      title_settings: 'Sixtio — налаштування', title_onboarding: 'Sixtio — знайомство',
+      title_privacy: 'Sixtio — Політика конфіденційності',
       feed_kicker: 'Твоя добірка на сьогодні',
       // compatibility sheet
       sheet_compat_label: 'сумісність', sheet_close: 'Закрити', legend_you: 'Ти',
@@ -381,6 +389,12 @@
     // --------------------------------------------------------------- English
     en: {
       tab_matches: 'Matches', tab_chat: 'Chat', tab_profile: 'Profile', match_short: 'match', matches_sub: 'Your matches',
+      tab_feed: 'Feed', aria_nav: 'Navigation', aria_theme: 'Toggle theme',
+      title_feed: 'Sixtio — find a match', title_matches: 'Sixtio — matches',
+      title_match: 'Sixtio — our match', title_chat: 'Sixtio — chat',
+      title_conversation: 'Sixtio — conversation', title_profile: 'Sixtio — my profile',
+      title_settings: 'Sixtio — settings', title_onboarding: 'Sixtio — getting to know you',
+      title_privacy: 'Sixtio — Privacy Policy',
       feed_kicker: 'Your picks for today',
       // compatibility sheet
       sheet_compat_label: 'compatibility', sheet_close: 'Close', legend_you: 'You',
@@ -724,6 +738,12 @@
     // --------------------------------------------------------------- Russian
     ru: {
       tab_matches: 'Мэтчи', tab_chat: 'Чат', tab_profile: 'Профиль', match_short: 'совпад.', matches_sub: 'Твои совпадения',
+      tab_feed: 'Лента', aria_nav: 'Навигация', aria_theme: 'Сменить тему',
+      title_feed: 'Sixtio — найти пару', title_matches: 'Sixtio — мэтчи',
+      title_match: 'Sixtio — наш мэтч', title_chat: 'Sixtio — чат',
+      title_conversation: 'Sixtio — разговор', title_profile: 'Sixtio — мой профиль',
+      title_settings: 'Sixtio — настройки', title_onboarding: 'Sixtio — знакомство',
+      title_privacy: 'Sixtio — Политика конфиденциальности',
       feed_kicker: 'Твоя подборка на сегодня',
       // compatibility sheet
       sheet_compat_label: 'совместимость', sheet_close: 'Закрыть', legend_you: 'Ты',
