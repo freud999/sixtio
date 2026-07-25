@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Sixtio — знайомство</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="i18n.js?v=41"></script>
-<script src="theme.js?v=41"></script>
-<link rel="stylesheet" href="theme.css?v=41" />
+<script src="i18n.js?v=42"></script>
+<script src="theme.js?v=42"></script>
+<link rel="stylesheet" href="theme.css?v=42" />
 <style>
   body{ display:flex; flex-direction:column; overflow:hidden; }
   .header, .chat, .composer{ position:relative; z-index:1; }
@@ -179,10 +179,13 @@
         { id: "d5", text: t('ob_d5'), textF: t('ob_d5_f') }
       ];
 
+      var DEEPEN_PER_SESSION = 3;
+      function shuffled(list){ return list.slice().sort(function(){ return Math.random() - 0.5; }); }
       if (DEEPEN) {
         profileSteps = [];
-        // 3 random extra questions per session
-        questions = deepenPool.sort(function(){ return Math.random() - 0.5; }).slice(0, 3);
+        // A provisional draw so the session can start even offline; init() below
+        // replaces it with the questions this user has NOT answered yet.
+        questions = shuffled(deepenPool).slice(0, DEEPEN_PER_SESSION);
       }
 
       // Picks the feminine variant when the user said they're a woman.
@@ -727,6 +730,11 @@
         btn.textContent = t('ob_continue');
         btn.addEventListener('click', function(){
           if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('medium'); } catch(err){} }
+          // The depth ring and the Twin both just changed server-side. Profile
+          // paints from the cached /api/me payload first, so leaving it in place
+          // would show the OLD depth for a moment right after the one action
+          // whose entire point was to move it.
+          if (DEEPEN) { try { localStorage.removeItem('sixtio_me'); } catch(e){} }
           window.location.href = DEEPEN ? 'profile.html' : 'matches.html';
         });
         chat.appendChild(btn);
@@ -759,12 +767,47 @@
       }
 
       // ---- init -------------------------------------------------------------
-      if (DEEPEN) {
-        // Short enrichment session: greet and go straight to the extra questions.
+      function startDeepen(){
         showTyping(function(){
           addBubble(t('ob_deepen_hello'), 'bot');
           askNext();
         });
+      }
+
+      if (DEEPEN) {
+        // Ask what this user has NOT answered before. The pool holds five
+        // questions and a session is three, and drawing at random meant a
+        // returning user was handed ones they had already answered — which now
+        // correctly earns no depth, so it would read as the app wasting the
+        // session. Server-side truth, because answers outlive this device.
+        api('/api/me', {}).then(function(me){
+          var u = (me && me.user) || {};
+          if (u.gender) {
+            profileData.gender = u.gender;
+            if (window.SixtioTheme) window.SixtioTheme.setGender(u.gender);
+          }
+          var answered = u.deepAnswered || [];
+          var fresh = deepenPool.filter(function(q){ return answered.indexOf(q.id) < 0; });
+          // At 100% the answered list is not even fetched (nothing left to
+          // reconcile), so a full ring is its own signal that there is nothing to
+          // deepen — checking only `fresh` would offer the whole pool again.
+          if (u.profileDepth >= 100 || !fresh.length) {
+            // Nothing left to deepen with. Saying so beats re-asking five
+            // questions that cannot move the ring any further.
+            showTyping(function(){
+              addBubble(t('ob_deepen_done'), 'bot');
+              composer.classList.add('hidden');
+              addContinueButton();
+            });
+            return;
+          }
+          // Only unanswered ones, so a session is never padded out with work that
+          // cannot move the ring. Two fresh questions beat three of which one is
+          // a repeat.
+          questions = shuffled(fresh).slice(0, DEEPEN_PER_SESSION);
+          TOTAL = questions.length;
+          startDeepen();
+        }).catch(startDeepen);   // offline: the provisional random draw stands
       } else {
         // If this account already finished onboarding, skip straight to matches.
         api('/api/me', {}).then(function(me){

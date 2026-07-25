@@ -63,6 +63,64 @@
   try { g = localStorage.getItem('sixtio_gender'); } catch(e){}
   if (g === 'male' || g === 'female') root.setAttribute('data-gender', g);
 
+  // --- background scroll lock, shared by every overlay ---------------------
+  // Every sheet in the app is appended to <body> and scrolls inside itself, but
+  // the page behind it stayed scrollable: a drag that began on the sheet's
+  // backdrop — or continued past the sheet's own top or bottom — moved the
+  // profile underneath instead, so closing a sheet left you somewhere else on the
+  // page than where you opened it.
+  //
+  // Every page here makes <body> the scroll container (body{overflow-y:auto}),
+  // which is why plain overflow:hidden is enough and the position:fixed trick is
+  // not needed: taking the overflow away does not discard the scroll offset, so
+  // there is nothing to save and restore, and nothing to get wrong.
+  //
+  // Reference-counted, because sheets legitimately stack — the 18+ consent sheet
+  // opens the interview on top of itself, and the first one closing must not
+  // release a lock the second one still needs.
+  var lockDepth = 0;
+  var lockPrev = null;
+  function lockScroll() {
+    if (lockDepth++ > 0) return;
+    lockPrev = { html: root.style.overflow, body: document.body.style.overflow };
+    root.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+  }
+  function unlockScroll() {
+    if (lockDepth === 0) return;
+    if (--lockDepth > 0) return;
+    root.style.overflow = (lockPrev && lockPrev.html) || '';
+    document.body.style.overflow = (lockPrev && lockPrev.body) || '';
+    lockPrev = null;
+  }
+  // Reveals a sheet that starts at opacity:0 and transitions in on .show.
+  //
+  // Deliberately NOT requestAnimationFrame, which is what every sheet used to
+  // use: rAF is throttled or suspended outright when the page is not being
+  // painted, and a frame that never arrives means the class is never added — the
+  // overlay sits in the DOM, fully interactive, at zero opacity. Reading a layout
+  // property flushes the pre-transition state synchronously instead, which is all
+  // rAF was ever being used for here, and it cannot fail to happen.
+  window.SixtioReveal = function (el) {
+    if (!el) return;
+    void el.offsetHeight;
+    el.classList.add('show');
+  };
+
+  window.SixtioLock = {
+    on: lockScroll,
+    off: unlockScroll,
+    // Guarantees a sheet releases exactly the one lock it took, however many
+    // times its own close path runs (✕, backdrop, Escape, a resolve and a
+    // reject racing). A double release would unlock the page under a sheet
+    // that is still open.
+    once: function () {
+      var held = true;
+      lockScroll();
+      return function () { if (held) { held = false; unlockScroll(); } };
+    }
+  };
+
   window.SixtioTheme = {
     setGender: function(gender){
       if (gender !== 'male' && gender !== 'female') return;

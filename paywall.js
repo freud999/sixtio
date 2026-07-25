@@ -187,11 +187,13 @@
       var prem = overlay.querySelector('.pw-premium');
       if (prem) prem.classList.add('pw-hi');
     }
-    // Lock background scroll while the sheet is open (restored on close). The
-    // sheet itself scrolls via its own overflow-y (see .pw-sheet CSS).
-    var prevBodyOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    requestAnimationFrame(function () { overlay.classList.add('show'); });
+    // Lock background scroll while the sheet is open. Shared with every other
+    // sheet in the app (theme.js) so stacked sheets reference-count the lock
+    // instead of each restoring whatever it happened to find.
+    var releaseLock = window.SixtioLock
+      ? window.SixtioLock.once()
+      : function () {};
+    (window.SixtioReveal ? window.SixtioReveal(overlay) : overlay.classList.add('show'));
 
     // Funnel: opening the shop is a pure UI moment with no server side, so it is
     // the one event the client has to report. Fire-and-forget — a failed beacon
@@ -208,7 +210,7 @@
     var busy = false;
 
     function close() {
-      document.body.style.overflow = prevBodyOverflow;
+      releaseLock();
       overlay.classList.remove('show');
       setTimeout(function () { if (overlay.parentNode) overlay.remove(); }, 240);
     }

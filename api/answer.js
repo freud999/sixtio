@@ -4,6 +4,7 @@ import { captureReferral } from './_lib/referrals.js';
 import { generateFollowup as geminiFollowup } from './_lib/gemini.js';
 import { generateFollowup as claudeFollowup } from './_lib/claude.js';
 import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
+import { isDeepQuestion, syncProfileDepth } from './_lib/depth.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -33,15 +34,36 @@ export default async function handler(req, res) {
       console.error('captureReferral failed:', refError.message);
     }
 
-    const { error } = await getSupabase()
+    const supabase = getSupabase();
+    const { error } = await supabase
       .from('answers')
       .insert({ user_id: userId, question_id: String(questionId), answer_text: String(answerText) });
     if (error) throw error;
 
+    // A deepen-mode answer is the one thing that moves the profile-depth meter,
+    // and this is the ONLY endpoint those answers pass through. It used to move
+    // nothing at all, so the ring stayed at 40 however many deepen sessions a
+    // user completed. Derived from the distinct questions on record, so answering
+    // the same one again is correctly worth nothing. Best-effort: the answer is
+    // already saved and a meter is not worth failing the request over.
+    let depth = null;
+    if (isDeepQuestion(questionId)) {
+      try {
+        const { data: row } = await supabase
+          .from('users').select('profile_depth').eq('id', userId).maybeSingle();
+        depth = await syncProfileDepth(supabase, userId, row && row.profile_depth);
+      } catch (depthError) {
+        console.error('profile depth sync failed:', depthError.message);
+      }
+    }
+    const depthFields = depth
+      ? { profileDepth: depth.depth, bonusAwarded: depth.bonusAwarded, starsBalance: depth.starsBalance }
+      : {};
+
     // Follow-up answers don't get their own follow-up — keep the dialog moving.
     // skipFollowup: deepen mode saves AI budget by not generating follow-ups at all.
     if (isFollowup || skipFollowup) {
-      return res.status(200).json({ ok: true, followup: null });
+      return res.status(200).json({ ok: true, followup: null, ...depthFields });
     }
 
     // Gemini first (free/cheap tier); Claude as fallback if Gemini is down or unconfigured.
@@ -60,7 +82,7 @@ export default async function handler(req, res) {
         console.error('Claude fallback followup failed:', claudeError.message);
       }
     }
-    return res.status(200).json({ ok: true, followup });
+    return res.status(200).json({ ok: true, followup, ...depthFields });
   } catch (e) {
     console.error('api/answer failed:', e);
     return res.status(500).json({ error: 'Internal error' });

@@ -23,6 +23,35 @@ test('sourceLang has a last resort so it never returns null', () => {
   assert.equal(sourceLang(null, null), 'uk');
 });
 
+test('sourceLang believes the text over a recorded language that contradicts it', () => {
+  // The bug this was written for: a Ukrainian profile stamped `lang: 'ru'` after
+  // its owner switched the app to Russian. Trusting the stamp made a Russian
+  // reader an exact source-language match, translation was skipped as pointless,
+  // and Ukrainian tags rendered under a Russian interface.
+  const ukText = 'щира і надійна, творча натура, охоронниця меж';
+  assert.equal(sourceLang('ru', 'ru', ukText), 'uk');
+});
+
+test('a mislabelled profile is translated instead of passed through', async () => {
+  // Same row, through the real entry point: no cache for 'ru' and no API key in
+  // tests, so the assertion is that it TRIED (and fell back to the original)
+  // rather than returning early on a bogus source === target match.
+  const out = await localizeProfiles([{
+    key: 'me', userId: 'u9',
+    profile: {
+      traits_json: ['щира і надійна', 'творча натура'],
+      summary_text: 'Ти любиш глибину, але з чітким розумінням своєї вартості.',
+      lang: 'ru',                      // the wrong stamp
+      i18n: { ru: { trait0: 'искренняя и надёжная', trait1: 'творческая натура' } },
+    },
+    user: { language_code: 'ru' },
+  }], 'ru');
+
+  // The 'ru' cache is now reachable, which it never was while the row claimed to
+  // already BE Russian.
+  assert.deepEqual(out.me.traits, ['искренняя и надёжная', 'творческая натура']);
+});
+
 test('same language in and out is left completely alone', async () => {
   const out = await localizeProfiles([{
     key: 'me', userId: 'u1',

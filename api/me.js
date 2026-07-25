@@ -8,6 +8,7 @@ import { darkActive, darkModeEnabled, consentStale, DARK_COLUMNS } from './_lib/
 import { notifyRetention } from './_lib/bot.js';
 import { sanitizeAiText } from './_lib/claude.js';
 import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
+import { BASE_PROFILE_DEPTH, syncProfileDepth } from './_lib/depth.js';
 
 // Presence window for the online dot (mirrors api/feed.js). Every /api/me and
 // /api/feed call stamps last_active, so this stays accurate without extra writes.
@@ -23,11 +24,9 @@ function sharedInterests(a, b) {
   return out;
 }
 
-// Base completeness after onboarding; each answered "extra" deep question is +20.
-const BASE_PROFILE_DEPTH = 40;
-const EXTRA_QUESTION_STEP = 20;
-// The one-time 100%-completion bonus (+2 ⭐) is now credited atomically in the DB
-// (credit_profile_completion_bonus RPC, migration-019), the single source of truth.
+// Profile depth (base + one step per distinct deep question) is derived in
+// api/_lib/depth.js, which both this file and /api/answer go through so the two
+// paths cannot disagree about what the ring should read.
 
 // Psychological achievements. Big Five badges are derived from the user's OCEAN
 // vector; thresholds live here (not in SQL) so they can evolve without a
@@ -144,6 +143,24 @@ export default async function handler(req, res) {
     // Paywall entitlement (gender-biased): drives blur, deepen gating, and the
     // remaining-likes counter on every screen from one cached payload.
     const ent = entitlements(user);
+
+    // Profile depth, reconciled with the answers actually on record. Deepen
+    // sessions used to move nothing, so users who did the work are sitting at 40
+    // with three or more deep answers stored — reconciling on open repairs those
+    // accounts without a data migration, and pays the completion bonus they never
+    // got. Skipped entirely at 100 (there is nothing left to reconcile), so this
+    // costs one small query only while the ring is still incomplete, and is
+    // best-effort: a meter must never be able to fail an app boot.
+    let profileDepth = typeof user.profile_depth === 'number' ? user.profile_depth : BASE_PROFILE_DEPTH;
+    let deepAnswered = [];
+    if (profileDepth < 100) {
+      try {
+        const synced = await syncProfileDepth(supabase, user.id, profileDepth);
+        profileDepth = synced.depth;
+        deepAnswered = synced.answered;
+        if (typeof synced.starsBalance === 'number') user.stars_balance = synced.starsBalance;
+      } catch (e) { console.error('profile depth sync failed:', e.message); }
+    }
 
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
@@ -360,7 +377,10 @@ export default async function handler(req, res) {
         darkConsentStale: darkModeEnabled() && consentStale(user),
         kinkMarkers: user.kink_markers || [],
         // Gamification: completeness meter (0..100) + earned psychological badges.
-        profileDepth: typeof user.profile_depth === 'number' ? user.profile_depth : BASE_PROFILE_DEPTH,
+        profileDepth,
+        // Which deep questions are already on record, so a deepen session asks
+        // something new instead of redrawing at random from the same small pool.
+        deepAnswered,
         achievements,
         // Nearest unearned Big Five badge ({ key, pct }) for the "almost there" hint.
         achievementProgress,
@@ -397,8 +417,6 @@ async function submitExtraQuestion(res, tgUser, body) {
   if (!user) return res.status(200).json({ ok: false });
 
   const current = typeof user.profile_depth === 'number' ? user.profile_depth : BASE_PROFILE_DEPTH;
-  const next = Math.min(100, current + EXTRA_QUESTION_STEP);
-  const reachedFull = current < 100 && next === 100;   // award the bonus exactly once
 
   // Persist the answer for background AI refinement (best-effort, non-fatal).
   const questionId = body.questionId ? String(body.questionId).slice(0, 60) : 'extra_deep';
@@ -409,30 +427,19 @@ async function submitExtraQuestion(res, tgUser, body) {
   });
   if (ansError) console.error('extra-answer save failed:', ansError.message);
 
-  // Persist the depth meter only; the Stars bonus is credited separately below.
-  const { data: updated, error: upError } = await supabase
-    .from('users').update({ profile_depth: next }).eq('id', user.id)
-    .select('profile_depth, stars_balance').maybeSingle();
-  if (upError) throw upError;
-
-  // Award the one-time completion bonus through an ATOMIC, idempotent RPC (was a
-  // JS read-modify-write that could clobber a coincident referral/Stars-deposit
-  // credit and, in theory, double-award). The RPC is the single source of truth
-  // for the +2 amount and can never pay it twice (DB-enforced uniqueness).
-  let starsBalance = updated ? updated.stars_balance : (user.stars_balance || 0);
-  if (reachedFull) {
-    const { data: bonusBalance, error: bonusErr } = await supabase.rpc(
-      'credit_profile_completion_bonus', { user_id_param: user.id }
-    );
-    if (bonusErr) throw bonusErr;
-    if (typeof bonusBalance === 'number') starsBalance = bonusBalance;
-  }
+  // The meter is derived from the distinct deep answers on record, never
+  // incremented from here: this used to add +20 per submission, which meant the
+  // same question answered twice was worth as much as two different ones. The
+  // completion bonus still rides on the same atomic, once-only RPC.
+  const synced = await syncProfileDepth(supabase, user.id, current);
 
   return res.status(200).json({
     ok: true,
-    profileDepth: updated ? updated.profile_depth : next,
-    starsBalance,
-    bonusAwarded: reachedFull,
+    profileDepth: synced.depth,
+    starsBalance: typeof synced.starsBalance === 'number'
+      ? synced.starsBalance
+      : (user.stars_balance || 0),
+    bonusAwarded: synced.bonusAwarded,
   });
 }
 

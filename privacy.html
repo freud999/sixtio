@@ -6,8 +6,9 @@
 <title>Sixtio — Політика конфіденційності</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="theme.js?v=41"></script>
-<link rel="stylesheet" href="theme.css?v=41" />
+<script src="i18n.js?v=42"></script>
+<script src="theme.js?v=42"></script>
+<link rel="stylesheet" href="theme.css?v=42" />
 <style>
   body{
     display:flex; flex-direction:column; align-items:center;
@@ -17,9 +18,12 @@
   body > *{ position:relative; z-index:1; }
   .bg-dots, .bg-aura{ z-index:0; }
 
-  .top-bar{ width:100%; max-width:520px; display:flex; align-items:center; }
+  .top-bar{ width:100%; max-width:520px; display:flex; align-items:center; gap:10px; }
   .back{ font-size:24px; color:var(--a1); background:none; border:none; cursor:pointer;
     font-family:inherit; padding:4px 8px 4px 0; line-height:1; }
+  /* The policy is the one screen where the reader most needs to be able to fix
+     the language themselves — a document you cannot read is not a disclosure. */
+  .top-bar .lang{ margin-left:auto; }
 
   .doc{ width:100%; max-width:520px; padding:22px 20px; }
   .doc h1{ font-size:22px; font-weight:800; letter-spacing:-0.3px; margin-bottom:4px; }
@@ -39,12 +43,20 @@
   <div class="bg-aura two" aria-hidden="true"></div>
 
   <div class="top-bar">
-    <button class="back" id="back" aria-label="Назад">‹ Назад</button>
+    <button class="back" id="back" data-i18n-aria="aria_back" aria-label="Назад" data-i18n="mt_back">‹ Назад</button>
+    <div class="lang" data-lang-switch></div>
   </div>
 
   <div class="doc glass">
+    <!-- One document per language rather than one document translated at runtime:
+         a privacy policy is a legal disclosure, and machine-translating it on the
+         fly would mean nobody could say what a user was actually shown. These are
+         written, and they are what gets displayed — the switcher only picks. -->
+
+    <!-- ================================ UK ================================ -->
+    <section data-doc-lang="uk">
     <h1>Політика конфіденційності Sixtio</h1>
-    <div class="upd">Оновлено: 24 липня 2026</div>
+    <div class="upd">Оновлено: 25 липня 2026</div>
 
     <p>Sixtio — це Telegram Mini App, розумна сваха, яка знайомить людей на основі психологічної сумісності. Ми серйозно ставимося до твоєї приватності й збираємо лише те, що потрібно для роботи сервісу.</p>
 
@@ -86,12 +98,12 @@
     <h2>AI-звіт і дата народження</h2>
     <p>AI-звіт — це окрема добровільна функція. Щоб ним скористатися, ти вказуєш <b>дату народження</b> (обовʼязково) і, за бажанням, час та місто народження. Ці поля потрібні лише для звіту.</p>
     <ul>
-      <li><b>Знак зодіаку й соціотип рахуються безкоштовно, у нас на сервері, без ШІ.</b> Знак — з дати, соціотип — з твого профілю Big Five. Платний лише письмовий текст звіту.</li>
+      <li><b>Знак зодіаку й соціотип рахуються безкоштовно, у нас на сервері, без ШІ.</b> Знак — з дати, соціотип — з твого психологічного профілю Sixtio. Платний лише письмовий текст звіту.</li>
       <li><b>Дата народження не змінює твій вік у застосунку.</b> Вік, за яким тебе показують іншим, лишається тим, який ти вказав під час знайомства — ця дата на нього не впливає.</li>
       <li><b>Дата народження нікому не показується.</b> Ні в стрічці, ні в метчах, ні у твоєму профілі для інших — вона є лише вхідними даними для твого власного звіту.</li>
-      <li>Для написання звіту до Google Gemini передаються твої бали Big Five, знак, соціотип, мета, цінності та інтереси. <b>Ні імʼя, ні дата народження, ні Telegram-контакт не передаються.</b></li>
+      <li>Для написання звіту до Google Gemini передаються бали твого психологічного профілю, знак, соціотип, мета, цінності та інтереси. <b>Ні імʼя, ні дата народження, ні Telegram-контакт не передаються.</b></li>
       <li>Готовий звіт зберігається у твоєму акаунті, перечитувати його можна безкоштовно, і він перекладається твоєю поточною мовою так само, як решта текстів профілю.</li>
-      <li><b>Звіт — не діагноз.</b> Він спирається на твої відповіді за моделлю Big Five; знак зодіаку й соціотип — це мова опису та розвага. Це не медична, не психіатрична й не юридична порада.</li>
+      <li><b>Звіт — не діагноз.</b> Він спирається на твій психологічний профіль, побудований на твоїх відповідях; знак зодіаку й соціотип — це мова опису та розвага. Це не медична, не психіатрична й не юридична порада.</li>
     </ul>
 
     <h2>Dark Mode (18+)</h2>
@@ -154,6 +166,237 @@
 
     <h2>Контакт</h2>
     <p class="muted">З питань приватності напиши нам у боті <b>@Sixtiobot</b>.</p>
+    </section>
+
+    <!-- ================================ RU ================================ -->
+    <section data-doc-lang="ru" hidden>
+    <h1>Политика конфиденциальности Sixtio</h1>
+    <div class="upd">Обновлено: 25 июля 2026</div>
+
+    <p>Sixtio — это Telegram Mini App, умная сваха, которая знакомит людей на основе психологической совместимости. Мы серьёзно относимся к твоей приватности и собираем только то, что нужно для работы сервиса.</p>
+
+    <h2>Какие данные мы собираем</h2>
+    <ul>
+      <li><b>Из Telegram:</b> твой Telegram ID, имя и (если есть) юзернейм — через защищённые данные Telegram (initData).</li>
+      <li><b>Твоя анкета:</b> пол, кого ищешь, цель знакомства, возраст, город, интересы, описание о себе и фото, которые ты добавляешь.</li>
+      <li><b>Ответы на вопросы</b> Sixtio и созданный на их основе психологический портрет.</li>
+      <li><b>Сообщения</b> во внутреннем чате с твоей парой.</li>
+      <li><b>Город по IP</b> — определяется автоматически только как подсказка на шаге города; ты всегда подтверждаешь или вводишь свой.</li>
+      <li><b>Время последней активности</b> — чтобы показывать отметку «онлайн».</li>
+      <li><b>Твои действия в приложении:</b> кого ты лайкнул или пропустил, кого заблокировал, на кого пожаловался, твои метчи.</li>
+      <li><b>Платежи:</b> история транзакций Telegram Stars и статус премиума. Реквизиты карт мы не видим и не храним — оплату полностью обрабатывает Telegram.</li>
+      <li><b>Источник перехода:</b> если ты пришёл по рекламной ссылке, мы сохраняем метку этого объявления (например <span class="muted">tgads1</span>) — чтобы понимать, какая реклама работает. Метка не содержит ничего о тебе лично.</li>
+      <li><b>Дата рождения</b> (и, по желанию, время и город) — <b>только если ты сам заказал AI-отчёт</b>. Подробно ниже в отдельном разделе.</li>
+      <li><b>Маркеры интимных предпочтений</b> — <b>только если ты сам включил Dark Mode</b>. Подробно ниже в отдельном разделе.</li>
+    </ul>
+
+    <h2>Как мы используем данные</h2>
+    <ul>
+      <li>Чтобы создать твой профиль и найти психологически совместимую пару.</li>
+      <li>Чтобы показывать метчи и давать возможность общаться во внутреннем чате.</li>
+      <li>Чтобы присылать уведомления от бота (новый метч, новое сообщение).</li>
+      <li>Чтобы защищать пользователей: блокировки, жалобы, выявление накрутки рефералов.</li>
+      <li>Чтобы считать обезличенную статистику — сколько людей пришло с какой рекламы и пользуются ли сервисом. Эти отчёты не содержат твоего имени, фото или анкеты.</li>
+    </ul>
+
+    <h2>Обработка искусственным интеллектом</h2>
+    <p>Твои ответы обрабатываются сервисами ИИ (<b>Google Gemini</b> и <b>Anthropic Claude</b>), чтобы сформировать психологический портрет и оценить совместимость. Передаётся только текст ответов и анкеты — без твоего Telegram-контакта.</p>
+
+    <h2>Перевод профиля</h2>
+    <p>Sixtio работает на трёх языках. Твоё описание, психологический портрет и твоё «о себе» написаны один раз — на том языке, на котором ты проходил знакомство. Чтобы человек с другим языком мог тебя прочитать, мы <b>переводим</b> эти тексты (через Google Gemini) и сохраняем перевод, чтобы не делать это каждый раз.</p>
+    <ul>
+      <li>Переводится только то, что и так видят другие: описание, портрет и «о себе». Твои ответы на вопросы не передаются.</li>
+      <li>Оригинал всегда остаётся нетронутым. Когда ты редактируешь «о себе», ты видишь и меняешь <b>именно свой текст</b>, а не перевод.</li>
+      <li>Если ты изменишь текст, старые переводы удаляются — чтобы никогда не показывать перевод того, чего уже нет.</li>
+    </ul>
+
+    <h2>AI-отчёт и дата рождения</h2>
+    <p>AI-отчёт — это отдельная добровольная функция. Чтобы им воспользоваться, ты указываешь <b>дату рождения</b> (обязательно) и, по желанию, время и город рождения. Эти поля нужны только для отчёта.</p>
+    <ul>
+      <li><b>Знак зодиака и социотип считаются бесплатно, у нас на сервере, без ИИ.</b> Знак — из даты, социотип — из твоего психологического профиля Sixtio. Платный только письменный текст отчёта.</li>
+      <li><b>Дата рождения не меняет твой возраст в приложении.</b> Возраст, по которому тебя показывают другим, остаётся тем, который ты указал при знакомстве — эта дата на него не влияет.</li>
+      <li><b>Дата рождения никому не показывается.</b> Ни в ленте, ни в метчах, ни в твоём профиле для других — она нужна только как входные данные для твоего собственного отчёта.</li>
+      <li>Для написания отчёта в Google Gemini передаются баллы твоего психологического профиля, знак, социотип, цель, ценности и интересы. <b>Ни имя, ни дата рождения, ни Telegram-контакт не передаются.</b></li>
+      <li>Готовый отчёт хранится в твоём аккаунте, перечитывать его можно бесплатно, и он переводится на твой текущий язык так же, как остальные тексты профиля.</li>
+      <li><b>Отчёт — не диагноз.</b> Он опирается на твой психологический профиль, построенный на твоих ответах; знак зодиака и социотип — это язык описания и развлечение. Это не медицинский, не психиатрический и не юридический совет.</li>
+    </ul>
+
+    <h2>Dark Mode (18+)</h2>
+    <p>Dark Mode — это <b>отдельный добровольный режим</b>, который считает интимную совместимость. Он <b>выключен по умолчанию</b>. Мы считаем эти данные особо чувствительными и обращаемся с ними строже, чем с остальными.</p>
+    <ul>
+      <li><b>Правовое основание — твоё отдельное явное согласие</b> (ст. 7 Закона Украины «О защите персональных данных», ст. 9 GDPR). Оно не «вшито» в эту политику: перед включением ты видишь отдельный экран с объяснением и сам нажимаешь «Включить». Мы сохраняем дату согласия и версию текста, который тебе показали.</li>
+      <li><b>Твои ответы на интимное интервью не сохраняются.</b> Они однократно передаются ИИ, который превращает их в короткий набор стандартизированных неграфических маркеров (например <span class="muted">sensual</span>, <span class="muted">playful</span>). В базе остаются только эти маркеры — сам текст твоих ответов мы не записываем.</li>
+      <li><b>Видно только тем, у кого Dark Mode тоже включён.</b> Для всех остальных твоя карточка выглядит совершенно обычно — ни намёка на то, что ты в этом режиме.</li>
+      <li><b>Раскрытие в два этапа.</b> До метча обе стороны видят <b>только общие</b> маркеры. После взаимного метча вы видите полные списки друг друга — <b>одинаково для обоих</b>, без исключений по полу.</li>
+      <li><b>Это не продаётся.</b> Доступ к чьим-то интимным маркерам невозможно купить за Telegram Stars, премиум или что-либо ещё. Платных уровней в этом слое нет вообще.</li>
+      <li><b>Отозвать согласие можно в любой момент</b> тем же тумблером — это не сложнее, чем было его дать. Сразу после выключения твои маркеры перестают использоваться и исчезают из видимости для всех.</li>
+    </ul>
+    <p class="muted">Мы можем временно отключить Dark Mode для всех пользователей, если этого потребуют закон, правила Telegram или безопасность сервиса.</p>
+
+    <h2>Платежи и Telegram Stars</h2>
+    <p>Платные функции оплачиваются через <b>Telegram Stars</b>. Оплату полностью обрабатывает Telegram — мы <b>не видим и не храним</b> данные твоей карты или платёжного счёта. На нашей стороне хранится только история операций (что куплено, сколько Stars, когда) и срок действия премиума. Это нужно для начисления покупок и для бухгалтерии.</p>
+
+    <h2>«Кто тебя лайкнул»</h2>
+    <p>Мы показываем, <b>сколько</b> людей тебя лайкнули — бесплатно и всегда. Платными являются только <b>имя и фото</b> этих людей: 5 ⭐ за одного человека или 40 ⭐ за доступ ко всем на 7 дней (в Premium это уже входит).</p>
+    <p>Пока ты не открыл человека, его имя, возраст, город и чёткое фото <b>не передаются на твоё устройство вообще</b> — это не «размытое сверху» изображение, а данные, которых в приложении просто нет. Мы храним список уже открытых тобой людей, чтобы не брать плату дважды за одного и того же.</p>
+
+    <h2>Реферальная программа</h2>
+    <p>Ты можешь пригласить друзей своей ссылкой. Когда кто-то переходит по ней, мы сохраняем связь «кто кого пригласил», чтобы начислить награду.</p>
+    <ul>
+      <li>Награда — <b>15 ⭐</b> за одного приглашённого. <b>Количество друзей не ограничено.</b></li>
+      <li>Награда начисляется <b>не сразу</b>, а только когда приглашённый станет настоящим пользователем: заполнит профиль <b>минимум на 60%</b> и <b>вернётся в приложение на третий день</b>. Поэтому начисление может произойти через несколько дней после регистрации друга.</li>
+      <li>Чтобы это посчитать, мы храним для приглашённого то, что и так храним для всех: насколько заполнен профиль и когда он последний раз заходил.</li>
+      <li>Награды за рефералов — это внутренние бонусные Stars. Мы не начисляем их за сами клики или за аккаунты, созданные для накрутки.</li>
+    </ul>
+
+    <h2>Безопасность: блокировки и жалобы</h2>
+    <p>Ты можешь <b>заблокировать</b> любого — блокировка двусторонняя и приватная: человек не узнает об этом, а вы перестаёте видеть друг друга.</p>
+    <p>Ты также можешь <b>пожаловаться</b>. Мы сохраняем жалобу вместе с тем, кто её подал, чтобы рассмотреть её и не допустить повторных злоупотреблений. Если на одного пользователя пожаловались <b>трое разных людей</b>, его автоматически скрывают из всех лент до рассмотрения.</p>
+
+    <h2>Приватность твоего Telegram</h2>
+    <p><b>Твой профиль Telegram никто не видит по умолчанию.</b> Другим пользователям показываются только имя, возраст, город, интересы, фото и портрет — но не твой Telegram-аккаунт. Твой юзернейм раскрывается паре <b>только когда вы оба нажали «Обменяться Telegram»</b>.</p>
+
+    <h2>Где хранятся данные</h2>
+    <p>Данные хранятся в базе <b>Supabase</b>, приложение работает на <b>Vercel</b>. Доступ к данным защищён и используется только для работы Sixtio. Мы не продаём твои данные и не передаём их третьим сторонам для рекламы.</p>
+
+    <h2>Удаление данных</h2>
+    <p>Ты можешь в любой момент <b>удалить свой аккаунт</b> в разделе «Профиль». Это <b>навсегда и безвозвратно</b> стирает твою анкету, ответы, портрет, метчи, сообщения, фото и интимные маркеры.</p>
+    <p class="muted">Мы храним твои данные, пока существует аккаунт. После удаления могут остаться разве что обезличенные записи, по которым тебя невозможно идентифицировать (например, «за неделю зарегистрировалось 40 человек»), и минимальные данные о платежах, если этого требует закон.</p>
+
+    <h2>Возраст</h2>
+    <p>Sixtio предназначен <b>только для совершеннолетних (18+)</b>. Возраст указывается при регистрации, и без подтверждения 18+ профиль не создаётся. Для Dark Mode ты подтверждаешь совершеннолетие отдельно.</p>
+    <p>Если мы узнаем, что аккаунтом пользуется несовершеннолетний, мы <b>закроем доступ и удалим данные</b>. Если ты считаешь, что в Sixtio зарегистрировался ребёнок — напиши нам в бот, мы проверим.</p>
+
+    <h2>Твои права</h2>
+    <ul>
+      <li><b>Знать и получить</b> свои данные — напиши нам в бот.</li>
+      <li><b>Исправить</b> анкету — в любой момент в разделе «Профиль».</li>
+      <li><b>Отозвать согласие</b> на Dark Mode — тумблером, мгновенно.</li>
+      <li><b>Удалить всё</b> — кнопкой удаления аккаунта.</li>
+      <li><b>Пожаловаться</b> Уполномоченному Верховной Рады Украины по правам человека, если считаешь, что мы нарушили твои права.</li>
+    </ul>
+
+    <h2>Изменения этой политики</h2>
+    <p>Если мы существенно изменим то, как обрабатываем данные, мы обновим дату вверху. Если изменения касаются <b>Dark Mode</b>, мы <b>переспросим твоё согласие</b> — старого согласия на новый текст будет недостаточно.</p>
+
+    <h2>Контакт</h2>
+    <p class="muted">По вопросам приватности напиши нам в боте <b>@Sixtiobot</b>.</p>
+    </section>
+
+    <!-- ================================ EN ================================ -->
+    <section data-doc-lang="en" hidden>
+    <h1>Sixtio Privacy Policy</h1>
+    <div class="upd">Updated: 25 July 2026</div>
+
+    <p>Sixtio is a Telegram Mini App — a smart matchmaker that introduces people based on psychological compatibility. We take your privacy seriously and collect only what the service needs to work.</p>
+
+    <h2>What data we collect</h2>
+    <ul>
+      <li><b>From Telegram:</b> your Telegram ID, first name and (if you have one) username — through Telegram's signed data (initData).</li>
+      <li><b>Your questionnaire:</b> gender, who you are looking for, what you are looking for, age, city, interests, your description of yourself, and any photos you add.</li>
+      <li><b>Your answers</b> to Sixtio's questions, and the psychological portrait generated from them.</li>
+      <li><b>Messages</b> in the in-app chat with your match.</li>
+      <li><b>City by IP</b> — detected automatically only as a suggestion on the city step; you always confirm it or type your own.</li>
+      <li><b>Last active time</b> — so we can show the "online" mark.</li>
+      <li><b>Your actions in the app:</b> who you liked or passed, who you blocked, who you reported, your matches.</li>
+      <li><b>Payments:</b> your Telegram Stars transaction history and premium status. We never see or store card details — Telegram handles payment entirely.</li>
+      <li><b>Where you came from:</b> if you arrived through an ad link, we store that ad's label (for example <span class="muted">tgads1</span>) so we can tell which advertising works. The label contains nothing about you personally.</li>
+      <li><b>Your birth date</b> (and, optionally, time and city) — <b>only if you ordered the AI report yourself</b>. Details in its own section below.</li>
+      <li><b>Intimate preference markers</b> — <b>only if you turned Dark Mode on yourself</b>. Details in its own section below.</li>
+    </ul>
+
+    <h2>How we use the data</h2>
+    <ul>
+      <li>To build your profile and find you a psychologically compatible match.</li>
+      <li>To show matches and let you talk in the in-app chat.</li>
+      <li>To send bot notifications (a new match, a new message).</li>
+      <li>To protect users: blocks, reports, and detecting referral abuse.</li>
+      <li>To count anonymised statistics — how many people arrived from which ad and whether they use the service. Those reports contain no name, photo or questionnaire of yours.</li>
+    </ul>
+
+    <h2>AI processing</h2>
+    <p>Your answers are processed by AI services (<b>Google Gemini</b> and <b>Anthropic Claude</b>) to build the psychological portrait and score compatibility. Only the text of your answers and questionnaire is sent — never your Telegram contact.</p>
+
+    <h2>Profile translation</h2>
+    <p>Sixtio runs in three languages. Your description, psychological portrait and "about me" are written once, in the language you went through onboarding in. So that someone reading in another language can understand you, we <b>translate</b> those texts (via Google Gemini) and store the translation rather than redoing it every time.</p>
+    <ul>
+      <li>Only what others already see is translated: the description, the portrait and "about me". Your answers to the questions are never sent.</li>
+      <li>The original is never touched. When you edit "about me" you see and change <b>your own text</b>, not a translation of it.</li>
+      <li>If you change the text, the old translations are deleted — so a translation of something that no longer exists can never be shown.</li>
+    </ul>
+
+    <h2>The AI report and your birth date</h2>
+    <p>The AI report is a separate, voluntary feature. To use it you give your <b>birth date</b> (required) and, if you want, your birth time and city. These fields are used for the report and nothing else.</p>
+    <ul>
+      <li><b>The zodiac sign and socionics type are free, computed on our server, with no AI.</b> The sign comes from the date, the type from your Sixtio personality profile. Only the written report costs anything.</li>
+      <li><b>Your birth date does not change your age in the app.</b> The age others see stays the one you gave during onboarding — this date has no effect on it.</li>
+      <li><b>Your birth date is never shown to anyone.</b> Not in the feed, not in matches, not in your profile as others see it — it is only an input to your own report.</li>
+      <li>To write the report, we send Google Gemini your personality profile scores, sign, type, goal, values and interests. <b>Your name, your birth date and your Telegram contact are not sent.</b></li>
+      <li>A finished report is kept in your account, re-reading it is always free, and it is translated into your current language like the rest of your profile text.</li>
+      <li><b>The report is not a diagnosis.</b> It is grounded in your Sixtio personality profile, built from your own answers; the zodiac sign and socionics type are a language for describing you and a bit of fun. It is not medical, psychiatric or legal advice.</li>
+    </ul>
+
+    <h2>Dark Mode (18+)</h2>
+    <p>Dark Mode is a <b>separate, voluntary mode</b> that scores intimate compatibility. It is <b>off by default</b>. We treat this data as especially sensitive and handle it more strictly than everything else.</p>
+    <ul>
+      <li><b>The legal basis is your separate, explicit consent</b> (Art. 7 of Ukraine's Personal Data Protection Act, Art. 9 GDPR). It is not buried in this policy: before it turns on you see a dedicated screen explaining what happens, and you press "Enable" yourself. We store the date of consent and the version of the text you were shown.</li>
+      <li><b>Your answers to the intimate interview are not stored.</b> They are sent to the AI once, which turns them into a short set of standardised, non-graphic markers (for example <span class="muted">sensual</span>, <span class="muted">playful</span>). Only those markers remain in the database — the text of your answers is never written down.</li>
+      <li><b>Visible only to people who also have Dark Mode on.</b> To everyone else your card looks completely ordinary — with no hint that you are in this mode at all.</li>
+      <li><b>Disclosure in two stages.</b> Before a match, both sides see <b>only the markers they share</b>. After a mutual match you each see the other's full list — <b>identically for both</b>, with no exceptions by gender.</li>
+      <li><b>It is not for sale.</b> Access to someone's intimate markers cannot be bought with Telegram Stars, premium, or anything else. This layer has no paid tiers whatsoever.</li>
+      <li><b>You can withdraw consent at any time</b> with the same single switch — never harder than giving it was. The moment it is off, your markers stop being used and disappear from everyone's view.</li>
+    </ul>
+    <p class="muted">We may temporarily disable Dark Mode for all users if the law, Telegram's rules, or the safety of the service requires it.</p>
+
+    <h2>Payments and Telegram Stars</h2>
+    <p>Paid features are paid for with <b>Telegram Stars</b>. Telegram handles the payment entirely — we <b>never see or store</b> your card or payment account details. On our side we keep only the transaction history (what was bought, how many Stars, when) and when premium expires. That is needed to credit purchases and for accounting.</p>
+
+    <h2>"Who liked you"</h2>
+    <p>We show <b>how many</b> people liked you — free, always. Only the <b>name and photo</b> of those people are paid: 5 ⭐ for one person, or 40 ⭐ for access to all of them for 7 days (Premium already includes it).</p>
+    <p>Until you unlock someone, their name, age, city and clear photo <b>are not sent to your device at all</b> — this is not an image blurred on top, it is data the app simply does not have. We keep a list of the people you have already unlocked so you are never charged twice for the same one.</p>
+
+    <h2>Referral programme</h2>
+    <p>You can invite friends with your link. When someone follows it, we store the "who invited whom" link so the reward can be credited.</p>
+    <ul>
+      <li>The reward is <b>15 ⭐</b> per invited friend. <b>There is no limit on how many friends.</b></li>
+      <li>The reward is <b>not credited immediately</b>, only once the invited person becomes a real user: fills their profile to <b>at least 60%</b> and <b>comes back to the app on the third day</b>. So it may land a few days after your friend signs up.</li>
+      <li>To work that out, we store for the invited person exactly what we store for everyone: how complete their profile is and when they were last in the app.</li>
+      <li>Referral rewards are internal bonus Stars. We do not pay them for clicks, or for accounts created to game the system.</li>
+    </ul>
+
+    <h2>Safety: blocks and reports</h2>
+    <p>You can <b>block</b> anyone — a block is mutual and private: they are never told, and the two of you stop seeing each other.</p>
+    <p>You can also <b>report</b> someone. We store the report together with who filed it, so we can review it and prevent repeat abuse. If <b>three different people</b> report the same user, they are automatically hidden from every feed pending review.</p>
+
+    <h2>Your Telegram privacy</h2>
+    <p><b>Nobody sees your Telegram profile by default.</b> Other users are shown only your name, age, city, interests, photo and portrait — never your Telegram account. Your username is revealed to a match <b>only once you have both pressed "Exchange Telegram"</b>.</p>
+
+    <h2>Where the data lives</h2>
+    <p>Data is stored in a <b>Supabase</b> database and the app runs on <b>Vercel</b>. Access is secured and used only to run Sixtio. We do not sell your data and do not pass it to third parties for advertising.</p>
+
+    <h2>Deleting your data</h2>
+    <p>You can <b>delete your account</b> at any time from the "Profile" screen. That <b>permanently and irreversibly</b> erases your questionnaire, answers, portrait, matches, messages, photos and intimate markers.</p>
+    <p class="muted">We keep your data for as long as the account exists. After deletion, at most anonymised records that cannot identify you may remain (for example "40 people signed up this week"), plus the minimum payment data the law requires us to keep.</p>
+
+    <h2>Age</h2>
+    <p>Sixtio is <b>for adults only (18+)</b>. Age is given at registration, and no profile is created without confirming 18+. For Dark Mode you confirm you are an adult separately.</p>
+    <p>If we learn that an account is used by a minor, we will <b>close access and delete the data</b>. If you believe a child has registered on Sixtio, message us in the bot and we will check.</p>
+
+    <h2>Your rights</h2>
+    <ul>
+      <li><b>To know and receive</b> your data — message us in the bot.</li>
+      <li><b>To correct</b> your questionnaire — any time, on the "Profile" screen.</li>
+      <li><b>To withdraw consent</b> for Dark Mode — with the switch, instantly.</li>
+      <li><b>To delete everything</b> — with the delete-account button.</li>
+      <li><b>To complain</b> to the Ukrainian Parliament Commissioner for Human Rights if you believe we have violated your rights.</li>
+    </ul>
+
+    <h2>Changes to this policy</h2>
+    <p>If we materially change how we process data, we will update the date at the top. If the change concerns <b>Dark Mode</b>, we will <b>ask for your consent again</b> — old consent is not enough for new wording.</p>
+
+    <h2>Contact</h2>
+    <p class="muted">For privacy questions, message us in the bot <b>@Sixtiobot</b>.</p>
+    </section>
   </div>
 
   <script>
@@ -166,6 +409,29 @@
       }
       function goBack(){ history.length > 1 ? history.back() : (window.location.href = 'profile.html'); }
       document.getElementById('back').addEventListener('click', goBack);
+
+      // Show the version written in the language the reader is actually using.
+      // Ukrainian is the fallback because it is the original the other two are
+      // written from — falling back to a language with no section would leave the
+      // policy blank, and an empty privacy policy is worse than one in the wrong
+      // language.
+      var sections = document.querySelectorAll('[data-doc-lang]');
+      function paintLang(){
+        var lang = (window.SixtioI18n && SixtioI18n.lang) || 'uk';
+        var found = false;
+        for (var i = 0; i < sections.length; i++) {
+          var on = sections[i].getAttribute('data-doc-lang') === lang;
+          sections[i].hidden = !on;
+          if (on) found = true;
+        }
+        if (!found) {
+          for (var j = 0; j < sections.length; j++) {
+            sections[j].hidden = sections[j].getAttribute('data-doc-lang') !== 'uk';
+          }
+        }
+      }
+      paintLang();
+      window.addEventListener('sixtio:langchange', paintLang);
     })();
   </script>
 </body>

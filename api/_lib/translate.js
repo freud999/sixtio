@@ -20,6 +20,7 @@
 //     profile in the wrong language is a bad experience, a 500 is a worse one.
 
 import { getSupabase } from './supabase.js';
+import { readingLang, writableLang } from './langdetect.js';
 
 const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 const LANG_NAME = { uk: 'Ukrainian', en: 'English', ru: 'Russian' };
@@ -106,14 +107,29 @@ function applyProfileFields(p, tr) {
 }
 
 /**
- * The language a row's ORIGINAL text is in. A null <col>_lang means the row
- * predates migration 034; the user's stored interface language is the best
- * available guess and is right in the overwhelming majority of cases. Guessing
- * here rather than backfilling keeps the guess out of the data, so a row that is
- * rewritten later gets a real answer instead of inheriting an old assumption.
+ * The language a row's ORIGINAL text is in.
+ *
+ * The recorded <col>_lang used to be trusted outright, with the user's interface
+ * language as the fallback for rows predating migration 034 — and that fallback
+ * was then written back, which stamped Ukrainian profiles as Russian the moment
+ * their owner switched the app to Russian. A reader in Russian then matched the
+ * recorded source language, translation was skipped as pointless, and Ukrainian
+ * text rendered under a Russian interface.
+ *
+ * So the text is read first (api/_lib/langdetect.js — character arithmetic, no
+ * model), and the stored column only decides what detection cannot. The guess
+ * survives purely as a last resort and is no longer persisted; see writableLang.
  */
-export function sourceLang(stored, fallbackLang) {
-  return stored || fallbackLang || 'uk';
+export function sourceLang(stored, fallbackLang, text) {
+  return readingLang(text, stored, fallbackLang);
+}
+
+// Everything of a profiles row that carries language, as one sample: four short
+// tags alone can legitimately contain no marker letter, while tags + summary
+// nearly always do.
+function profileSample(p) {
+  return [(Array.isArray(p.traits_json) ? p.traits_json : []).join(' '), p.vibe || '', p.summary_text || '']
+    .join(' ').trim();
 }
 
 /**
@@ -134,7 +150,8 @@ export async function localizeReport(report, lang, fallbackLang) {
   const sections = Array.isArray(report && report.sections) ? report.sections : [];
   if (!sections.length) return sections;
 
-  const src = sourceLang(report.lang, fallbackLang);
+  const sample = sections.map((s) => s.body || '').join(' ');
+  const src = sourceLang(report.lang, fallbackLang, sample);
   if (src === lang) return sections;
 
   const cached = (report.i18n || {})[lang];
@@ -149,7 +166,7 @@ export async function localizeReport(report, lang, fallbackLang) {
   try {
     await getSupabase()
       .from('ai_reports')
-      .update({ i18n: { ...(report.i18n || {}), [lang]: translated }, lang: src })
+      .update({ i18n: { ...(report.i18n || {}), [lang]: translated }, lang: writableLang(sample, report.lang) })
       .eq('user_id', report.user_id);
   } catch (e) { console.error('report i18n cache write failed:', e.message); }
 
@@ -186,7 +203,7 @@ export async function localizeProfiles(items, lang) {
 
     // --- Digital Twin ---
     if (it.profile) {
-      const src = sourceLang(p.lang, u.language_code);
+      const src = sourceLang(p.lang, u.language_code, profileSample(p));
       if (src !== lang) {
         const cached = (p.i18n || {})[lang];
         if (cached) {
@@ -203,7 +220,7 @@ export async function localizeProfiles(items, lang) {
 
     // --- bio (user-typed) ---
     if (u.bio) {
-      const src = sourceLang(u.bio_lang, u.language_code);
+      const src = sourceLang(u.bio_lang, u.language_code, u.bio);
       if (src !== lang) {
         const cached = (u.bio_i18n || {})[lang];
         if (cached) result[it.key].bio = cached;
@@ -237,7 +254,7 @@ export async function localizeProfiles(items, lang) {
         table: 'profiles', match: { user_id: it.userId },
         col: 'i18n', langCol: 'lang',
         next: { ...(it.profile.i18n || {}), [lang]: fields },
-        src: sourceLang(it.profile.lang, (it.user || {}).language_code),
+        src: writableLang(profileSample(it.profile), it.profile.lang),
       });
     } else {
       result[it.key].bio = fields.bio;
@@ -245,7 +262,7 @@ export async function localizeProfiles(items, lang) {
         table: 'users', match: { id: it.userId },
         col: 'bio_i18n', langCol: 'bio_lang',
         next: { ...((it.user || {}).bio_i18n || {}), [lang]: fields.bio },
-        src: sourceLang((it.user || {}).bio_lang, (it.user || {}).language_code),
+        src: writableLang((it.user || {}).bio, (it.user || {}).bio_lang),
       });
     }
   }
@@ -255,7 +272,12 @@ export async function localizeProfiles(items, lang) {
   const supabase = getSupabase();
   await Promise.all(writes.map(async (w) => {
     try {
-      const patch = { [w.col]: w.next, [w.langCol]: w.src };
+      // The language column is only written when there is real evidence for it
+      // (detected from the text, or already recorded). A null means "unknown",
+      // which the read path re-decides every time — far better than writing down
+      // the reader's language and having it silence translation forever after.
+      const patch = { [w.col]: w.next };
+      if (w.src) patch[w.langCol] = w.src;
       const q = supabase.from(w.table).update(patch);
       for (const [k, v] of Object.entries(w.match)) q.eq(k, v);
       await q;

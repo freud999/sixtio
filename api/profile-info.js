@@ -1,6 +1,7 @@
 import { resolveUser, pickLang } from './_lib/telegram.js';
 import { getSupabase, upsertUser } from './_lib/supabase.js';
 import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
+import { detectLang } from './_lib/langdetect.js';
 
 const GENDERS = ['male', 'female'];
 const SEEKING = ['male', 'female', 'any'];
@@ -41,10 +42,13 @@ export default async function handler(req, res) {
     if (typeof city === 'string' && city.trim()) fields.city = city.trim().slice(0, 100);
     if (typeof bio === 'string' && bio.trim()) {
       fields.bio = bio.trim().slice(0, 600);
-      // Whatever language the UI is in right now is the language they just typed
-      // in. Any cached translations describe the PREVIOUS text and would now be
-      // served as if they were this one — drop them (migration 034).
-      fields.bio_lang = fields.language_code;
+      // Read the language off the text itself and only fall back to the UI
+      // language: people write in a language the interface is not set to, and a
+      // wrong answer here is persisted and stops the bio from ever being
+      // translated for readers who actually need it. Any cached translations
+      // describe the PREVIOUS text and would now be served as if they were this
+      // one — drop them (migration 034).
+      fields.bio_lang = detectLang(fields.bio) || fields.language_code;
       fields.bio_i18n = {};
     }
     if (Array.isArray(interests)) {

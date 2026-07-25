@@ -6,10 +6,10 @@
 <title>Sixtio — мій профіль</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="i18n.js?v=41"></script>
-<script src="theme.js?v=41"></script>
-<script src="paywall.js?v=41"></script>
-<link rel="stylesheet" href="theme.css?v=41" />
+<script src="i18n.js?v=42"></script>
+<script src="theme.js?v=42"></script>
+<script src="paywall.js?v=42"></script>
+<link rel="stylesheet" href="theme.css?v=42" />
 <style>
   body{
     display:flex; flex-direction:column; align-items:center;
@@ -168,17 +168,27 @@
   /* Report sheet — the app's own surface, deliberately NOT the coral 18+ sheet:
      this is a psychological read, not the intimate layer, and reusing that skin
      would imply a relationship between them that does not exist. */
+  /* Anchored to the TOP, not the bottom. A bottom-anchored flex column whose
+     content is taller than the viewport (`justify-content:flex-end` +
+     `margin-top:auto`) overflows past its own start edge, and the report is
+     always taller than the viewport — so opening it landed you at the END of the
+     text, with the beginning above the scrollable area. A report you have to
+     scroll backwards to start reading is not a report. */
   .rp-overlay{ position:fixed; inset:0; z-index:1100; display:flex; flex-direction:column;
-    align-items:center; justify-content:flex-end; background:rgba(20,16,12,.5);
+    align-items:center; justify-content:flex-start; background:rgba(20,16,12,.5);
     -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); opacity:0;
-    transition:opacity .22s ease; padding:16px;
-    padding-bottom:calc(env(safe-area-inset-bottom) + 16px);
-    overflow-y:auto; -webkit-overflow-scrolling:touch; }
+    transition:opacity .22s ease;
+    padding:calc(env(safe-area-inset-top) + 16px) 16px calc(env(safe-area-inset-bottom) + 16px);
+    overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; }
   .rp-overlay.show{ opacity:1; }
   .rp-sheet{ width:100%; max-width:440px; border-radius:26px; padding:22px 20px 20px;
-    margin-top:auto; position:relative; background:var(--surface); color:var(--ink);
+    position:relative; background:var(--surface); color:var(--ink);
     border:1px solid var(--glass-border); box-shadow:0 24px 60px -24px rgba(0,0,0,.45);
-    transform:translateY(24px); transition:transform .26s cubic-bezier(.2,.8,.2,1); }
+    transform:translateY(24px); transition:transform .26s cubic-bezier(.2,.8,.2,1);
+    /* Socionics names are long single words ("Предприниматель") sitting in a
+       half-width cell, and AI prose can contain any word at all; without this
+       they simply ran outside the sheet. */
+    overflow-wrap:anywhere; }
   .rp-overlay.show .rp-sheet{ transform:translateY(0); }
   .rp-close{ position:absolute; top:14px; right:14px; width:34px; height:34px; border-radius:50%;
     border:1px solid var(--glass-border); background:var(--faux-glass); color:var(--ink);
@@ -188,8 +198,10 @@
     background:var(--faux-glass); border:1px solid var(--glass-border); }
   .rp-h{ font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
     color:var(--muted2); }
-  .rp-pair{ display:flex; gap:10px; margin-top:12px; }
-  .rp-cell{ flex:1; min-width:0; }
+  /* Wraps instead of squeezing: two long type names on a 320px-wide phone need
+     two rows, not two columns of four characters each. */
+  .rp-pair{ display:flex; flex-wrap:wrap; gap:10px 12px; margin-top:12px; }
+  .rp-cell{ flex:1 1 40%; min-width:0; }
   .rp-k{ font-size:11px; color:var(--muted2); }
   .rp-v{ font-size:15px; font-weight:700; color:var(--ink); margin-top:2px; }
   .rp-v small{ display:block; font-size:11.5px; font-weight:500; color:var(--muted); margin-top:2px; }
@@ -270,14 +282,17 @@
   .ios-switch input:checked + .ios-slider::before{ transform:translateX(21px); }
 
   /* interview overlay — tinted anonymous chat */
+  /* Top-anchored for the same reason as the report sheet: the consent screen is
+     taller than a phone viewport, and bottom-anchoring put its first line above
+     the scrollable area — on the one sheet whose whole purpose is being read. */
   .kv-overlay{ position:fixed; inset:0; z-index:1100; display:flex; flex-direction:column;
-    align-items:center; justify-content:flex-end; background:rgba(14,4,10,.62);
+    align-items:center; justify-content:flex-start; background:rgba(14,4,10,.62);
     -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); opacity:0;
-    transition:opacity .22s ease; padding:16px;
-    padding-bottom:calc(env(safe-area-inset-bottom) + 16px);
-    overflow-y:auto; -webkit-overflow-scrolling:touch; }
+    transition:opacity .22s ease;
+    padding:calc(env(safe-area-inset-top) + 16px) 16px calc(env(safe-area-inset-bottom) + 16px);
+    overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; }
   .kv-overlay.show{ opacity:1; }
-  .kv-sheet{ width:100%; max-width:440px; border-radius:26px; padding:22px 20px calc(20px + var(--kv-kb, 0px)); margin-top:auto; position:relative;
+  .kv-sheet{ width:100%; max-width:440px; border-radius:26px; padding:22px 20px calc(20px + var(--kv-kb, 0px)); position:relative;
     background:linear-gradient(160deg, rgba(40,10,26,.96), rgba(20,6,16,.98));
     border:1px solid rgba(255,120,90,.4); box-shadow:0 20px 60px -20px rgba(255,60,50,.5);
     transform:translateY(24px); transition:transform .26s cubic-bezier(.2,.8,.2,1); color:#fff; }
@@ -359,8 +374,7 @@
   <!-- Manual language control: the only reliable way to pick UA/RU/EN, since
        Telegram Desktop reports the account language and never reveals an
        interface switch to English. Persists across sessions via i18n.js. -->
-  <div style="display:flex; align-items:center; justify-content:center; gap:9px; margin:2px 0 10px;">
-    <span aria-hidden="true" style="font-size:15px;">🌐</span>
+  <div style="display:flex; justify-content:center; width:100%; margin:2px 0 10px;">
     <div data-lang-switch></div>
   </div>
 
@@ -468,9 +482,17 @@
     <div class="ref-terms" data-i18n="referral_terms">Реферал зараховується, коли друг завершить реєстрацію та почне користуватись Sixtio. Діють ліміти: до 10 нагород на добу.</div>
   </div>
 
-  <div class="section glass" id="editSection" hidden>
-    <div class="sec-title" data-i18n="edit_title">Редагування анкети</div>
-    <form class="edit-form" id="editForm">
+  <!-- Editing the questionnaire is a SHEET, not a card at the bottom of the page.
+       It used to be an inline section revealed by ?edit=1 from Settings and
+       scrolled to — but it sat below the 18+ card and the invite block, and the
+       page's height changed under the smooth scroll as /api/me finished, so
+       tapping "Edit profile" in Settings routinely looked like it did nothing at
+       all. A sheet arrives where you are looking. -->
+  <div class="rp-overlay" id="editOverlay" hidden>
+   <div class="rp-sheet" role="dialog" aria-modal="true">
+    <button class="rp-close" id="editClose" type="button" data-i18n-aria="close" aria-label="Закрити">✕</button>
+    <div class="rp-title" data-i18n="edit_title">Редагування анкети</div>
+    <form class="edit-form" id="editForm" style="margin-top:16px;">
       <div class="field">
         <label for="fSeeking" data-i18n="f_seeking">Кого шукаю</label>
         <select id="fSeeking">
@@ -514,6 +536,7 @@
       </div>
       <div class="save-note" id="saveNote"></div>
     </form>
+   </div>
   </div>
 
   <div class="footer">
@@ -561,6 +584,17 @@
       var referralLink = ''; // this user's shareable invite link
       // Deep-link from Settings → open the edit form once profile data is ready.
       var wantEdit = /[?&]edit=1(?:&|$)/.test(window.location.search);
+
+      // Looked up HERE, above the cache-first render, and not next to the edit
+      // handlers further down. THIS is why "Edit profile" in Settings did nothing:
+      // ?edit=1 opens the form from inside the cache-first render(), which runs
+      // before the statements at the bottom of this script — so `editOverlay` and
+      // `saveNote` were still undefined, openEditForm() threw partway through, and
+      // the try/catch wrapped around the cache paint swallowed it. The form filled
+      // every field it reached and then never appeared.
+      var editOverlay = document.getElementById('editOverlay');
+      var saveNote = document.getElementById('saveNote');
+      var editLock = null;
 
       function api(path, payload){
         return fetch(path, {
@@ -821,12 +855,14 @@
                 ' <a href="privacy.html" class="dc-link">' + t('dc_more') + '</a></div>' +
             '</div>';
           document.body.appendChild(overlay);
-          requestAnimationFrame(function(){ overlay.classList.add('show'); });
+          var releaseLock = window.SixtioLock ? window.SixtioLock.once() : function(){};
+          (window.SixtioReveal ? window.SixtioReveal(overlay) : overlay.classList.add('show'));
 
           var okBtn = overlay.querySelector('#dcOk');
           var settled = false;
 
           function close(){
+            releaseLock();
             overlay.classList.remove('show');
             setTimeout(function(){ if (overlay.parentNode) overlay.remove(); }, 240);
           }
@@ -883,8 +919,11 @@
       });
 
       // ---- edit form -----------------------------------------------------
-      var editSection = document.getElementById('editSection');
-      var saveNote = document.getElementById('saveNote');
+      function closeEditForm(){
+        if (editLock) { editLock(); editLock = null; }
+        editOverlay.classList.remove('show');
+        setTimeout(function(){ editOverlay.hidden = true; }, 240);
+      }
 
       // The gear opens Settings (Clarity design); profile editing is reached from
       // there via "Редагувати профіль" (settings.html → profile.html?edit=1).
@@ -913,8 +952,9 @@
         document.getElementById('fBio').value = current.bioOriginal != null
           ? current.bioOriginal : (current.bio || '');
         saveNote.textContent = '';
-        editSection.hidden = false;
-        editSection.scrollIntoView({ behavior: 'smooth' });
+        editOverlay.hidden = false;
+        if (!editLock && window.SixtioLock) editLock = window.SixtioLock.once();
+        (window.SixtioReveal ? window.SixtioReveal(editOverlay) : editOverlay.classList.add('show'));
       }
 
       // Gear → full Settings screen.
@@ -923,9 +963,9 @@
         window.location.href = 'settings.html';
       });
 
-      document.getElementById('cancelBtn').addEventListener('click', function(){
-        editSection.hidden = true;
-      });
+      document.getElementById('cancelBtn').addEventListener('click', closeEditForm);
+      document.getElementById('editClose').addEventListener('click', closeEditForm);
+      editOverlay.addEventListener('click', function(e){ if (e.target === editOverlay) closeEditForm(); });
 
       document.getElementById('editForm').addEventListener('submit', function(e){
         e.preventDefault();
@@ -954,7 +994,7 @@
           if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.notificationOccurred('success'); } catch(err){} }
           return load();
         }).then(function(){
-          setTimeout(function(){ editSection.hidden = true; }, 600);
+          setTimeout(closeEditForm, 600);
         }).catch(function(){
           saveNote.textContent = t('save_fail');
         });
@@ -1145,7 +1185,8 @@
               '<div class="kv-priv">' + t('kv_priv') + '</div>' +
             '</div>';
           document.body.appendChild(overlay);
-          requestAnimationFrame(function(){ overlay.classList.add('show'); });
+          var releaseLock = window.SixtioLock ? window.SixtioLock.once() : function(){};
+          (window.SixtioReveal ? window.SixtioReveal(overlay) : overlay.classList.add('show'));
 
           // iOS keyboard handling: track the on-screen keyboard via visualViewport
           // and expand the sheet's bottom padding so the "Далі" button stays
@@ -1177,6 +1218,7 @@
 
           function close(){
             if (vv){ vv.removeEventListener('resize', onKb); vv.removeEventListener('scroll', onKb); }
+            releaseLock();
             overlay.classList.remove('show');
             setTimeout(function(){ if (overlay.parentNode) overlay.remove(); }, 240);
           }
@@ -1353,9 +1395,11 @@
         overlay.querySelector('.rp-title').textContent = t('report_title');
         overlay.querySelector('.rp-disc').textContent = t('report_disclaimer');
         document.body.appendChild(overlay);
-        requestAnimationFrame(function(){ overlay.classList.add('show'); });
+        var releaseLock = window.SixtioLock ? window.SixtioLock.once() : function(){};
+        (window.SixtioReveal ? window.SixtioReveal(overlay) : overlay.classList.add('show'));
 
         function close(){
+          releaseLock();
           overlay.classList.remove('show');
           setTimeout(function(){ overlay.remove(); }, 240);
         }

@@ -65,8 +65,8 @@ const T = {
     fb_empty: 'Порожній відгук. Спробуй ще раз: /feedback',
     reply_from_team: '💬 Відповідь від команди Sixtio:',
     lang:
-      '🌐 Мову інтерфейсу можна змінити прямо у застосунку — натисни іконку 🌐 ' +
-      'угорі на головному екрані або у профілі.\n\n' +
+      '🌐 Мову інтерфейсу можна змінити прямо у застосунку — перемикач ' +
+      'UA · RU · EN на екрані «Профіль».\n\n' +
       'Доступно: Українська · Русский · English.',
   },
   en: {
@@ -106,8 +106,8 @@ const T = {
     fb_empty: 'Empty feedback. Try again: /feedback',
     reply_from_team: '💬 A reply from the Sixtio team:',
     lang:
-      '🌐 You can change the interface language right inside the app — tap the 🌐 ' +
-      'icon at the top of the home screen or in your profile.\n\n' +
+      '🌐 You can change the interface language right inside the app — the ' +
+      'UA · RU · EN switch on the Profile screen.\n\n' +
       'Available: Українська · Русский · English.',
   },
   ru: {
@@ -147,8 +147,8 @@ const T = {
     fb_empty: 'Пустой отзыв. Попробуй ещё раз: /feedback',
     reply_from_team: '💬 Ответ от команды Sixtio:',
     lang:
-      '🌐 Язык интерфейса можно изменить прямо в приложении — нажми иконку 🌐 ' +
-      'вверху на главном экране или в профиле.\n\n' +
+      '🌐 Язык интерфейса можно изменить прямо в приложении — переключатель ' +
+      'UA · RU · EN на экране «Профиль».\n\n' +
       'Доступно: Українська · Русский · English.',
   },
 };
