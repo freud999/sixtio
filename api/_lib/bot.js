@@ -1,3 +1,5 @@
+import { signPhoto, photoKey } from './photos.js';
+
 const APP_URL = process.env.APP_URL || 'https://sixtio.vercel.app';
 const OWNER_TELEGRAM_ID = Number(process.env.OWNER_TELEGRAM_ID || 0);
 
@@ -90,10 +92,12 @@ async function notifyOne(to, partner, reason) {
     inline_keyboard: [[{ text: d.open_btn, web_app: { url: APP_URL } }]],
   };
   try {
-    if (partner.photo_url) {
+    // Private bucket: mint a short-lived signed URL; Telegram fetches it now.
+    const photo = partner.photo_url ? await signPhoto(photoKey(partner.id)) : '';
+    if (photo) {
       await callBot('sendPhoto', {
         chat_id: to.telegram_id,
-        photo: partner.photo_url,
+        photo,
         caption: text,
         reply_markup,
       });

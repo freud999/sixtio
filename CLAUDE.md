@@ -45,7 +45,9 @@ privileges), so RPCs are service-role-only; `search_path` pinned on all function
 base-table DML grants revoked from `anon/authenticated` on all public tables (039).
 Rollbacks live beside them as `supabase/rollback-036…039-*.sql` (not applied).
 Server uses `SUPABASE_SERVICE_ROLE_KEY` (bypasses RLS), so these are transparent to the app.
-Known-open **SEC-1 (P0):** storage bucket `photos` is public — see `audit/AUDIT_REPORT.md` §5-Б.
+**SEC-1 (P0):** signed-URL code landed (`api/_lib/photos.js` + all serving points);
+bucket stays **public until the code deploys**, then apply `migration-040` to flip it
+private. Mechanism verified 2026-07-31. See `audit/AUDIT_REPORT.md` §5-Б.
 
 ## Structure
 - Pages: `index` → `onboarding` → `matches`/`feed` → `match` → `chat` → `profile`/`settings`;

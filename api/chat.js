@@ -8,6 +8,7 @@ import { entitlements, WHY_FACTOR_PRICE } from './_lib/entitlements.js';
 import { generateWhyFactor } from './_lib/gemini.js';
 import { handleTelegramUpdate } from './_lib/analytics.js';
 import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
+import { signPhoto, photoKey } from './_lib/photos.js';
 
 // Consolidated conversation endpoint. Vercel Hobby caps a project at 12
 // serverless functions, so the three chat operations share one file, routed
@@ -95,7 +96,8 @@ async function list(res, tgUser, body) {
     partner: {
       name: (partner && (partner.name || '').split(' ')[0]) ||
         NAME_FALLBACK[pickLang(body.lang, tgUser)] || NAME_FALLBACK.uk,
-      photoUrl: partner ? partner.photo_url : null,
+      // Mutual match → full photo as a fresh signed URL (private bucket).
+      photoUrl: partner && partner.photo_url ? await signPhoto(photoKey(match.partnerId), supabase) : null,
     },
     messages,
   });

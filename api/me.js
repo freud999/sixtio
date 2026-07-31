@@ -9,6 +9,7 @@ import { notifyRetention } from './_lib/bot.js';
 import { sanitizeAiText } from './_lib/claude.js';
 import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
 import { BASE_PROFILE_DEPTH, syncProfileDepth } from './_lib/depth.js';
+import { signPhoto, photoKey } from './_lib/photos.js';
 
 // Presence window for the online dot (mirrors api/feed.js). Every /api/me and
 // /api/feed call stamps last_active, so this stays accurate without extra writes.
@@ -271,7 +272,8 @@ export default async function handler(req, res) {
           goal: partner.goal,
           interests: partner.interests || [],
           bio: partner.bio,
-          photoUrl: partner.photo_url,
+          // Mutual match → full photo, minted as a short-lived signed URL.
+          photoUrl: partner.photo_url ? await signPhoto(photoKey(m.partnerId), supabase) : '',
           // Live presence for the online dot in the chat list.
           online: isOnline(partner.last_active),
           traits: (partnerProfile && partnerProfile.traits_json) || [],
@@ -352,7 +354,8 @@ export default async function handler(req, res) {
         // silently overwrite their own words with a machine rendering of them.
         bio: ownBio,
         bioOriginal: user.bio || '',
-        photoUrl: user.photo_url,
+        // Own photo → full, as a fresh signed URL (private bucket, SEC-1).
+        photoUrl: user.photo_url ? await signPhoto(photoKey(user.id), supabase) : '',
         // Telegram Stars wallet + this user's shareable referral link.
         starsBalance: user.stars_balance || 0,
         referralLink: buildReferralLink(tgUser.id),

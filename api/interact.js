@@ -18,6 +18,7 @@ import {
 } from './_lib/darkmode.js';
 import { notifyInstantMatch, callBot } from './_lib/bot.js';
 import { rewardReferrerOnEngagement } from './_lib/referrals.js';
+import { signPhoto, signPhotos, photoKey, blurKey } from './_lib/photos.js';
 import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
 import { track, EVENTS } from './_lib/events.js';
 
@@ -458,7 +459,9 @@ async function revealMysteryCard(supabase, meId, targetId) {
   return {
     userId: u.id,
     name: (u.name || '').split(' ')[0] || 'Хтось особливий',
-    age: u.age, city: u.city || '', photoUrl: u.photo_url || '',
+    age: u.age, city: u.city || '',
+    // Paid unlock → full photo as a fresh signed URL.
+    photoUrl: u.photo_url ? await signPhoto(photoKey(u.id)) : '',
     compatibility, tags, isMysteryMatch: true, unlocked: true,
   };
 }
@@ -515,18 +518,26 @@ async function listLikers(res, tgUser) {
   const pass = likesPassActive(me, ent);
   const revealed = new Set(me.revealed_likers || []);
 
+  // Full photo for revealed/pass likers, blur silhouette for locked ones. Decide
+  // the key per liker with the SAME rule, then batch-sign in one round trip.
+  const keyFor = (u) => (pass || revealed.has(u.id))
+    ? (u.photo_url ? photoKey(u.id) : '')
+    : (u.photo_blur_url ? blurKey(u.id) : '');
+  const sigMap = await signPhotos(pending.map(keyFor));
+  const urlFor = (u) => { const k = keyFor(u); return k ? (sigMap.get(k) || '') : ''; };
+
   const likers = pending.map((u) => {
     if (pass || revealed.has(u.id)) {
       return {
         userId: u.id,
         name: (u.name || '').split(' ')[0] || '',
         age: u.age, city: u.city || '',
-        photoUrl: u.photo_url || '',
+        photoUrl: urlFor(u),
         locked: false,
       };
     }
     // Locked: a blurred silhouette and nothing else. No name, no age, no city.
-    return { userId: u.id, photoUrl: u.photo_blur_url || '', locked: true };
+    return { userId: u.id, photoUrl: urlFor(u), locked: true };
   });
 
   return res.status(200).json({
@@ -595,7 +606,8 @@ async function revealLiker(res, tgUser, body) {
       userId: u.id,
       name: (u.name || '').split(' ')[0] || '',
       age: u.age, city: u.city || '',
-      photoUrl: u.photo_url || '',
+      // Just paid to reveal → full photo as a fresh signed URL.
+      photoUrl: u.photo_url ? await signPhoto(photoKey(u.id)) : '',
       locked: false,
     },
   });
