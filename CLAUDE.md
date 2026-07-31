@@ -38,11 +38,12 @@ auto-deploy on push to `main`. Prod domain `sixtio.vercel.app`. No `.vercel/proj
 in repo — discover ids via Vercel MCP `list_teams`/`list_projects`.
 
 ## DB security state
-Migrations **036–038 applied to prod 2026-07-31** (already run — do NOT re-apply):
+Migrations **036–039 applied to prod 2026-07-31** (already run — do NOT re-apply):
 RLS enabled (no policies, deny-all) on `signup_sources`/`analytics_events`/`ai_reports`;
 `EXECUTE` revoked from `public/anon/authenticated` on every `public` function (+ default
-privileges), so RPCs are service-role-only; `search_path` pinned on all functions.
-Rollbacks live beside them as `supabase/rollback-036/037/038-*.sql` (not applied).
+privileges), so RPCs are service-role-only; `search_path` pinned on all functions;
+base-table DML grants revoked from `anon/authenticated` on all public tables (039).
+Rollbacks live beside them as `supabase/rollback-036…039-*.sql` (not applied).
 Server uses `SUPABASE_SERVICE_ROLE_KEY` (bypasses RLS), so these are transparent to the app.
 Known-open **SEC-1 (P0):** storage bucket `photos` is public — see `audit/AUDIT_REPORT.md` §5-Б.
 
