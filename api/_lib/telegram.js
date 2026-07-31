@@ -76,15 +76,47 @@ export function pickLang(clientLang, tgUser) {
   return resolveLang(tgUser);
 }
 
+// True on any Vercel environment. ALLOW_FAKE_AUTH is a LOCAL-DEV-ONLY escape
+// hatch — CLAUDE.md: "NEVER set ALLOW_FAKE_AUTH on Vercel" — so its presence on
+// a deployment is always a misconfiguration. VERCEL=1 is set in every Vercel
+// environment (build + runtime, production/preview/development), so this is the
+// fail-closed signal; the VERCEL_ENV checks are belt-and-suspenders. The custom
+// npm-run-dev server sets neither, so genuine local dev is unaffected.
+const IS_DEPLOYED =
+  process.env.VERCEL === '1' ||
+  process.env.VERCEL_ENV === 'production' ||
+  process.env.VERCEL_ENV === 'preview';
+
+// Alert the owner at most once per process (cold-started lambda) if fake auth is
+// somehow enabled on a deployment. Dynamic import keeps resolveUser synchronous
+// and avoids any import cycle; notifyOwner is a no-op without OWNER_TELEGRAM_ID
+// and never throws, so this can't break the auth path.
+let prodFakeAuthAlerted = false;
+function alertProdFakeAuthOnce() {
+  if (prodFakeAuthAlerted) return;
+  prodFakeAuthAlerted = true;
+  import('./bot.js')
+    .then((m) => m.notifyOwner(
+      '🚨 <b>ALLOW_FAKE_AUTH is set on a Vercel deployment.</b> Fake login is ' +
+      'force-disabled, but remove this env var from the project immediately.'
+    ))
+    .catch(() => {});
+}
+
 /**
  * Resolves the Telegram user from initData.
- * ALLOW_FAKE_AUTH=1 is a local-dev escape hatch (never set it on Vercel):
- * real initData is still preferred, but a stub user is returned without it.
+ * ALLOW_FAKE_AUTH=1 is a LOCAL-DEV-ONLY escape hatch (never set it on Vercel):
+ * real initData is always preferred, and a stub user is returned ONLY on a
+ * non-deployed (local) run. On any Vercel deployment fake auth is impossible
+ * regardless of the env var's value, and the misconfig is alerted to the owner.
  */
 export function resolveUser(initData) {
+  if (IS_DEPLOYED && process.env.ALLOW_FAKE_AUTH === '1') alertProdFakeAuthOnce();
+
   const real = validateInitData(initData, process.env.TELEGRAM_BOT_TOKEN);
   if (real) return real;
-  if (process.env.ALLOW_FAKE_AUTH === '1') {
+
+  if (process.env.ALLOW_FAKE_AUTH === '1' && !IS_DEPLOYED) {
     // FAKE_TG_ID lets local testing impersonate a specific registered user.
     const fakeId = parseInt(process.env.FAKE_TG_ID || '', 10);
     return { id: fakeId || 777000, first_name: 'Dev' };
