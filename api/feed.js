@@ -3,6 +3,7 @@ import { getSupabase, getMatchesFor, getHiddenUserIds } from './_lib/supabase.js
 import { entitlements, likesLeftForClient, intimateCompatibility } from './_lib/entitlements.js';
 import { darkActive, DARK_COLUMNS } from './_lib/darkmode.js';
 import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
+import { signPhoto, signPhotos, photoKey, blurKey } from './_lib/photos.js';
 
 // Recommendation feed for the swipe deck (feed.html). Pure Supabase — no AI.
 // Candidates are opposite-gender, within ±10 years, never already swiped, and
@@ -166,10 +167,14 @@ export default async function handler(req, res) {
         age: c.age,
         city: c.city || '',
         // Privacy + paywall: free males receive ONLY the pre-blurred thumbnail
-        // (the real photo_url is never on the wire for them). Entitled viewers
-        // (all women + premium males) get the real photo. Legacy profiles with no
-        // blur thumbnail send nothing to free males rather than leak the original.
-        photoUrl: ent.blur ? (c.photo_blur_url || '') : (c.photo_url || ''),
+        // (the full-res object is never signed for them). Entitled viewers (all
+        // women + premium males) get the real photo. Legacy profiles with no blur
+        // thumbnail send nothing to free males rather than leak the original. The
+        // key is resolved to a short-lived signed URL for the PAGE only, below.
+        photoUrl: '',
+        _photoKey: ent.blur
+          ? (c.photo_blur_url ? blurKey(c.id) : '')
+          : (c.photo_url ? photoKey(c.id) : ''),
         // 0..100; unscored profiles get 0 so they sort after scored ones.
         compatibility: hit ? hit.score : 0,
         // Compatibility tags drive the "Why you match" reason line on the card.
@@ -218,6 +223,14 @@ export default async function handler(req, res) {
     const start = Math.max(0, parseInt(offset, 10) || 0);
     const size = Math.min(50, Math.max(1, parseInt(limit, 10) || DEFAULT_LIMIT));
     const page = ranked.slice(start, start + size);
+
+    // Mint signed photo URLs for the PAGE only (never the whole ranked deck), in
+    // one batched round trip. A key that fails to sign degrades to '' — no leak.
+    try {
+      const sigMap = await signPhotos(page.map((c) => c._photoKey), supabase);
+      for (const c of page) c.photoUrl = c._photoKey ? (sigMap.get(c._photoKey) || '') : '';
+    } catch (e) { console.error('feed photo signing failed:', e.message); }
+    for (const c of page) delete c._photoKey;
 
     // Big Five for the deep-compatibility sheet: batch-load the paged candidates'
     // stored traits (+ this viewer's) in ONE query and attach them read-only.
@@ -329,7 +342,9 @@ async function resolveMysteryMatch(supabase, me, ranked, compatByUser, nameFallb
   return {
     userId: u.id, compatibility, isMysteryMatch: true, unlocked: true,
     name: (u.name || '').split(' ')[0] || nameFallback,
-    age: u.age, city: u.city || '', photoUrl: u.photo_url || '',
+    age: u.age, city: u.city || '',
+    // Paid unlock → full photo, as a fresh signed URL.
+    photoUrl: u.photo_url ? await signPhoto(photoKey(u.id), supabase) : '',
     tags: hit ? (hit.tags || []).slice(0, 3) : [],
   };
 }

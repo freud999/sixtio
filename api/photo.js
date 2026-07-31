@@ -2,9 +2,12 @@ import { resolveUser } from './_lib/telegram.js';
 import { getSupabase, upsertUser } from './_lib/supabase.js';
 import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
 import { moderatePhoto } from './_lib/gemini.js';
+import { signPhoto, photoKey, blurKey } from './_lib/photos.js';
 
-// Accepts a client-side-downscaled JPEG as base64 (data URL or raw),
-// stores it in the public `photos` bucket, and saves the URL on the user.
+// Accepts a client-side-downscaled JPEG as base64 (data URL or raw), stores it in
+// the PRIVATE `photos` bucket, and records the object KEY on the user (not a URL).
+// Delivery is always a short-lived signed URL minted at read time (SEC-1), so the
+// full-res file can't be fetched by guessing a public URL past the blur paywall.
 const MAX_BASE64_LENGTH = 4 * 1024 * 1024; // ~3 MB decoded, under Vercel's body limit
 
 // Decodes a data-URL/raw base64 JPEG to a Buffer, or null if it isn't valid JPEG
@@ -58,35 +61,36 @@ export default async function handler(req, res) {
 
     const supabase = getSupabase();
     const userId = await upsertUser(tgUser);
-    const stamp = Date.now();
 
     const { error: uploadError } = await supabase.storage
       .from('photos')
-      .upload(`${userId}.jpg`, buffer, { contentType: 'image/jpeg', upsert: true });
+      .upload(photoKey(userId), buffer, { contentType: 'image/jpeg', upsert: true });
     if (uploadError) throw uploadError;
-    // Cache-buster: the file name is stable, so browsers would otherwise show the old photo.
-    const photoUrl = `${supabase.storage.from('photos').getPublicUrl(`${userId}.jpg`).data.publicUrl}?v=${stamp}`;
 
     // Blurred thumbnail (client-generated, tiny). Served to free males INSTEAD of
-    // the real photo, so the full-res URL never reaches a non-entitled client.
-    // Optional & best-effort: an old client that doesn't send one just gets the
-    // legacy behavior (feed shows no photo to free males for this profile).
-    let photoBlurUrl = null;
+    // the real photo, so the full-res object is never signed for a non-entitled
+    // client. Optional & best-effort: an old client that doesn't send one just
+    // gets the legacy behavior (feed shows no photo to free males for this profile).
+    let blurStoredKey = null;
     const blurBuf = typeof blurBase64 === 'string' && blurBase64
       ? decodeJpeg(blurBase64, MAX_BASE64_LENGTH) : null;
     if (blurBuf) {
       const { error: blurErr } = await supabase.storage
         .from('photos')
-        .upload(`${userId}_blur.jpg`, blurBuf, { contentType: 'image/jpeg', upsert: true });
+        .upload(blurKey(userId), blurBuf, { contentType: 'image/jpeg', upsert: true });
       if (blurErr) console.error('blur thumb upload failed:', blurErr.message);
-      else photoBlurUrl = `${supabase.storage.from('photos').getPublicUrl(`${userId}_blur.jpg`).data.publicUrl}?v=${stamp}`;
+      else blurStoredKey = blurKey(userId);
     }
 
-    const patch = { photo_url: photoUrl };
-    if (photoBlurUrl) patch.photo_blur_url = photoBlurUrl;
+    // Store the object KEYS, not URLs — the bucket is private and every read mints
+    // a fresh signed URL. The columns double as "has a (blur) photo" presence flags.
+    const patch = { photo_url: photoKey(userId) };
+    if (blurStoredKey) patch.photo_blur_url = blurStoredKey;
     const { error } = await supabase.from('users').update(patch).eq('id', userId);
     if (error) throw error;
 
+    // Immediate self-preview: a signed URL for the just-uploaded full photo.
+    const photoUrl = await signPhoto(photoKey(userId), supabase);
     return res.status(200).json({ ok: true, photoUrl });
   } catch (e) {
     console.error('api/photo failed:', e);
