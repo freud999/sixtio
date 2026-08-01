@@ -1,8 +1,9 @@
 import { resolveUser } from './_lib/telegram.js';
 import { getSupabase, upsertUser } from './_lib/supabase.js';
 import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
-import { moderatePhoto } from './_lib/gemini.js';
+import { moderatePhoto, photoModerationFailOpen } from './_lib/gemini.js';
 import { signPhoto, photoKey, blurKey } from './_lib/photos.js';
+import { notifyOwner } from './_lib/bot.js';
 
 // Accepts a client-side-downscaled JPEG as base64 (data URL or raw), stores it in
 // the PRIVATE `photos` bucket, and records the object KEY on the user (not a URL).
@@ -19,6 +20,30 @@ function decodeJpeg(dataUrl, limit = MAX_BASE64_LENGTH) {
   try { buffer = Buffer.from(base64, 'base64'); } catch { return null; }
   if (buffer.length < 100 || buffer[0] !== 0xff || buffer[1] !== 0xd8) return null;
   return buffer;
+}
+
+// An unreachable safety gate is an incident, not a user error, so it pings the
+// owner rather than only the logs — that is the whole lesson of 2026-08-01.
+// Throttled per warm instance: an outage hits every uploader at once, and a
+// hundred identical alerts are read as noise and muted, which is how the alarm
+// stops working. Deliberately in-memory (no DB round-trip on an upload path);
+// a cold start re-arms it, which is the right bias for an alarm.
+const MODERATION_ALERT_INTERVAL_MS = 10 * 60 * 1000;
+let lastModerationAlertAt = 0;
+
+function alertModerationDown(err, failOpen) {
+  const now = Date.now();
+  if (now - lastModerationAlertAt < MODERATION_ALERT_INTERVAL_MS) return;
+  lastModerationAlertAt = now;
+  const reason = String(err && err.message ? err.message : err)
+    .slice(0, 300)
+    .replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
+  notifyOwner(
+    (failOpen
+      ? '⚠️ <b>Photo moderation is DOWN and fail-open is ON</b>\nPhotos are being stored UNCHECKED.'
+      : '🚨 <b>Photo moderation is DOWN</b>\nUploads are being refused (fail-closed).') +
+    `\n<pre>${reason}</pre>`
+  ).catch(() => {});
 }
 
 export default async function handler(req, res) {
@@ -47,8 +72,14 @@ export default async function handler(req, res) {
 
     // Safety gate: reject explicit NSFW (nudity/sexual/graphic-violence) before
     // the photo is ever stored or shown. A missing face is fine and passes.
-    // Fail-open — if the vision check errors, never block a legitimate upload
-    // (the crowd-report auto-hide from migration 022 stays as the human net).
+    //
+    // FAIL-CLOSED (2026-08-01). This used to swallow the error and store the
+    // photo unchecked, which meant a Gemini outage silently turned NSFW
+    // moderation off on an 18+ product while every upload still returned 200 —
+    // indistinguishable, from the outside, from a working gate. No check, no
+    // upload. The two failures below are different events and are treated as
+    // such: a verdict of "nsfw" is a normal product answer (422, no alert),
+    // being unable to GET a verdict is an outage (503, alert, retryable).
     try {
       const verdict = await moderatePhoto(buffer.toString('base64'));
       if (verdict.nsfw) {
@@ -56,7 +87,13 @@ export default async function handler(req, res) {
         return res.status(422).json({ error: 'photo_rejected' });
       }
     } catch (modErr) {
-      console.error('photo moderation skipped (fail-open):', modErr.message);
+      const failOpen = photoModerationFailOpen();
+      console.error(
+        `photo moderation unavailable (${failOpen ? 'fail-open OVERRIDE' : 'fail-closed'}):`,
+        modErr.message
+      );
+      alertModerationDown(modErr, failOpen);
+      if (!failOpen) return res.status(503).json({ error: 'moderation_unavailable' });
     }
 
     const supabase = getSupabase();
