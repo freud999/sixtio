@@ -5,7 +5,8 @@ import { trackReturn } from './_lib/events.js';
 import { localizeProfiles } from './_lib/translate.js';
 import { entitlements, likesLeftForClient, likesPassActive, intimateCompatibility } from './_lib/entitlements.js';
 import { darkActive, darkModeEnabled, consentStale, DARK_COLUMNS } from './_lib/darkmode.js';
-import { notifyRetention } from './_lib/bot.js';
+import { notifyRetention, notifyOwner } from './_lib/bot.js';
+import { smokeEnv, formatSmoke } from './_lib/env.js';
 import { sanitizeAiText } from './_lib/claude.js';
 import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
 import { BASE_PROFILE_DEPTH, syncProfileDepth } from './_lib/depth.js';
@@ -490,6 +491,14 @@ async function cronRetentionTrigger(req, res) {
     return res.status(401).json({ ok: false, error: 'Unauthorized' });
   }
 
+  // Piggy-backed on the retention tick because it is the only thing in the app
+  // that already runs on a schedule with server authority. It costs one call per
+  // dependency per tick and nothing at all on the request path. This is the
+  // check that would have caught BOTH of today's silent failures: the retention
+  // cron itself had been dead for 14 hours, and Gemini had been 404ing for a
+  // week, with the app returning 200 throughout.
+  await runSmokeTest();
+
   try {
     const supabase = getSupabase();
     const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
@@ -518,5 +527,31 @@ async function cronRetentionTrigger(req, res) {
   } catch (e) {
     console.error('cron_retention_trigger failed:', e);
     return res.status(500).json({ ok: false, error: 'Internal error' });
+  }
+}
+
+/**
+ * Runs the dependency smoke test and pings the owner if anything is down.
+ * Fully self-contained: it can never fail the cron it rides on.
+ *
+ * It alerts on EVERY failing tick rather than only on the transition to broken.
+ * Deduplicating would mean remembering the last verdict, and the only durable
+ * place to remember it is the database — which is itself one of the things
+ * being checked. A repeated ping every half hour is the correct volume for an
+ * outage that is, by construction, invisible everywhere else.
+ */
+async function runSmokeTest() {
+  try {
+    const results = await smokeEnv();
+    const failed = results.filter((r) => !r.ok);
+    if (!failed.length) return;
+    console.error(`smoke test failed:\n${formatSmoke(failed)}`);
+    await notifyOwner(
+      '🚨 <b>Dependency smoke test failed</b>\n<pre>' +
+      formatSmoke(results).replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c])) +
+      '</pre>'
+    );
+  } catch (e) {
+    console.error('smoke test itself failed:', e && e.message);
   }
 }
