@@ -18,6 +18,7 @@
 import { callBot, botLang } from './bot.js';
 import { findUserId, deleteUserCascade, armFeedback, consumeFeedback } from './supabase.js';
 import { buildReferralLink } from './referrals.js';
+import { smokeEnv, formatSmoke, validateEnv, formatProblems, geminiModelInUse } from './env.js';
 
 const APP_URL = process.env.APP_URL || 'https://sixtio.vercel.app';
 const OWNER_TELEGRAM_ID = Number(process.env.OWNER_TELEGRAM_ID || 0);
@@ -378,6 +379,8 @@ export async function handleUserCommand(msg) {
     return true;
   }
 
+  if (cmd === '/envcheck') { await sendEnvCheck(msg); return true; }
+
   // 4) A plain (non-command) message right after a bare /feedback — captured as
   // feedback via the armed DB flag, so the user doesn't have to reply-quote.
   if (typeof msg.text === 'string' && msg.text.trim() && !cmd.startsWith('/')) {
@@ -388,6 +391,37 @@ export async function handleUserCommand(msg) {
   }
 
   return false; // not ours — let the caller handle /start, /stats, etc.
+}
+
+/**
+ * /envcheck — owner-only, on demand: the same shape validation the app runs at
+ * cold start, plus one live call per external dependency. Deliberately NOT
+ * localized (ops output, one reader) and deliberately value-free: it answers
+ * "does this work", never "what is it set to".
+ *
+ * This exists because after a credential rotation there was no way to ask. The
+ * answer arrived a day later, from the logs, as an outage.
+ *
+ * A non-owner sender is consumed silently rather than refused, so the command's
+ * existence is not discoverable by trying it.
+ */
+async function sendEnvCheck(msg) {
+  const chatId = msg.chat.id;
+  if (!OWNER_TELEGRAM_ID || Number(msg.from && msg.from.id) !== OWNER_TELEGRAM_ID) return;
+
+  await callBot('sendMessage', { chat_id: chatId, text: '⏳ Checking…' });
+
+  const shape = validateEnv(process.env);
+  const live = await smokeEnv();
+  const allOk = !shape.length && live.every((r) => r.ok);
+
+  const text =
+    `<b>${allOk ? '✅ All green' : '⚠️ Problems found'}</b>\n\n` +
+    `<b>Live dependencies</b>\n<pre>${esc(formatSmoke(live))}</pre>\n` +
+    `<b>Value shape</b>\n<pre>${esc(shape.length ? formatProblems(shape) : 'all values well-formed')}</pre>\n` +
+    `<b>Config</b>\n<pre>${esc(`env: ${process.env.VERCEL_ENV || 'local'}\ngemini model: ${geminiModelInUse()}`)}</pre>`;
+
+  await callBot('sendMessage', { chat_id: chatId, text, parse_mode: 'HTML' });
 }
 
 // The set of localized feedback prompts, used to recognise a user's reply to the
