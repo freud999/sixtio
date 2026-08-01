@@ -1,4 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
+import { reportEnvOnce } from './env.js';
+
+// Every function that touches the database imports this module, so its load is
+// the earliest point in a cold start that is common to all of them. Checking
+// here means a mangled value is reported on the first request after a bad
+// deploy rather than whenever someone next reads the logs — which, for
+// SUPABASE_URL, took a day. Never throws; see reportEnvOnce.
+reportEnvOnce();
 
 let client;
 
