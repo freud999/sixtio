@@ -43,11 +43,28 @@ function langLine(lang) {
 }
 
 /**
+ * Operator override for the photo safety gate. Defaults to fail-CLOSED: when the
+ * vision check cannot run, the upload is refused. Set PHOTO_MODERATION_FAIL_OPEN
+ * to a truthy value to accept unchecked photos instead — deliberately, with an
+ * owner alert on every skip — for the case where Gemini is down long enough that
+ * nobody can finish onboarding. Mirrors darkModeEnabled(), but inverted: the
+ * default of a MISSING variable is the safe answer, not the permissive one.
+ */
+export function photoModerationFailOpen() {
+  const raw = String(process.env.PHOTO_MODERATION_FAIL_OPEN ?? '').trim().toLowerCase();
+  return raw === 'true' || raw === '1' || raw === 'on' || raw === 'yes';
+}
+
+/**
  * Vision safety gate for profile photos (Gemini multimodal). Returns
  * { nsfw:boolean, reason:string }. Conservatively rejects ONLY explicit NSFW —
  * nudity, sexual/erotic content, pornography, or graphic violence/gore. A photo
- * without a visible face is fine and passes (nsfw:false). Throws on API/parse
- * failure so the caller can fail-open (treat a throw as "allow").
+ * without a visible face is fine and passes (nsfw:false).
+ *
+ * The two outcomes are deliberately different KINDS of result, because they are
+ * different events: a verdict is RETURNED (Gemini looked and judged), and being
+ * unable to reach a verdict THROWS (nothing was checked). The caller must never
+ * conflate them — see api/photo.js.
  * @param {string} base64Jpeg raw base64 (no data: prefix) of a JPEG image
  */
 export async function moderatePhoto(base64Jpeg) {
