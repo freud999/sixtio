@@ -21,8 +21,7 @@
 
 import { getSupabase } from './supabase.js';
 import { readingLang, writableLang } from './langdetect.js';
-
-const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+import { geminiFetch, geminiText } from './geminifetch.js';
 const LANG_NAME = { uk: 'Ukrainian', en: 'English', ru: 'Russian' };
 
 /**
@@ -35,7 +34,6 @@ async function translateBundle(bundle, targetLang) {
   const keys = Object.keys(bundle);
   if (!keys.length || !process.env.GEMINI_API_KEY) return {};
 
-  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
   const target = LANG_NAME[targetLang] || LANG_NAME.uk;
   const prompt =
     `Translate the VALUES of this JSON object into ${target}.\n` +
@@ -50,26 +48,14 @@ async function translateBundle(bundle, targetLang) {
     JSON.stringify(bundle);
 
   try {
-    const res = await fetch(`${API_BASE}/${model}:generateContent`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': process.env.GEMINI_API_KEY,
+    const data = await geminiFetch({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.2,                    // translation, not creativity
+        responseMimeType: 'application/json',
       },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.2,                  // translation, not creativity
-          responseMimeType: 'application/json',
-          thinkingConfig: { thinkingBudget: 0 },
-        },
-      }),
-    });
-    if (!res.ok) throw new Error(`Gemini ${res.status}`);
-    const data = await res.json();
-    const text = (data.candidates?.[0]?.content?.parts || [])
-      .map((p) => p.text || '').join('').trim();
-    const parsed = JSON.parse(text);
+    }, { thinkingOff: true });
+    const parsed = JSON.parse(geminiText(data));
 
     // Only accept keys we asked for, and only non-empty strings: a model that
     // hallucinates a key must not be able to write into a cache.

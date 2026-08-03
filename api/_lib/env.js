@@ -270,10 +270,10 @@ export function resetEnvReportForTests() {
 
 const GEMINI_MODELS_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 
-/** The Gemini model the app will actually use — same default as every caller. */
-export function geminiModelInUse() {
-  return process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-}
+/** The Gemini model the app will actually use. Re-exported from the one place
+ *  that resolves it, so /envcheck can never report a model the callers don't
+ *  use — a duplicated default is how the last one drifted out of sight. */
+export { geminiModel as geminiModelInUse } from './geminifetch.js';
 
 async function probe(name, fn) {
   try {
