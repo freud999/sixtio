@@ -9,8 +9,7 @@
 
 import { getSupabase } from './supabase.js';
 import { KINK_MARKERS, normalizeMarkers } from './entitlements.js';
-
-const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+import { geminiFetch, geminiText } from './geminifetch.js';
 
 // Gemini enforces the enum server-side, so it can only ever return tokens from
 // our canonical set — we still re-validate via normalizeMarkers() defensively.
@@ -53,35 +52,17 @@ export async function analyzeKinkMarkers(answers) {
   if (!process.env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY is not set');
   if (!answers || !answers.trim()) throw new Error('answers is empty');
 
-  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-  const res = await fetch(`${GEMINI_API_BASE}/${model}:generateContent`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-goog-api-key': process.env.GEMINI_API_KEY,
+  const data = await geminiFetch({
+    contents: [{ role: 'user', parts: [{ text: answers }] }],
+    systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+    generationConfig: {
+      temperature: 0.3, // low: a stable, reproducible read
+      responseMimeType: 'application/json',
+      responseSchema: RESPONSE_SCHEMA,
     },
-    body: JSON.stringify({
-      contents: [{ role: 'user', parts: [{ text: answers }] }],
-      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-      generationConfig: {
-        temperature: 0.3, // low: a stable, reproducible read
-        responseMimeType: 'application/json',
-        responseSchema: RESPONSE_SCHEMA,
-        thinkingConfig: { thinkingBudget: 0 },
-      },
-    }),
-  });
+  }, { thinkingOff: true });
 
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Gemini ${res.status}: ${body.slice(0, 500)}`);
-  }
-
-  const data = await res.json();
-  const text = (data.candidates?.[0]?.content?.parts || [])
-    .map((p) => p.text || '')
-    .join('')
-    .trim();
+  const text = geminiText(data);
   if (!text) throw new Error('Gemini returned an empty response');
 
   let parsed;

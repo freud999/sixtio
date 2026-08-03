@@ -6,8 +6,7 @@
 // the stored traits via the `calculate_compatibility` SQL RPC (no further AI).
 
 import { getSupabase } from './supabase.js';
-
-const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+import { geminiFetch, geminiText } from './geminifetch.js';
 
 // The five canonical Big Five dimensions, in the order we store them.
 const TRAITS = [
@@ -93,35 +92,17 @@ export async function analyzePersonality(interviewResponses) {
     throw new Error('interviewResponses is empty');
   }
 
-  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-  const res = await fetch(`${GEMINI_API_BASE}/${model}:generateContent`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-goog-api-key': process.env.GEMINI_API_KEY,
+  const data = await geminiFetch({
+    contents: [{ role: 'user', parts: [{ text: interviewResponses }] }],
+    systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+    generationConfig: {
+      temperature: 0.4, // low: we want a stable, reproducible read
+      responseMimeType: 'application/json',
+      responseSchema: RESPONSE_SCHEMA,
     },
-    body: JSON.stringify({
-      contents: [{ role: 'user', parts: [{ text: interviewResponses }] }],
-      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-      generationConfig: {
-        temperature: 0.4, // low: we want a stable, reproducible read
-        responseMimeType: 'application/json',
-        responseSchema: RESPONSE_SCHEMA,
-        thinkingConfig: { thinkingBudget: 0 },
-      },
-    }),
-  });
+  }, { thinkingOff: true });
 
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Gemini ${res.status}: ${body.slice(0, 500)}`);
-  }
-
-  const data = await res.json();
-  const text = (data.candidates?.[0]?.content?.parts || [])
-    .map((p) => p.text || '')
-    .join('')
-    .trim();
+  const text = geminiText(data);
   if (!text) throw new Error('Gemini returned an empty response');
 
   let parsed;

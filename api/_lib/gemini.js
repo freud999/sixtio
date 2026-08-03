@@ -1,28 +1,13 @@
-const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+import { geminiFetch, geminiText } from './geminifetch.js';
 
-async function callGemini(prompt, generationConfig = {}) {
-  if (!process.env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY is not set');
-  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-  const res = await fetch(`${API_BASE}/${model}:generateContent`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-goog-api-key': process.env.GEMINI_API_KEY,
-    },
-    body: JSON.stringify({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig,
-    }),
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Gemini ${res.status}: ${body.slice(0, 500)}`);
-  }
-  const data = await res.json();
-  const text = (data.candidates?.[0]?.content?.parts || [])
-    .map((p) => p.text || '')
-    .join('')
-    .trim();
+// `opts` goes to geminiFetch (e.g. { thinkingOff: true }); generationConfig must
+// never carry a thinkingConfig of its own — geminifetch.js owns that knob.
+async function callGemini(prompt, generationConfig = {}, opts = {}) {
+  const data = await geminiFetch({
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig,
+  }, opts);
+  const text = geminiText(data);
   if (!text) throw new Error('Gemini returned an empty response');
   return text;
 }
@@ -68,8 +53,6 @@ export function photoModerationFailOpen() {
  * @param {string} base64Jpeg raw base64 (no data: prefix) of a JPEG image
  */
 export async function moderatePhoto(base64Jpeg) {
-  if (!process.env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY is not set');
-  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
   const prompt =
     'Ти — суворий модератор фото для застосунку знайомств. Оціни зображення на безпеку. ' +
     'Поверни ЛИШЕ JSON без пояснень: {"nsfw": true|false, "reason": "коротка причина"}. ' +
@@ -79,36 +62,20 @@ export async function moderatePhoto(base64Jpeg) {
     'Постав nsfw=false для звичайних фото: портрет, селфі, люди в одязі, помірні пляжні фото у купальнику/плавках, ' +
     'краєвиди, тварини, предмети. ВАЖЛИВО: відсутність обличчя або відсутність людини — це НОРМА і НЕ робить фото nsfw. ' +
     'Не будь надто прискіпливим: сумніваєшся — став nsfw=false.';
-  const res = await fetch(`${API_BASE}/${model}:generateContent`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-goog-api-key': process.env.GEMINI_API_KEY,
+  const data = await geminiFetch({
+    contents: [{
+      role: 'user',
+      parts: [
+        { text: prompt },
+        { inlineData: { mimeType: 'image/jpeg', data: base64Jpeg } },
+      ],
+    }],
+    generationConfig: {
+      temperature: 0,
+      responseMimeType: 'application/json',
     },
-    body: JSON.stringify({
-      contents: [{
-        role: 'user',
-        parts: [
-          { text: prompt },
-          { inlineData: { mimeType: 'image/jpeg', data: base64Jpeg } },
-        ],
-      }],
-      generationConfig: {
-        temperature: 0,
-        responseMimeType: 'application/json',
-        thinkingConfig: { thinkingBudget: 0 },
-      },
-    }),
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Gemini vision ${res.status}: ${body.slice(0, 300)}`);
-  }
-  const data = await res.json();
-  const text = (data.candidates?.[0]?.content?.parts || [])
-    .map((p) => p.text || '')
-    .join('')
-    .trim();
+  }, { thinkingOff: true, label: 'Gemini vision' });
+  const text = geminiText(data);
   let parsed;
   try {
     parsed = JSON.parse(text);
@@ -130,10 +97,7 @@ export async function generateFollowup(questionText, answerText, gender, lang) {
     langLine(lang) + '\n\n' +
     `Твоє запитання: ${questionText}\n` +
     `Відповідь користувача: ${answerText}`;
-  const text = await callGemini(prompt, {
-    temperature: 0.9,
-    thinkingConfig: { thinkingBudget: 0 },
-  });
+  const text = await callGemini(prompt, { temperature: 0.9 }, { thinkingOff: true });
   return text.replace(/^["«]|["»]$/g, '').trim();
 }
 
@@ -185,7 +149,7 @@ export async function generateWhyFactor(me, partner, lang) {
     `Твій профіль: ${traitLine(me.traits)}.` + (intimate ? ` Інтимні маркери: ${myKink}.` : '') + '\n' +
     `Профіль ${partnerName}: ${traitLine(partner.traits)}.` + (intimate ? ` Інтимні маркери: ${theirKink}.` : '');
 
-  return callGemini(prompt, { temperature: 0.9, thinkingConfig: { thinkingBudget: 0 } });
+  return callGemini(prompt, { temperature: 0.9 }, { thinkingOff: true });
 }
 
 // --- AI-звіт (50 ⭐) -----------------------------------------------------
