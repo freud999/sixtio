@@ -19,26 +19,30 @@ test('pinned 3.x+ names get thinkingLevel', () => {
   }
 });
 
-test('a floating alias names no generation, so it is only a guess', () => {
+test('a floating alias guesses thinkingLevel — measured, not assumed', () => {
   resetThinkingKnobs();
-  // The value matters less than the fact that it IS a guess — a 400 on the
-  // first call is what settles it, which is why geminiFetch retries once.
-  assert.equal(pickThinkingKnob('gemini-flash-latest'), 'thinkingBudget');
-  assert.equal(pickThinkingKnob('gemini-pro-latest'), 'thinkingBudget');
+  // Verified against the live API 2026-08-03: gemini-flash-latest answers 200 to
+  // thinkingLevel and 400 to thinkingBudget. It is still a guess — the alias can
+  // move — which is why geminiFetch retries once on 400 and remembers.
+  assert.equal(pickThinkingKnob('gemini-flash-latest'), 'thinkingLevel');
+  assert.equal(pickThinkingKnob('gemini-pro-latest'), 'thinkingLevel');
 });
 
 test('resetThinkingKnobs clears what a run has learned', () => {
   resetThinkingKnobs();
-  assert.equal(pickThinkingKnob('gemini-flash-latest'), 'thinkingBudget');
+  assert.equal(pickThinkingKnob('gemini-flash-latest'), 'thinkingLevel');
 });
 
-test('geminiModel reads GEMINI_MODEL and falls back to the pinned default', () => {
+test('geminiModel falls back to a model that actually answers', () => {
   const original = process.env.GEMINI_MODEL;
   try {
-    process.env.GEMINI_MODEL = 'gemini-flash-latest';
-    assert.equal(geminiModel(), 'gemini-flash-latest');
-    delete process.env.GEMINI_MODEL;
+    process.env.GEMINI_MODEL = 'gemini-2.5-flash';
     assert.equal(geminiModel(), 'gemini-2.5-flash');
+    delete process.env.GEMINI_MODEL;
+    // NOT gemini-2.5-flash: that name is 404 "no longer available to new users"
+    // despite still appearing in models.list. A default nobody can call is the
+    // outage we just spent a week on.
+    assert.equal(geminiModel(), 'gemini-flash-latest');
   } finally {
     if (original === undefined) delete process.env.GEMINI_MODEL;
     else process.env.GEMINI_MODEL = original;

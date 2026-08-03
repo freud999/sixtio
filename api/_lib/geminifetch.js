@@ -10,11 +10,18 @@
 
 const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
-/** The model every call uses. A missing GEMINI_MODEL is a trap, not a default:
- *  the hardcoded name below has been 404 since 2026-07-25. It stays only so the
- *  failure is a loud 404 rather than a malformed URL. Set GEMINI_MODEL. */
+/** The model every call uses.
+ *
+ *  The default was `gemini-2.5-flash` and that was the outage: measured
+ *  2026-08-03, it answers 404 "no longer available to new users" on every knob.
+ *  Note it is still LISTED by models.list and still advertises generateContent —
+ *  appearing in the catalogue is not the same as being callable, so never trust
+ *  that list as proof a model works. Only a real generateContent is proof.
+ *
+ *  The default below is verified 200. Set GEMINI_MODEL anyway: a floating alias
+ *  silently changes generation under you, which is the other half of this bug. */
 export function geminiModel() {
-  return process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+  return process.env.GEMINI_MODEL || 'gemini-flash-latest';
 }
 
 // Which knob turns thinking down depends on the model's generation, and the
@@ -46,7 +53,11 @@ export function pickThinkingKnob(model) {
   if (learned) return learned;
   if (/^gemini-[12]\d*[.-]/.test(model)) return BUDGET;
   if (/^gemini-[3-9]\d*[.-]/.test(model)) return LEVEL;
-  return BUDGET;   // alias: guess the older knob, let a 400 teach us otherwise
+  // Alias: no generation in the name, so this is a guess — but not a blind one.
+  // Measured 2026-08-03, gemini-flash-latest takes thinkingLevel and 400s on
+  // thinkingBudget: the aliases have moved to 3.x. Guessing LEVEL costs zero
+  // extra round-trips today; the retry below covers us if they ever move back.
+  return LEVEL;
 }
 
 /** Test seam: forget everything learned so far. */
