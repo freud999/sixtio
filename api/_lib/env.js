@@ -102,7 +102,24 @@ const CHECKS = [
     level: LEVEL.FATAL,
     required: true,
     hint: 'photo moderation, personality analysis, translation, AI reports',
-    format: (s) => (s.startsWith('AIza') ? null : 'must start with AIza'),
+    // Google is retiring the key format itself, not just individual keys. "AQ."
+    // auth keys are what AI Studio issues now; "AIza" standard keys still work
+    // but the Gemini API stops accepting them in September 2026. A rule that
+    // only knew the old shape rejected a working new key — a validator that
+    // calls a good credential broken is worse than no validator, because it
+    // sends you looking in the wrong place. So: both are accepted, and the one
+    // with an expiry date says so at WARN rather than blocking anything.
+    format: (s) => {
+      if (s.startsWith('AQ.')) return null;
+      if (s.startsWith('AIza')) {
+        return {
+          level: LEVEL.WARN,
+          problem: 'is a legacy AIza standard key — the Gemini API rejects these from ' +
+                   'September 2026; reissue it in AI Studio as an AQ. auth key',
+        };
+      }
+      return 'must start with AQ. (current auth key) or AIza (legacy, retired September 2026)';
+    },
   },
   {
     name: 'CRON_SECRET',
@@ -179,8 +196,15 @@ export function validateEnv(env) {
       continue;
     }
 
+    // A format rule returns either a problem string (reported at the check's own
+    // level) or { problem, level } when the value is USABLE but worth flagging at
+    // a different severity — a credential with an announced end-of-life is the
+    // case this exists for.
     const bad = check.format(String(raw));
-    if (bad) problems.push({ name: check.name, level: check.level, problem: bad });
+    if (bad) {
+      const { problem, level } = typeof bad === 'string' ? { problem: bad, level: null } : bad;
+      problems.push({ name: check.name, level: level || check.level, problem });
+    }
   }
 
   return problems;
@@ -268,7 +292,7 @@ export function resetEnvReportForTests() {
 // off the request path) and from the owner's /envcheck command. Never from a
 // user request: three round-trips is far too much to put in a hot path.
 
-const GEMINI_MODELS_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
+import { geminiFetch } from './geminifetch.js';
 
 /** The Gemini model the app will actually use. Re-exported from the one place
  *  that resolves it, so /envcheck can never report a model the callers don't
@@ -307,25 +331,21 @@ export async function smokeEnv() {
     }),
 
     await probe('Gemini', async () => {
-      const key = process.env.GEMINI_API_KEY;
-      if (!key) throw new Error('GEMINI_API_KEY is not set');
-      const res = await fetch(`${GEMINI_MODELS_URL}?pageSize=1000`, {
-        headers: { 'x-goog-api-key': key },
-      });
-      if (!res.ok) throw new Error(`models.list ${res.status}`);
-      const body = await res.json();
+      if (!process.env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY is not set');
       const wanted = geminiModelInUse();
-      // The API returns fully-qualified ids ("models/gemini-2.5-flash").
-      const usable = (body.models || []).filter(
-        (m) => (m.supportedGenerationMethods || []).includes('generateContent')
+      // Deliberately NOT models.list. That list is not evidence: measured
+      // 2026-08-03, gemini-2.5-flash appears in it AND advertises
+      // generateContent, yet every real call returns 404 "no longer available
+      // to new users". A check built on the list would have reported the dead
+      // model healthy for all seven days of the outage.
+      //
+      // So: send the smallest real request, through the same door the app uses.
+      // That proves the key, the model, and the thinking knob at once — the
+      // three things that were separately broken — and nothing less does.
+      await geminiFetch(
+        { contents: [{ role: 'user', parts: [{ text: 'ping' }] }] },
+        { thinkingOff: true, label: 'Gemini generateContent' }
       );
-      const match = usable.find((m) => String(m.name).replace(/^models\//, '') === wanted);
-      if (!match) {
-        throw new Error(
-          `model "${wanted}" is not available for generateContent ` +
-          `(${usable.length} models are) — set GEMINI_MODEL to one of them`
-        );
-      }
       return wanted;
     }),
 

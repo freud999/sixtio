@@ -16,7 +16,7 @@ const GOOD = {
   SUPABASE_SERVICE_ROLE_KEY: 'sb_secret_abcdefghijklmnopqrstuvwxyz',
   TELEGRAM_BOT_TOKEN: '8012345678:AAH1zXcVbNmQwErTyUiOpAsDfGhJkLzXcVb',
   ANTHROPIC_API_KEY: 'sk-ant-api03-abcdefghijklmnop',
-  GEMINI_API_KEY: 'AIzaSyABCDEFGHIJKLMNOPQRSTUVWXYZ0123456',
+  GEMINI_API_KEY: 'AQ.Ab8RN6JabcdefghijklmnopqrstuvwxyZ0123456789',
   CRON_SECRET: 'a-sufficiently-long-cron-secret',
   APP_URL: 'https://sixtio.vercel.app',
   BOT_USERNAME: 'Sixtiobot',
@@ -127,7 +127,31 @@ test('TELEGRAM_BOT_TOKEN must look like a bot token', () => {
 
 test('AI keys are checked by their vendor prefix', () => {
   assert.match(only(broken({ ANTHROPIC_API_KEY: 'sk-proj-abc' })).problem, /sk-ant-/);
-  assert.match(only(broken({ GEMINI_API_KEY: 'sk-ant-abc' })).problem, /AIza/);
+  const p = only(broken({ GEMINI_API_KEY: 'sk-ant-abc' }));
+  assert.equal(p.level, LEVEL.FATAL);
+  assert.match(p.problem, /AQ\./);
+  assert.match(p.problem, /AIza/);
+});
+
+// Google is retiring the KEY FORMAT, not a key. A validator that called the new
+// format broken sent us hunting through model names for a day and a half, so
+// both shapes are pinned here explicitly.
+test('an AQ. auth key is accepted with nothing to say about it', () => {
+  assert.deepEqual(broken({ GEMINI_API_KEY: 'AQ.Ab8RN6Jzzz0123456789' }), []);
+});
+
+test('an AIza standard key still works but carries its expiry date', () => {
+  const p = only(broken({ GEMINI_API_KEY: 'AIzaSyABCDEFGHIJKLMNOPQRSTUVWXYZ0123456' }));
+  assert.equal(p.name, 'GEMINI_API_KEY');
+  // WARN, not FATAL: the key works today, and blocking on it would take the app
+  // down over a deadline that has not arrived.
+  assert.equal(p.level, LEVEL.WARN);
+  assert.match(p.problem, /September 2026/);
+});
+
+test('an expiring credential does not read as a broken alarm channel', () => {
+  const problems = broken({ GEMINI_API_KEY: 'AIzaSyABCDEFGHIJKLMNOPQRSTUVWXYZ0123456' });
+  assert.equal(alarmChannelBroken(problems), false);
 });
 
 test('CRON_SECRET must be long enough to be worth having', () => {
