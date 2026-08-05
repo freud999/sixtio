@@ -64,6 +64,29 @@ function big5FromTraits(p) {
   };
 }
 
+/**
+ * Appends `extra` to `pool` up to `max`, skipping anyone already there.
+ *
+ * De-duplication happens HERE rather than in the query, because excluding 300
+ * uuids with `.not('id','in',(…))` is an ~11 KB request URI — PostgREST and the
+ * proxy in front of it reject that long before the query itself is a problem.
+ * Overfetching and dropping the overlap keeps it to one bounded read.
+ *
+ * Exported for testing: the failure it prevents (a scored candidate silently
+ * displaced by an unscored one) only appears past POOL_MAX profiles, which is
+ * far more than production has — so it cannot be caught by looking at the app.
+ */
+export function mergePool(pool, extra, max) {
+  const have = new Set(pool.map((c) => c.id));
+  for (const u of extra || []) {
+    if (pool.length >= max) break;
+    if (!u || have.has(u.id)) continue;
+    have.add(u.id);
+    pool.push(u);
+  }
+  return pool;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -138,27 +161,47 @@ export default async function handler(req, res) {
     });
     const compatByUser = Object.fromEntries(compatMap);
 
-    // Prefilter at the DB (opposite gender + age window + not mass-reported) so we
-    // never pull the whole user table into the function — essential at scale. The
-    // wildcard 'any' preference skips the gender filter; JS still does final checks.
+    // The candidate pool, bounded at POOL_MAX (F-10) and built in TWO passes.
     //
-    // POOL_MAX bounds the working set (F-10, partially). Ranking still happens in
-    // JavaScript, because the deck order also depends on shared interests, mutual
-    // Dark Mode and the block list — none of which the SQL ranker can see. So the
-    // pool is ordered by `last_active` rather than left to whatever order Postgres
-    // happens to return: if a cap has to cut someone, cutting dormant accounts is
-    // a defensible product rule and an arbitrary truncation is not.
-    let candQuery = supabase
-      .from('users')
-      .select('id, name, gender, seeking_gender, age, city, photo_url, photo_blur_url, ' + DARK_COLUMNS + ', kink_markers, interests, last_active, shadow_hidden')
-      .neq('id', me.id)
-      .eq('shadow_hidden', false);
-    if (wantGender) candQuery = candQuery.eq('gender', wantGender);
-    if (me.age) candQuery = candQuery.gte('age', minAge).lte('age', maxAge);
-    const { data: candidates, error: candError } = await candQuery
-      .order('last_active', { ascending: false, nullsFirst: false })
-      .limit(POOL_MAX);
-    if (candError) throw candError;
+    // The obvious one-query version is wrong, and it was wrong here for a day:
+    // capping the candidate query by `last_active` while capping the compatibility
+    // query by SCORE produces two DIFFERENT sets of 300. Past 300 profiles, an
+    // active person whose score ranked 301st would be in the deck with no score
+    // at all — shown as 0% compatible, which is not "unscored", it is WRONG, and
+    // on a product whose entire promise is the percentage.
+    //
+    // So the scored candidates come first, by id, straight from the ranking that
+    // was just computed. Only the leftover room is filled with recently-active
+    // people who have no Big Five yet, so the deck still flows for a new market
+    // where almost nobody is scored.
+    const COLS = 'id, name, gender, seeking_gender, age, city, photo_url, photo_blur_url, '
+      + DARK_COLUMNS + ', kink_markers, interests, last_active, shadow_hidden';
+    const scoredIds = [...compatMap.keys()];
+
+    const candidates = [];
+    if (scoredIds.length) {
+      const { data, error } = await supabase.from('users').select(COLS)
+        .in('id', scoredIds).eq('shadow_hidden', false);
+      if (error) throw error;
+      candidates.push(...(data || []));
+    }
+
+    // Room left over → recently active profiles that the ranker did not return
+    // (no Big Five yet). Ordered by last_active because if a ceiling has to cut
+    // someone, cutting dormant accounts is a product rule and an arbitrary
+    // truncation is not.
+    if (candidates.length < POOL_MAX) {
+      let fill = supabase.from('users').select(COLS)
+        .neq('id', me.id)
+        .eq('shadow_hidden', false);
+      if (wantGender) fill = fill.eq('gender', wantGender);
+      if (me.age) fill = fill.gte('age', minAge).lte('age', maxAge);
+      const { data, error } = await fill
+        .order('last_active', { ascending: false, nullsFirst: false })
+        .limit(POOL_MAX);
+      if (error) throw error;
+      mergePool(candidates, data, POOL_MAX);
+    }
 
     // Dark Mode (18+) is a mutual, opt-in layer: intimate data is computed ONLY
     // when this user has it on, and then only against candidates who also do.
