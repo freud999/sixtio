@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { flagEnabled } from './flags.js';
 
 // --- Timeouts (F-12) --------------------------------------------------------
 //
@@ -26,6 +27,19 @@ const REPORT_TIMEOUT_MS = 26_000;
 
 let client;
 function getClient() {
+  // The kill switch sits HERE and nowhere else, because every Anthropic call in
+  // the app — Twin, follow-ups, Big Five, photo moderation, reports, Why Factor
+  // — reaches the provider through this one function. Gating each caller would
+  // have meant seven chances to miss one, and the one missed is the one still
+  // spending money during the incident you flipped the switch for (F-19).
+  //
+  // It THROWS rather than returning null: every caller already handles a failed
+  // AI call by degrading (skip the question, keep the original text, refuse the
+  // photo). Reusing that path means the switch inherits behaviour that is
+  // already written and already tested, instead of inventing a second one.
+  if (!flagEnabled('AI_ENABLED')) {
+    throw new Error('AI is disabled by the AI_ENABLED kill switch');
+  }
   if (!client) {
     client = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,

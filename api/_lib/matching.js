@@ -1,6 +1,7 @@
 import { getSupabase, getHiddenUserIds, getMatchesFor } from './supabase.js';
 import { scoreCandidates } from './claude.js';
 import { notifyMatchBoth } from './bot.js';
+import { flagEnabled } from './flags.js';
 
 // Who can match with whom by relationship goal: "situational" is open to everyone.
 const COMPATIBLE_GOALS = {
@@ -44,6 +45,10 @@ const PROFILE_COLS = 'traits_json, vibe, summary_text, portrait_json';
  * per-user reasons would need a schema change).
  */
 export async function runMatching(userId, lang = 'uk') {
+  // Kill switch (F-19). null is what every caller already gets when nobody
+  // suitable was found, so a paused matchmaker reads as "no one for you yet"
+  // rather than an error — and existing matches and chats are untouched.
+  if (!flagEnabled('MATCHING_ENABLED')) return null;
   const supabase = getSupabase();
 
   const { data: me, error: meError } = await supabase

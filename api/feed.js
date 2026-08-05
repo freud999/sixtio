@@ -5,6 +5,7 @@ import { darkActive, DARK_COLUMNS } from './_lib/darkmode.js';
 import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
 import { signPhoto, signPhotos, photoKey, blurKey } from './_lib/photos.js';
 import { compatibilityPage } from './_lib/compat.js';
+import { flagEnabled } from './_lib/flags.js';
 
 // Recommendation feed for the swipe deck (feed.html). Pure Supabase — no AI.
 // Candidates are opposite-gender, within ±10 years, never already swiped, and
@@ -75,6 +76,13 @@ export default async function handler(req, res) {
 
     const rl = rateLimit(`feed:${tgUser.id}`, LIMITS.read);
     if (!rl.allowed) return sendRateLimited(res, rl.retryAfterSec);
+
+    // Kill switch (F-19). An empty deck is a shape the client already renders
+    // ("no more people right now"), so taking the feed offline looks like a quiet
+    // day rather than a broken screen — and matches, chat and profile keep working.
+    if (!flagEnabled('FEED_ENABLED')) {
+      return res.status(200).json({ registered: true, candidates: [], hasMore: false });
+    }
 
     const lang = pickLang(req.body && req.body.lang, tgUser);
     const NAME_FALLBACK = { uk: 'Хтось особливий', en: 'Someone special', ru: 'Кто-то особенный' };

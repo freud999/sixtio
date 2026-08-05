@@ -18,6 +18,7 @@
 import { callBot, botLang } from './bot.js';
 import { findUserId, deleteUserCascade, armFeedback, consumeFeedback } from './supabase.js';
 import { buildReferralLink } from './referrals.js';
+import { flagStates, flagsDown } from './flags.js';
 import {
   smokeEnv, formatSmoke, validateEnv, formatProblems,
   geminiModelInUse, geminiModelLightInUse, kinkModelInUse,
@@ -416,17 +417,25 @@ async function sendEnvCheck(msg) {
 
   const shape = validateEnv(process.env);
   const live = await smokeEnv();
-  const allOk = !shape.length && live.every((r) => r.ok);
+  const down = flagsDown();
+  // A kill switch left down is the realistic failure here — not the emergency
+  // itself, but forgetting to switch back. So "all green" is FALSE while any
+  // switch is off: /envcheck must never report health while a feature is dark.
+  const allOk = !shape.length && live.every((r) => r.ok) && !down.length;
 
   const text =
     `<b>${allOk ? '✅ All green' : '⚠️ Problems found'}</b>\n\n` +
+    (down.length
+      ? `<b>🛑 Kill switches DOWN</b>\n<pre>${esc(down.join('\n'))}</pre>\n`
+      : '') +
     `<b>Live dependencies</b>\n<pre>${esc(formatSmoke(live))}</pre>\n` +
     `<b>Value shape</b>\n<pre>${esc(shape.length ? formatProblems(shape) : 'all values well-formed')}</pre>\n` +
     `<b>Config</b>\n<pre>${esc(
       `env: ${process.env.VERCEL_ENV || 'local'}\n` +
       `gemini model: ${geminiModelInUse()}\n` +
       `gemini light: ${geminiModelLightInUse()}\n` +
-      `dark mode (18+) model: ${kinkModelInUse()}`
+      `dark mode (18+) model: ${kinkModelInUse()}\n` +
+      `kill switches: ${flagStates().map((f) => `${f.name}=${f.on ? 'on' : 'OFF'}`).join(', ')}`
     )}</pre>`;
 
   await callBot('sendMessage', { chat_id: chatId, text, parse_mode: 'HTML' });

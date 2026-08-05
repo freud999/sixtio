@@ -10,6 +10,7 @@ import {
 } from './_lib/entitlements.js';
 import { zodiacSign, signElement, socionicsType, parseBirthDate } from './_lib/astro.js';
 import { compatibilityFor } from './_lib/compat.js';
+import { flagEnabled } from './_lib/flags.js';
 import { generateAiReport } from './_lib/claude.js';
 import { localizeReport } from './_lib/translate.js';
 import { processKinkInterview } from './_lib/kink.js';
@@ -303,6 +304,12 @@ async function purchase(req, res, tgUser, body) {
 //   * payload:        'deposit:<userId>:<packId>' — echoed back on payment so the
 //                     webhook can attribute the credit to the right buyer.
 async function createStarsInvoice(res, tgUser, body) {
+  // Kill switch (F-19). Refuses to take NEW money; it deliberately does not
+  // touch entitlements already paid for. If a payment path is misbehaving, the
+  // fix is to stop selling — never to switch off what people already bought.
+  if (!flagEnabled('PAYMENTS_ENABLED')) {
+    return res.status(503).json({ ok: false, error: 'payments_paused' });
+  }
   const packId = typeof body.packId === 'string' ? body.packId : '';
   const pack = STAR_PACKS[packId];
   if (!pack) return res.status(400).json({ error: 'unknown packId' });

@@ -1,3 +1,5 @@
+import { flagEnabled } from './flags.js';
+
 // The single door to Gemini's generateContent.
 //
 // Why this file exists: the same eight-line `fetch` was copy-pasted into six
@@ -287,6 +289,13 @@ async function post(model, payload, label) {
  *   nothing: translation, the photo safety gate.
  */
 export async function geminiFetch(payload, opts = {}) {
+  // Kill switch (F-19). Reported as a quota refusal on purpose: "translation is
+  // unavailable, show the original text" is already a fully handled, tested path
+  // (the free tier runs out routinely). A switch that reuses an existing
+  // degradation is a switch that has been tested; a new error type would not be.
+  if (!flagEnabled('TRANSLATION_ENABLED')) {
+    throw new GeminiQuotaError('translation is disabled by the TRANSLATION_ENABLED kill switch', 60);
+  }
   if (!process.env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY is not set');
   const model = opts.light ? geminiModelLight() : geminiModel();
   const label = opts.label || 'Gemini';

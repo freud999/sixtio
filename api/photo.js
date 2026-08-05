@@ -15,6 +15,7 @@ function retryAfterOf(e) {
 }
 import { signPhoto, photoKey, blurKey } from './_lib/photos.js';
 import { notifyOwner } from './_lib/bot.js';
+import { flagEnabled } from './_lib/flags.js';
 
 // Accepts a client-side-downscaled JPEG as base64 (data URL or raw), stores it in
 // the PRIVATE `photos` bucket, and records the object KEY on the user (not a URL).
@@ -75,6 +76,13 @@ export default async function handler(req, res) {
 
     const rl = rateLimit(`photo:${tgUser.id}`, LIMITS.photo);
     if (!rl.allowed) return sendRateLimited(res, rl.retryAfterSec);
+
+    // Kill switch (F-19). Stops NEW uploads only — photos already stored keep
+    // serving, so flipping this during a storage or moderation incident does not
+    // blank out every profile in the app.
+    if (!flagEnabled('PHOTOS_ENABLED')) {
+      return res.status(503).json({ error: 'photo_uploads_paused' });
+    }
 
     if (typeof imageBase64 !== 'string' || !imageBase64) {
       return res.status(400).json({ error: 'imageBase64 is required' });
