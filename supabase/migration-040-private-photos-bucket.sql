@@ -1,6 +1,6 @@
--- ⏳ НЕ ЗАСТОСОВАНО НА ПРОДІ. Застосувати РАЗОМ із деплоєм коду signed-URL (цей самий
---    набір змін), інакше стара прод-версія віддаватиме мертві public-URL. Механізм
---    перевірено 2026-07-31 коротким toggle (public→400, signed→200), бакет повернуто в public.
+-- ✅ ЗАСТОСОВАНО НА ПРОДІ 2026-08-01 (див. audit/AUDIT_REPORT.md §5-Б, SEC-1).
+--    Переперевірено 2026-08-05 вимірюванням: public-URL на реальний обʼєкт → HTTP 400.
+--    Відкат: supabase/rollback-040-private-photos-bucket.sql (public = true).
 -- migration 040 — make the `photos` storage bucket PRIVATE (SEC-1).
 --
 -- The bucket was public=true, so the full-res `<user_id>.jpg` was fetchable by

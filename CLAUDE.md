@@ -49,9 +49,14 @@ privileges), so RPCs are service-role-only; `search_path` pinned on all function
 base-table DML grants revoked from `anon/authenticated` on all public tables (039).
 Rollbacks live beside them as `supabase/rollback-036…039-*.sql` (not applied).
 Server uses `SUPABASE_SERVICE_ROLE_KEY` (bypasses RLS), so these are transparent to the app.
-**SEC-1 (P0):** signed-URL code landed (`api/_lib/photos.js` + all serving points);
-bucket stays **public until the code deploys**, then apply `migration-040` to flip it
-private. Mechanism verified 2026-07-31. See `audit/AUDIT_REPORT.md` §5-Б.
+**SEC-1 — CLOSED 2026-08-01, re-verified 2026-08-05.** Signed-URL code deployed
+(`api/_lib/photos.js` + all serving points) and `migration-040` applied: the
+`photos` bucket is **private**. Re-verified by measurement — `/object/public/`
+answers HTTP 400. Every delivery is a 5-minute signed URL minted after the
+entitlement check. (This paragraph previously said the bucket was still public;
+that staleness cost a session. Security state belongs in ONE place — the audit.)
+Account deletion DOES remove both objects (`deleteUserCascade`, `supabase.js:184`),
+but swallows a failure with only a `console.error` — see SEC-1a in the audit.
 
 ## Structure
 - Pages: `index` → `onboarding` → `matches`/`feed` → `match` → `chat` → `profile`/`settings`;
