@@ -32,6 +32,16 @@ const DEFAULT_MAX_RPM = 4;         // gemini-flash-latest measures 5; one below,
 const DEFAULT_MAX_RPM_LIGHT = 12;  // gemini-flash-lite-latest measures 15 (burst-tested 2026-08-05)
 const WINDOW_MS = 60_000;
 
+// Translation is the fastest call in the app and the least worth waiting for —
+// its failure mode is "show the original", which costs nothing. Well inside
+// vercel.json's maxDuration: 30, so a stall still leaves room to answer.
+const DEFAULT_TIMEOUT_MS = 12_000;
+
+function timeoutMs() {
+  const n = Number(process.env.GEMINI_TIMEOUT_MS);
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_TIMEOUT_MS;
+}
+
 function limitFor(isLight) {
   const n = Number(isLight ? process.env.GEMINI_MAX_RPM_LIGHT : process.env.GEMINI_MAX_RPM);
   if (Number.isFinite(n) && n > 0) return n;
@@ -210,14 +220,31 @@ async function post(model, payload, label) {
     );
   }
 
-  const res = await fetch(`${API_BASE}/${model}:generateContent`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-goog-api-key': process.env.GEMINI_API_KEY,
-    },
-    body: JSON.stringify(payload),
-  });
+  // fetch has NO default timeout, so a provider that accepts the connection and
+  // then goes quiet holds the lambda until Vercel kills it at maxDuration — no
+  // catch, no alert, no answer to the client. Translation is the fastest thing
+  // we ask for, so its budget is tighter than Claude's.
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/${model}:generateContent`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': process.env.GEMINI_API_KEY,
+      },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(timeoutMs()),
+    });
+  } catch (e) {
+    // A timeout must read as a timeout. "The operation was aborted" in a log at
+    // 2am is how you end up debugging the wrong system.
+    const timedOut = e && (e.name === 'TimeoutError' || e.name === 'AbortError');
+    throw new Error(
+      timedOut
+        ? `${label} timed out after ${timeoutMs()}ms on ${model}`
+        : `${label} request failed on ${model}: ${e.message}`
+    );
+  }
   if (res.ok) return { ok: true, data: await res.json() };
 
   const body = await res.text();

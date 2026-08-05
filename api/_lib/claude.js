@@ -1,12 +1,46 @@
 import Anthropic from '@anthropic-ai/sdk';
 
+// --- Timeouts (F-12) --------------------------------------------------------
+//
+// Vercel kills the function at maxDuration: 30s (vercel.json). Without an
+// explicit timeout the SDK waits far longer than that, so a hung provider does
+// not produce an error we can degrade around — it produces a hard function kill
+// with no catch, no alert, and no 503 for the client. The user sees a spinner
+// and then nothing.
+//
+// So every call must fail INSIDE our own budget, leaving room to answer. 20s
+// leaves ~10s to alert, log and return a proper status. maxRetries is 0 on
+// purpose: two attempts inside 30s means halving each one, and a retry is the
+// wrong move for a provider that is already slow — every caller here already
+// degrades (skip the question, 503 with a retry button, show the original).
+const DEFAULT_TIMEOUT_MS = 20_000;
+
+function timeoutMs() {
+  const n = Number(process.env.AI_TIMEOUT_MS);
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_TIMEOUT_MS;
+}
+
+// The paid report is the one legitimately long generation (five sections). It
+// still must finish inside maxDuration, so this is a ceiling, not a licence.
+const REPORT_TIMEOUT_MS = 26_000;
+
 let client;
 function getClient() {
   if (!client) {
-    client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    client = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+      timeout: timeoutMs(),
+      maxRetries: 0,
+    });
   }
   return client;
 }
+
+/** Test seam: drop the memoised client so a new timeout takes effect. */
+export function resetClaudeClient() { client = undefined; }
+
+/** The configured per-call timeout, for diagnostics and tests. */
+export function claudeTimeoutMs() { return timeoutMs(); }
 
 // claude-opus-4-8 by default; set CLAUDE_MODEL=claude-haiku-4-5 for a cheaper/faster option.
 const MODEL = process.env.CLAUDE_MODEL || 'claude-opus-4-8';
@@ -126,14 +160,14 @@ const PERSONA =
  * check and the JSON extraction three more times.
  * @returns {Promise<object>} the parsed object
  */
-export async function claudeJson({ model, system, user, schema, maxTokens = 1000 }) {
+export async function claudeJson({ model, system, user, schema, maxTokens = 1000, timeout }) {
   const response = await getClient().messages.create({
     model,
     max_tokens: maxTokens,
     system,
     messages: [{ role: 'user', content: user }],
     output_config: { format: { type: 'json_schema', schema } },
-  });
+  }, timeout ? { timeout } : undefined);
   if (response.stop_reason === 'refusal') {
     throw new Error('Claude refused the request');
   }
@@ -505,6 +539,7 @@ export async function generateAiReport(input, lang) {
   const parsed = await claudeJson({
     model: REPORT_MODEL,
     maxTokens: 4000,
+    timeout: REPORT_TIMEOUT_MS,
     system:
       'Ти — Sixtio: геніальний психолог стосунків. Пишеш глибоко, конкретно й тепло, ' +
       'звертаючись на «ти». Це платний персональний звіт — він має бути вартий своїх грошей: ' +

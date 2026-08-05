@@ -154,6 +154,18 @@ const CHECKS = [
     hint: 'guards the bot webhook',
     format: (s) => (s.length >= 8 ? null : 'must be at least 8 characters'),
   },
+  // A timeout at or above vercel.json's maxDuration is the same as no timeout —
+  // the platform kill wins, and that kill is exactly what has no catch block.
+  ...['AI_TIMEOUT_MS', 'GEMINI_TIMEOUT_MS'].map((name) => ({
+    name,
+    level: LEVEL.WARN,
+    required: false,
+    hint: 'must stay under vercel.json maxDuration (30000) or the function is killed first',
+    format: (s) =>
+      isPositiveInt(s) && Number(s) < 30000
+        ? null
+        : 'must be a positive integer below 30000 (maxDuration)',
+  })),
   {
     name: 'HEALTHCHECK_URL',
     level: LEVEL.WARN,
