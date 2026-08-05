@@ -175,6 +175,24 @@ const CHECKS = [
     format: (s) => httpsUrlProblem(s),
   },
   {
+    name: 'SENTRY_DSN',
+    level: LEVEL.WARN,
+    required: false,
+    hint: 'without it every error lives ~1h in Vercel Hobby logs and is then gone forever',
+    format: (s) => {
+      // A DSN that is present but malformed is WORSE than an absent one: it
+      // reads as "monitoring is on" while nothing is being reported. So the
+      // shape is checked here rather than discovered during an incident.
+      try {
+        const u = new URL(s);
+        if (!/^https?:$/.test(u.protocol)) return 'must be an http(s) URL';
+        if (!u.username) return 'missing the public key (expected https://KEY@host/PROJECT_ID)';
+        if (!u.pathname.replace(/^\/+/, '')) return 'missing the project id at the end of the path';
+        return null;
+      } catch { return 'must be a valid Sentry DSN (https://KEY@host/PROJECT_ID)'; }
+    },
+  },
+  {
     name: 'ADMIN_TELEGRAM_IDS',
     level: LEVEL.WARN,
     required: false,

@@ -1,3 +1,4 @@
+import { captureError } from './_lib/sentry.js';
 import { resolveUser, pickLang } from './_lib/telegram.js';
 import { getSupabase, getMatchesFor, getHiddenUserIds } from './_lib/supabase.js';
 import { entitlements, likesLeftForClient, intimateCompatibility } from './_lib/entitlements.js';
@@ -294,6 +295,7 @@ export default async function handler(req, res) {
     });
   } catch (e) {
     console.error('api/feed failed:', e);
+    captureError(e, { route: 'api/feed' });
     return res.status(500).json({ error: 'Internal error' });
   }
 }

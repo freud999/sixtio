@@ -1,4 +1,5 @@
 import { resolveUser, pickLang } from './_lib/telegram.js';
+import { captureError } from './_lib/sentry.js';
 import {
   findUserId, getSupabase, blockUser, unblockUser, reportUser, getPendingLikers,
 } from './_lib/supabase.js';
@@ -111,6 +112,7 @@ export default async function handler(req, res) {
     return swipe(req, res, tgUser, body);
   } catch (e) {
     console.error('api/interact failed:', e);
+    captureError(e, { route: 'api/interact' });
     return res.status(500).json({ error: 'Internal error' });
   }
 }

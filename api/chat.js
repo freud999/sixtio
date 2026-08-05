@@ -1,3 +1,4 @@
+import { captureError } from './_lib/sentry.js';
 import { resolveUser, pickLang } from './_lib/telegram.js';
 import {
   getSupabase, findUserId, resolveMatchForUser,
@@ -51,6 +52,7 @@ export default async function handler(req, res) {
     return list(res, tgUser, body);
   } catch (e) {
     console.error('api/chat failed:', e);
+    captureError(e, { route: 'api/chat' });
     return res.status(500).json({ error: 'Internal error' });
   }
 }

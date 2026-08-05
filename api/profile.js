@@ -7,6 +7,7 @@ import { captureReferral } from './_lib/referrals.js';
 import { applySourceOnRegistration } from './_lib/sources.js';
 import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
 import { track, EVENTS } from './_lib/events.js';
+import { captureError } from './_lib/sentry.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -100,6 +101,7 @@ export default async function handler(req, res) {
     return res.status(200).json(profile);
   } catch (e) {
     console.error('api/profile failed:', e);
+    captureError(e, { route: 'api/profile' });
     return res.status(500).json({ error: 'Internal error' });
   }
 }

@@ -1,6 +1,7 @@
 import { resolveUser } from './_lib/telegram.js';
 import { findUserId, deleteUserCascade } from './_lib/supabase.js';
 import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
+import { captureError } from './_lib/sentry.js';
 
 // Permanently deletes the user and everything tied to them. The foreign keys
 // cascade (answers, profile, matches, messages); the photo is removed too.
@@ -26,6 +27,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
   } catch (e) {
     console.error('api/delete-account failed:', e);
+    captureError(e, { route: 'api/delete-account' });
     return res.status(500).json({ error: 'Internal error' });
   }
 }

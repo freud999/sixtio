@@ -1,3 +1,4 @@
+import { captureError } from './_lib/sentry.js';
 import { resolveUser, pickLang } from './_lib/telegram.js';
 import { getSupabase, getMatchesFor, getHiddenUserIds, getPendingLikers } from './_lib/supabase.js';
 import { buildReferralLink, rewardReferrerOnEngagement } from './_lib/referrals.js';
@@ -438,6 +439,7 @@ export default async function handler(req, res) {
     });
   } catch (e) {
     console.error('api/me failed:', e);
+    captureError(e, { route: 'api/me' });
     return res.status(500).json({ error: 'Internal error' });
   }
 }

@@ -19,6 +19,7 @@ import { callBot, botLang } from './bot.js';
 import { findUserId, deleteUserCascade, armFeedback, consumeFeedback } from './supabase.js';
 import { buildReferralLink } from './referrals.js';
 import { flagStates, flagsDown } from './flags.js';
+import { sentryConfigured } from './sentry.js';
 import {
   smokeEnv, formatSmoke, validateEnv, formatProblems,
   geminiModelInUse, geminiModelLightInUse, kinkModelInUse,
@@ -435,7 +436,8 @@ async function sendEnvCheck(msg) {
       `gemini model: ${geminiModelInUse()}\n` +
       `gemini light: ${geminiModelLightInUse()}\n` +
       `dark mode (18+) model: ${kinkModelInUse()}\n` +
-      `kill switches: ${flagStates().map((f) => `${f.name}=${f.on ? 'on' : 'OFF'}`).join(', ')}`
+      `kill switches: ${flagStates().map((f) => `${f.name}=${f.on ? 'on' : 'OFF'}`).join(', ')}\n` +
+      `error reporting: ${sentryConfigured() ? 'Sentry on' : 'NONE — errors vanish with the logs'}`
     )}</pre>`;
 
   await callBot('sendMessage', { chat_id: chatId, text, parse_mode: 'HTML' });

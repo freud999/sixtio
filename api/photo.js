@@ -2,6 +2,7 @@ import { resolveUser } from './_lib/telegram.js';
 import { getSupabase, upsertUser } from './_lib/supabase.js';
 import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
 import { moderatePhoto, photoModerationFailOpen } from './_lib/claude.js';
+import { captureError } from './_lib/sentry.js';
 // The gate runs on Anthropic now (PRIV-1, option B), so "out of quota" is an
 // HTTP 429 from that SDK rather than a typed Gemini error. Its `retry-after`
 // header, when present, is the only honest number to hand the client.
@@ -163,6 +164,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true, photoUrl });
   } catch (e) {
     console.error('api/photo failed:', e);
+    captureError(e, { route: 'api/photo' });
     return res.status(500).json({ error: 'Internal error' });
   }
 }

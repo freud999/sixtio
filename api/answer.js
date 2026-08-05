@@ -7,6 +7,7 @@ import { isDeepQuestion, syncProfileDepth } from './_lib/depth.js';
 import { worthFollowingUp } from './_lib/questions.js';
 import { bookAiCall } from './_lib/aibudget.js';
 import { alertThrottled, escapeAlert } from './_lib/alerts.js';
+import { captureError } from './_lib/sentry.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -114,6 +115,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true, followup, ...depthFields });
   } catch (e) {
     console.error('api/answer failed:', e);
+    captureError(e, { route: 'api/answer' });
     return res.status(500).json({ error: 'Internal error' });
   }
 }

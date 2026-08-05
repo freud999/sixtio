@@ -2,6 +2,7 @@ import { resolveUser, pickLang } from './_lib/telegram.js';
 import { getSupabase, upsertUser } from './_lib/supabase.js';
 import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
 import { detectLang } from './_lib/langdetect.js';
+import { captureError } from './_lib/sentry.js';
 
 const GENDERS = ['male', 'female'];
 const SEEKING = ['male', 'female', 'any'];
@@ -80,6 +81,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
   } catch (e) {
     console.error('api/profile-info failed:', e);
+    captureError(e, { route: 'api/profile-info' });
     return res.status(500).json({ error: 'Internal error' });
   }
 }

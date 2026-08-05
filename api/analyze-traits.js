@@ -3,6 +3,7 @@ import { getSupabase, findUserId } from './_lib/supabase.js';
 import { questionLabel } from './_lib/questions.js';
 import { processOnboardingPersonality } from './_lib/personality.js';
 import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
+import { captureError } from './_lib/sentry.js';
 
 // Standalone Big Five (OCEAN) extraction — deliberately split out of
 // api/profile.js so each call stays well under Vercel Hobby's 10s limit.
@@ -53,6 +54,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true, traits, tags });
   } catch (e) {
     console.error('api/analyze-traits failed:', e);
+    captureError(e, { route: 'api/analyze-traits' });
     return res.status(500).json({ error: 'Internal error' });
   }
 }
