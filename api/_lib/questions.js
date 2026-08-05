@@ -26,3 +26,40 @@ export function questionLabel(questionId) {
   }
   return questionId;
 }
+
+// --- Is this answer worth a follow-up? --------------------------------------
+//
+// Every follow-up is a billed model call (PRIV-1 moved them to Anthropic on
+// 2026-08-05), and up to five fire per onboarding — the most frequent AI call in
+// the product. But cost is only half the reason to skip some of them: a
+// follow-up to "не знаю" cannot go deeper, because there is nothing to go deeper
+// INTO. The model produces a generic probe, the user feels unheard, and we paid
+// for it. Skipping is both cheaper and better.
+//
+// The bar is deliberately LOW and biased toward asking. This is meant to catch
+// «ок», «нормально», «хз» — never a short but real answer. "Коли я втратив
+// батька" is four words and matters enormously; it must still get a follow-up.
+// When in doubt, ask: a wasted call costs a fraction of a cent, a missed
+// follow-up costs interview depth, which is the actual product.
+const NON_ANSWERS = new Set([
+  'ок', 'окей', 'ok', 'okay', 'да', 'так', 'ні', 'нет', 'no', 'yes',
+  'не знаю', 'незнаю', 'хз', 'idk', 'dunno', 'нормально', 'норм', 'nothing',
+  'нічого', 'ничего', 'все', 'всё', 'good', 'fine', 'ничего особенного',
+]);
+
+/** True when an answer has enough substance that a follow-up can go deeper. */
+export function worthFollowingUp(answerText) {
+  const raw = String(answerText || '').trim();
+  if (!raw) return false;
+
+  // Strip punctuation/emoji for the comparison, but measure the ORIGINAL length —
+  // a long answer full of commas is still a long answer.
+  const normalized = raw.toLowerCase().replace(/[.!?,;:—–\-()"'«»]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!normalized) return false;
+  if (NON_ANSWERS.has(normalized)) return false;
+
+  const words = normalized.split(' ').filter(Boolean).length;
+  if (raw.length < 12) return false;              // too short to hold a thought
+  if (words < 3 && raw.length < 25) return false; // one long word is not an answer
+  return true;
+}

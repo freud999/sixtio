@@ -42,8 +42,15 @@ export function resetClaudeClient() { client = undefined; }
 /** The configured per-call timeout, for diagnostics and tests. */
 export function claudeTimeoutMs() { return timeoutMs(); }
 
-// claude-opus-4-8 by default; set CLAUDE_MODEL=claude-haiku-4-5 for a cheaper/faster option.
-const MODEL = process.env.CLAUDE_MODEL || 'claude-opus-4-8';
+// The Digital Twin. Was claude-opus-4-8, which made this single call roughly
+// half the AI cost of a whole user — for 4-6 tags, one vibe phrase, two
+// sentences and six short portrait axes. Opus earns its price on long reasoning
+// chains; this is structured extraction from an interview that is already in
+// front of it. Sonnet 5 does it at a fraction of the cost.
+//
+// Set CLAUDE_MODEL=claude-opus-4-8 to go back if the Twins read as flatter —
+// this is the one downgrade worth watching, because the Twin IS the product.
+const MODEL = process.env.CLAUDE_MODEL || 'claude-sonnet-5';
 
 // Matching runs once per onboarding (rare, high-stakes) and needs consistent
 // judgment — Haiku flip-flops on nuanced compatibility, so use a stronger model.

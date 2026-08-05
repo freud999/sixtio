@@ -4,6 +4,8 @@ import { captureReferral } from './_lib/referrals.js';
 import { generateFollowup } from './_lib/claude.js';
 import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
 import { isDeepQuestion, syncProfileDepth } from './_lib/depth.js';
+import { worthFollowingUp } from './_lib/questions.js';
+import { bookAiCall } from './_lib/aibudget.js';
 import { alertThrottled, escapeAlert } from './_lib/alerts.js';
 
 export default async function handler(req, res) {
@@ -63,6 +65,27 @@ export default async function handler(req, res) {
     // Follow-up answers don't get their own follow-up — keep the dialog moving.
     // skipFollowup: deepen mode saves AI budget by not generating follow-ups at all.
     if (isFollowup || skipFollowup) {
+      return res.status(200).json({ ok: true, followup: null, ...depthFields });
+    }
+
+    // A follow-up on a throwaway answer is worth nothing to anyone: there is no
+    // motive to go deeper into, the model produces a generic probe, and it costs
+    // a paid call. Since 2026-08-05 every call is billed, so the cheapest call is
+    // the one not made — and skipping here also RAISES quality, because a
+    // hollow follow-up is worse than moving on.
+    //
+    // The bar is deliberately low. This filters "ок", "не знаю", "нормально" —
+    // not shy answers. Someone who wrote a real sentence still gets asked.
+    if (!worthFollowingUp(answerText)) {
+      return res.status(200).json({ ok: true, followup: null, ...depthFields });
+    }
+
+    // The daily ceiling (F-13). A skipped follow-up is invisible to the user —
+    // the dialog simply moves on — which makes this the safest place in the app
+    // to absorb a cap, and the reason it is checked here rather than deeper down.
+    const budget = await bookAiCall(userId);
+    if (!budget.allowed) {
+      console.warn(`followup skipped: daily AI cap reached for user ${userId}`);
       return res.status(200).json({ ok: true, followup: null, ...depthFields });
     }
 
