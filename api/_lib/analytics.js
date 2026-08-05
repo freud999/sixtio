@@ -3,6 +3,7 @@ import { callBot, botLang } from './bot.js';
 import { handleUserCommand, handleUserCallback } from './commands.js';
 import { captureStartSource, sourceStats } from './sources.js';
 import { trackStart } from './events.js';
+import { alertThrottled, escapeAlert } from './alerts.js';
 
 // --- /start welcome (Task 28) ---------------------------------------------
 // The webhook used to ignore /start entirely, so users saw only BotFather's
@@ -121,13 +122,57 @@ const KEYBOARD = {
   ]],
 };
 
-// Entry point from chat.js. ALWAYS answers 200 so Telegram never retries.
+// --- Webhook authenticity (F-01 / P12-1) ------------------------------------
+//
+// /api/chat treats ANY body carrying `update_id` as a Telegram update. Owner
+// commands are safe on their own — they check a hardcoded numeric id — but
+// payments cannot be, because every user pays, so crediting runs before that
+// check. Every field it trusts (payload, amount, charge id, from.id) arrives in
+// the request body, and idempotency keys off an attacker-chosen charge id. So an
+// unauthenticated POST could mint Stars, i.e. hand out Premium for free.
+//
+// The header gate was previously REMOVED on purpose: the secret must match in
+// two places (the env var and what setWebhook was told), and a mismatch silences
+// the bot. That is not paranoia — a dead webhook cost ten days of signups in
+// July. So this gate is deliberately SELF-ENABLING rather than mandatory:
+//
+//   secret not set  -> allow, and alert that payments are unauthenticated
+//   secret set      -> require the header to match, reject otherwise
+//
+// Nothing breaks the moment this ships; protection switches on when the operator
+// sets TELEGRAM_WEBHOOK_SECRET *and* re-runs setWebhook with secret_token. The
+// alert exists so "not set" cannot quietly become the permanent state.
+//
+// Pure, so the rule is unit-testable rather than reasoned about once.
+export function webhookAuthProblem(headers, secret) {
+  if (!secret) return null;                       // not configured: see alert path
+  const got = (headers || {})['x-telegram-bot-api-secret-token'];
+  if (!got) return 'missing x-telegram-bot-api-secret-token header';
+  if (String(got) !== String(secret)) return 'secret token mismatch';
+  return null;
+}
+
+// Entry point from chat.js. ALWAYS answers 200 so Telegram never retries —
+// except for a rejected update, which is not from Telegram at all.
 export async function handleTelegramUpdate(req, res, update) {
   try {
-    // Security note: authorization relies EXCLUSIVELY on isOwner(from) — a
-    // hardcoded numeric Telegram id — so the WEBHOOK_SECRET header gate was
-    // removed to eliminate setWebhook-secret sync as a failure mode. No update
-    // can trigger /stats without matching OWNER_TELEGRAM_ID.
+    const authProblem = webhookAuthProblem(req && req.headers, WEBHOOK_SECRET);
+    if (authProblem) {
+      console.error('webhook rejected:', authProblem);
+      return res.status(401).json({ ok: false });
+    }
+    if (!WEBHOOK_SECRET && update && update.message && update.message.successful_payment) {
+      // A real payment arrived on an unauthenticated endpoint. It is almost
+      // certainly genuine — but we cannot tell, and that is the point.
+      alertThrottled(
+        'webhook-unauthenticated',
+        '🔓 <b>Payment webhook is unauthenticated</b>\n' +
+        'TELEGRAM_WEBHOOK_SECRET is not set, so anyone who knows the URL can post ' +
+        'a fake payment. Set it in Vercel, then re-run setWebhook with ' +
+        '<code>secret_token</code>.'
+      );
+    }
+
     const cb = update.callback_query;
     const msg = update.message;
 
@@ -217,6 +262,50 @@ export async function handleTelegramUpdate(req, res, update) {
 // in the invoice payload. Crediting runs through credit_stars_deposit, which is
 // idempotent on telegram_payment_charge_id — so a redelivered webhook is a silent
 // no-op and can never double-credit real money. Never throws (always 200 upstream).
+/**
+ * Does Telegram itself have a record of this Stars charge?
+ *
+ * Returns `{ checked, found, reason }` — and the two failure meanings are kept
+ * apart on purpose, because they demand opposite actions:
+ *   checked && !found  -> Telegram says this payment never happened  -> REFUSE
+ *   !checked           -> we could not ask (API error, method absent) -> allow, alert
+ * Collapsing them would either hand out free Stars during an outage, or refuse a
+ * paying customer over a network blip.
+ *
+ * NOTE: getStarTransactions is the documented way to enumerate a bot's Stars
+ * ledger, and an incoming payment's telegram_payment_charge_id is expected to
+ * appear as a transaction id. That mapping has NOT been confirmed against the
+ * live API here (no bot token in this environment), which is exactly why an
+ * unrecognised response degrades to `checked:false` rather than rejecting a
+ * genuine payment. Confirm it with a 1⭐ purchase before trusting the strict path.
+ */
+export async function verifyStarCharge(chargeId, expectedStars, limit = 100) {
+  if (!chargeId) return { checked: true, found: false, reason: 'no charge id' };
+  let data;
+  try {
+    data = await callBot('getStarTransactions', { offset: 0, limit });
+  } catch (e) {
+    return { checked: false, found: false, reason: `getStarTransactions failed: ${e.message}` };
+  }
+  const list = data && Array.isArray(data.transactions) ? data.transactions : null;
+  if (!list) {
+    return { checked: false, found: false, reason: 'unexpected getStarTransactions shape' };
+  }
+  const hit = list.find((t) => t && String(t.id) === String(chargeId));
+  if (!hit) {
+    // Only a definite answer for a RECENT charge. Beyond the page we fetched we
+    // genuinely do not know, so say so rather than calling an old payment fake.
+    if (list.length >= limit) {
+      return { checked: false, found: false, reason: `charge not in the newest ${limit} transactions` };
+    }
+    return { checked: true, found: false, reason: 'no such transaction' };
+  }
+  if (expectedStars && Number(hit.amount) !== Number(expectedStars)) {
+    return { checked: true, found: false, reason: `amount mismatch: claimed ${expectedStars}, ledger ${hit.amount}` };
+  }
+  return { checked: true, found: true, reason: 'ok' };
+}
+
 async function creditSuccessfulPayment(msg) {
   try {
     const sp = msg.successful_payment;
@@ -237,6 +326,36 @@ async function creditSuccessfulPayment(msg) {
     // so the dashboard excludes it. Derived from OWNER_TELEGRAM_ID, never trusted
     // from the client (from.id is authenticated by Telegram).
     const isSelf = !!OWNER_TELEGRAM_ID && Number(tgId) === OWNER_TELEGRAM_ID;
+
+    // Ask Telegram whether this payment actually happened. Unlike the header
+    // gate this needs no configuration and cannot be forged, because the answer
+    // comes from Telegram over our own bot token — so it holds even if the
+    // secret is unset or drifts out of sync.
+    const check = await verifyStarCharge(charge, stars);
+    if (check.checked && !check.found) {
+      // A verdict of "this charge does not exist" is a forgery attempt, not an
+      // outage. Refuse and shout.
+      console.error('FORGED payment rejected:', charge);
+      alertThrottled(
+        'forged-payment',
+        '🚨 <b>Forged Stars payment rejected</b>\n' +
+        'Someone posted a payment Telegram has no record of. Nothing was credited.' +
+        `\n<pre>${escapeAlert(`charge=${charge} stars=${stars} tg=${tgId}`)}</pre>`
+      );
+      return;
+    }
+    if (!check.checked) {
+      // Could not reach a verdict — a different event from a bad verdict, and
+      // the same distinction photo moderation draws. Credit (a real customer
+      // must not lose their purchase to our outage) but make the gap visible.
+      console.warn('payment credited WITHOUT verification:', check.reason);
+      alertThrottled(
+        'payment-unverified',
+        '⚠️ <b>Stars payment credited without verification</b>\n' +
+        'Telegram could not confirm the charge, so it was credited on trust.' +
+        `\n<pre>${escapeAlert(check.reason)}</pre>`
+      );
+    }
 
     const supabase = getSupabase();
     const { data: newBalance, error } = await supabase.rpc('credit_stars_deposit', {
