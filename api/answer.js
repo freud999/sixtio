@@ -1,11 +1,9 @@
 import { resolveUser, getStartParam, pickLang } from './_lib/telegram.js';
 import { getSupabase, upsertUser } from './_lib/supabase.js';
 import { captureReferral } from './_lib/referrals.js';
-import { generateFollowup as geminiFollowup } from './_lib/gemini.js';
-import { generateFollowup as claudeFollowup } from './_lib/claude.js';
+import { generateFollowup } from './_lib/claude.js';
 import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
 import { isDeepQuestion, syncProfileDepth } from './_lib/depth.js';
-import { isQuotaError } from './_lib/geminifetch.js';
 import { alertThrottled, escapeAlert } from './_lib/alerts.js';
 
 export default async function handler(req, res) {
@@ -68,35 +66,27 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, followup: null, ...depthFields });
     }
 
-    // Gemini first (free/cheap tier); Claude as fallback if Gemini is down or unconfigured.
-    // The follow-up question comes back in the user's native Telegram language (Task 26).
+    // One provider, not two. The follow-up carries the user's own words about
+    // their inner life, so it goes to Anthropic like every other psychological
+    // call (PRIV-1, option B) — the Gemini-first path was removed 2026-08-05.
+    // The question comes back in the user's native Telegram language (Task 26).
     const safeGender = ['male', 'female'].includes(gender) ? gender : null;
     const lang = pickLang(clientLang, tgUser);
     let followup = null;
     try {
-      followup = await geminiFollowup(questionText || '', answerText, safeGender, lang);
-    } catch (geminiError) {
-      if (isQuotaError(geminiError)) {
-        // Not an error — the free tier is simply spent for this minute. Worth an
-        // alert anyway, because from here every onboarding follow-up is billed
-        // to Anthropic instead of costing nothing.
-        console.warn(`Gemini followup degraded (quota, retry in ${geminiError.retryAfterSec}s) — falling back to Claude`);
-        alertThrottled(
-          'gemini-quota-followup',
-          '⏳ <b>Gemini quota spent — onboarding follow-ups on Claude</b>\n' +
-          'Onboarding continues; each follow-up is now a PAID Anthropic call.' +
-          `\n<pre>${escapeAlert(geminiError.message)}</pre>`
-        );
-      } else {
-        console.error('Gemini followup failed:', geminiError.message);
-      }
-      try {
-        followup = await claudeFollowup(questionText || '', answerText, safeGender, lang);
-      } catch (claudeError) {
-        // Both models unavailable: the question is skipped, never blocked. The
-        // client treats a null follow-up as "move on", so onboarding completes.
-        console.error('Claude fallback followup failed:', claudeError.message);
-      }
+      followup = await generateFollowup(questionText || '', answerText, safeGender, lang);
+    } catch (followupError) {
+      // The question is SKIPPED, never blocked: the client treats a null
+      // follow-up as "move on", so onboarding always completes. The answer
+      // itself is already saved above — this is the enrichment, not the data.
+      console.error('followup failed:', followupError.message);
+      alertThrottled(
+        'followup-failed',
+        '⚠️ <b>Onboarding follow-ups are failing</b>\n' +
+        'Questions are being skipped; onboarding still completes, but interviews ' +
+        'are shallower than designed.' +
+        `\n<pre>${escapeAlert(followupError.message)}</pre>`
+      );
     }
     return res.status(200).json({ ok: true, followup, ...depthFields });
   } catch (e) {

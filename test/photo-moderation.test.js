@@ -4,7 +4,7 @@
 // Run with `npm test` (node --test).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { photoModerationFailOpen } from '../api/_lib/gemini.js';
+import { photoModerationFailOpen } from '../api/_lib/claude.js';
 
 /** Runs fn with PHOTO_MODERATION_FAIL_OPEN set to `value` (undefined = unset). */
 function withFlag(value, fn) {

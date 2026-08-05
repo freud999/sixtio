@@ -9,7 +9,7 @@ import {
   LIKE_REVEAL_PRICE, LIKES_PASS_PRICE, LIKES_PASS_DAYS, AI_REPORT_PRICE,
 } from './_lib/entitlements.js';
 import { zodiacSign, signElement, socionicsType, parseBirthDate } from './_lib/astro.js';
-import { generateAiReport } from './_lib/gemini.js';
+import { generateAiReport } from './_lib/claude.js';
 import { localizeReport } from './_lib/translate.js';
 import { processKinkInterview } from './_lib/kink.js';
 import {

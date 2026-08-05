@@ -180,10 +180,28 @@ export async function consumeFeedback(telegramId) {
  */
 export async function deleteUserCascade(userId) {
   const supabase = getSupabase();
+  // Erasure under GDPR Art. 17 — the one part of account deletion that is not a
+  // foreign-key cascade, and the one that used to fail invisibly. supabase-js
+  // RETURNS { error }, it does not throw, and the previous version discarded the
+  // return value entirely: a refused delete was not merely unlogged, it was
+  // unobservable. On Hobby's 1-hour log retention that meant forever. Both paths
+  // are handled now, and both alert, because the user has already been told the
+  // deletion succeeded by the time this runs.
   try {
-    await supabase.storage.from('photos').remove([`${userId}.jpg`, `${userId}_blur.jpg`]);
+    const { error: rmErr } = await supabase.storage
+      .from('photos')
+      .remove([`${userId}.jpg`, `${userId}_blur.jpg`]);
+    if (rmErr) throw new Error(rmErr.message);
   } catch (storageError) {
-    console.error('photo cleanup failed:', storageError.message);
+    console.error('photo erasure failed:', storageError.message);
+    const { alertThrottled, escapeAlert } = await import('./alerts.js');
+    alertThrottled(
+      'photo-erasure-failed',
+      '🚨 <b>Account deleted but the photo was NOT erased</b>\n' +
+      'The user was told deletion succeeded. This is a GDPR Art. 17 obligation — ' +
+      'remove the object by hand and find out why.' +
+      `\n<pre>${escapeAlert(storageError.message)}</pre>`
+    );
   }
   const { error } = await supabase.from('users').delete().eq('id', userId);
   if (error) throw error;

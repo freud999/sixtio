@@ -1,12 +1,18 @@
 // Big Five (OCEAN) personality extraction for onboarding.
 //
-// One Gemini call turns a user's free-text interview answers into five trait
+// One Claude call turns a user's free-text interview answers into five trait
 // scores (1..100) plus three short tags, then persists them to `profiles`.
 // Called exactly once per user during onboarding — matching afterwards reads
 // the stored traits via the `calculate_compatibility` SQL RPC (no further AI).
+//
+// WHY CLAUDE AND NOT GEMINI. The input is a person's own words about their inner
+// life, and the output is a calibrated read of their psyche — data about mental
+// characteristics, and the substrate the entire matching engine runs on. On
+// Google's FREE tier prompts may be used to improve their models; Anthropic does
+// not train on API traffic. Moved 2026-08-05 (PRIV-1, option B). See audit.
 
 import { getSupabase } from './supabase.js';
-import { geminiFetch, geminiText } from './geminifetch.js';
+import { claudeJson, personalityModelInUse } from './claude.js';
 
 // The five canonical Big Five dimensions, in the order we store them.
 const TRAITS = [
@@ -17,8 +23,11 @@ const TRAITS = [
   'openness',
 ];
 
-// Gemini enforces this shape server-side (responseSchema), so we get back valid,
-// parseable JSON instead of prose we'd have to scrape.
+// The schema is enforced server-side, so we get back valid, parseable JSON
+// instead of prose we'd have to scrape. The tag count is normalised in code
+// rather than by the schema (normalizeTags) — a hard minItems can make a model
+// pad with filler, and we would rather fix up three tags than distort five
+// scores by constraining the same response too tightly.
 const RESPONSE_SCHEMA = {
   type: 'object',
   properties: {
@@ -27,15 +36,10 @@ const RESPONSE_SCHEMA = {
     conscientiousness: { type: 'integer' },
     neuroticism: { type: 'integer' },
     openness: { type: 'integer' },
-    tags: {
-      type: 'array',
-      items: { type: 'string' },
-      minItems: 3,
-      maxItems: 3,
-    },
+    tags: { type: 'array', items: { type: 'string' } },
   },
   required: [...TRAITS, 'tags'],
-  propertyOrdering: [...TRAITS, 'tags'],
+  additionalProperties: false,
 };
 
 const SYSTEM_PROMPT = `You are a personality psychologist trained in the Big Five (OCEAN) model.
@@ -82,35 +86,23 @@ function normalizeTags(tags) {
 }
 
 /**
- * Calls Gemini ONCE and returns a validated personality object:
+ * Calls Claude ONCE and returns a validated personality object:
  * `{ traits: { extraversion, ... }, tags: [t1, t2, t3] }`.
  * Pure — no database side effects, so it's easy to unit-test.
  */
 export async function analyzePersonality(interviewResponses) {
-  if (!process.env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY is not set');
+  if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY is not set');
   if (!interviewResponses || !interviewResponses.trim()) {
     throw new Error('interviewResponses is empty');
   }
 
-  const data = await geminiFetch({
-    contents: [{ role: 'user', parts: [{ text: interviewResponses }] }],
-    systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-    generationConfig: {
-      temperature: 0.4, // low: we want a stable, reproducible read
-      responseMimeType: 'application/json',
-      responseSchema: RESPONSE_SCHEMA,
-    },
-  }, { thinkingOff: true });
-
-  const text = geminiText(data);
-  if (!text) throw new Error('Gemini returned an empty response');
-
-  let parsed;
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    throw new Error(`Gemini returned non-JSON: ${text.slice(0, 200)}`);
-  }
+  const parsed = await claudeJson({
+    model: personalityModelInUse(),
+    system: SYSTEM_PROMPT,
+    user: interviewResponses,
+    schema: RESPONSE_SCHEMA,
+    maxTokens: 800,
+  });
 
   const traits = {};
   for (const trait of TRAITS) traits[trait] = clampTrait(parsed[trait]);

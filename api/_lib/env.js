@@ -94,14 +94,18 @@ const CHECKS = [
     name: 'ANTHROPIC_API_KEY',
     level: LEVEL.FATAL,
     required: true,
-    hint: 'matching and the Digital Twin',
+    hint: 'the Digital Twin, matching, Big Five, photo moderation, follow-ups, ' +
+          'the Dark Mode interview and AI reports — i.e. everything but translation',
     format: (s) => (s.startsWith('sk-ant-') ? null : 'must start with sk-ant-'),
   },
   {
     name: 'GEMINI_API_KEY',
     level: LEVEL.FATAL,
     required: true,
-    hint: 'photo moderation, personality analysis, translation, AI reports',
+    // Since 2026-08-05 (PRIV-1, option B) Gemini does exactly one job. Keeping
+    // this hint honest matters: it is what someone reads at 2am deciding how bad
+    // a broken key is.
+    hint: 'profile/bio/report translation — and nothing else',
     // Google is retiring the key format itself, not just individual keys. "AQ."
     // auth keys are what AI Studio issues now; "AIza" standard keys still work
     // but the Gemini API stops accepting them in September 2026. A rule that
@@ -151,6 +155,14 @@ const CHECKS = [
     format: (s) => (s.length >= 8 ? null : 'must be at least 8 characters'),
   },
   {
+    name: 'HEALTHCHECK_URL',
+    level: LEVEL.WARN,
+    required: false,
+    hint: 'the external dead-man switch: without it, a dead scheduler is silent, ' +
+          'which is exactly how the cron stayed dead 2026-07-31…08-05',
+    format: (s) => httpsUrlProblem(s),
+  },
+  {
     name: 'ADMIN_TELEGRAM_IDS',
     level: LEVEL.WARN,
     required: false,
@@ -161,6 +173,7 @@ const CHECKS = [
         : 'must be comma-separated positive integer Telegram ids',
   },
   ...['CLAUDE_MODEL', 'MATCH_MODEL', 'FOLLOWUP_MODEL', 'KINK_MODEL', 'WHY_MODEL',
+      'PHOTO_MODEL', 'PERSONALITY_MODEL', 'REPORT_MODEL',
       'GEMINI_MODEL', 'GEMINI_MODEL_LIGHT'].map((name) => ({
     name,
     level: LEVEL.WARN,
@@ -419,6 +432,30 @@ export async function smokeEnv() {
         { thinkingOff: true, light: true, label: 'Gemini light generateContent' }
       );
       return wanted;
+    }),
+
+    // Is the SCHEDULER alive? Distinct from every other probe here, which asks
+    // "is this dependency up". Monitoring that runs inside the cron cannot
+    // report that the cron stopped — and on 2026-08-05 it hadn't run since
+    // 07-31, so the smoke test had been silently absent for five days while
+    // looking, from the outside, exactly like "no problems found".
+    //
+    // A stamp in the database is proof it ran; nothing else the app keeps is.
+    await probe('Retention cron', async () => {
+      const { getSupabase } = await import('./supabase.js');
+      const { data, error } = await getSupabase()
+        .from('users')
+        .select('last_retention_push')
+        .not('last_retention_push', 'is', null)
+        .order('last_retention_push', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      if (!data || !data.last_retention_push) throw new Error('has never run');
+      const ageH = (Date.now() - new Date(data.last_retention_push).getTime()) / 3_600_000;
+      // Daily schedule + slack. Past this the scheduler is the suspect, not luck.
+      if (ageH > 36) throw new Error(`last ran ${Math.floor(ageH)}h ago — scheduler is dead`);
+      return `${Math.floor(ageH)}h ago`;
     }),
 
     await probe('Anthropic', async () => {

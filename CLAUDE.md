@@ -8,7 +8,11 @@ Telegram Mini App dating service. AI matchmaker: a short interview builds a
   `i18n.js`, `theme.js`, `paywall.js`, `theme.css`, each with a `?v=NN` cache-buster
   (currently **v=43** — bump ALL references together on any shared-asset change).
 - Backend: Vercel serverless (`api/*.js`), ESM. Logic in `api/_lib/`.
-- DB/storage: Supabase. AI: Anthropic Claude + Google Gemini.
+- DB/storage: Supabase. AI: **Anthropic Claude for everything**; Google Gemini
+  for translation only (see the privacy constraint below).
+- Scheduling: Vercel Cron (`vercel.json`, daily) hits `/api/me?op=cron_retention_trigger`,
+  which also runs the dependency smoke test and pings `HEALTHCHECK_URL` — an
+  external dead-man switch, because an in-app alarm cannot report its own death.
 - No build / typecheck / lint / CI. No TypeScript. Verify via tests + `node --check`.
 
 ## Commands
@@ -31,10 +35,12 @@ across uk/ru/en and light/dark. See `.claude/skills/ship`.
 - Additive Supabase migrations are authorized; destructive DB ops need explicit OK.
 - 18+ privacy is #1: free male users must NOT receive intimate tags over the API;
   intimate data reaches the AI only on mutual Dark Mode opt-in.
-- **Intimate (GDPR Art. 9) data goes to Anthropic ONLY, never Gemini** — Google's
-  free tier trains on what it receives. Enforced by `test/privacy-kink.test.js`,
-  which pins the set of files allowed to call Gemini. Photo moderation and the
-  psychological profile still go to Gemini; that is PRIV-1's remaining half.
+- **Gemini does translation and NOTHING else** (PRIV-1, option B, 2026-08-05).
+  Everything about a person's psyche or body — Dark Mode interview, Big Five,
+  onboarding follow-ups, photo moderation, AI reports, Why Factor — runs on
+  Anthropic, which does not train on API traffic; Google's free tier does.
+  `api/_lib/gemini.js` was deleted. Enforced by `test/privacy-kink.test.js`,
+  which pins the three files allowed to call Gemini; a fourth fails the build.
 
 ## Deploy
 GitHub `freud999/sixtio` → Vercel project `sixtio` (team **Aura** `xaurax`),

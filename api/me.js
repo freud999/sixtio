@@ -84,6 +84,14 @@ const sameSet = (a, b) =>
 // Consolidated (12-function cap): body.op === 'submit_extra_question' routes to
 // the profile-depth writer below; otherwise this is the normal profile fetch.
 export default async function handler(req, res) {
+  // Vercel Cron issues a GET with no body, so the cron op is recognised from the
+  // query string too. It stays the ONLY thing reachable without POST, and it is
+  // still authorized by CRON_SECRET below — the method is not the gate.
+  // Two independent schedules can hit this: Vercel's native cron (daily, the
+  // floor) and an external minute-level trigger. Both are idempotent.
+  if (req.method === 'GET' && (req.query || {}).op === 'cron_retention_trigger') {
+    return cronRetentionTrigger(req, res);
+  }
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -523,10 +531,36 @@ async function cronRetentionTrigger(req, res) {
       else sent++;
     }
 
+    await pingDeadMansSwitch();
     return res.status(200).json({ ok: true, candidates: (users || []).length, sent });
   } catch (e) {
     console.error('cron_retention_trigger failed:', e);
     return res.status(500).json({ ok: false, error: 'Internal error' });
+  }
+}
+
+/**
+ * Tells an EXTERNAL watchdog that this tick happened.
+ *
+ * Every alarm the app owns shares one blind spot: it must run in order to fire.
+ * A dead scheduler therefore produces perfect silence, which is indistinguishable
+ * from health — that is precisely how the cron stayed dead from 2026-07-31 to
+ * 08-05 and the webhook for ten days before that. Inverting it takes something
+ * outside the app that alerts on the ABSENCE of a signal.
+ *
+ * Set HEALTHCHECK_URL (healthchecks.io, cronitor, Better Stack — any of them) and
+ * the watchdog pages you when this ping stops arriving. Unset, this is a no-op,
+ * so the cron is never coupled to it.
+ */
+async function pingDeadMansSwitch() {
+  const url = process.env.HEALTHCHECK_URL;
+  if (!url) return;
+  try {
+    await fetch(url, { method: 'GET', signal: AbortSignal.timeout(5000) });
+  } catch (e) {
+    // Never fail the cron over its own watchdog: a missed ping costs a false
+    // alarm, a thrown error would cost the retention run itself.
+    console.error('healthcheck ping failed:', e && e.message);
   }
 }
 

@@ -33,6 +33,19 @@ const KINK_MODEL = process.env.KINK_MODEL || 'claude-haiku-4-5';
 // of the cost.
 const WHY_MODEL = process.env.WHY_MODEL || 'claude-sonnet-5';
 
+// The photo safety gate: a yes/no verdict on an image, run on every upload.
+// Vision-capable and cheap is exactly right; the schema constrains the answer.
+const PHOTO_MODEL = process.env.PHOTO_MODEL || 'claude-haiku-4-5';
+
+// Big Five from the interview answers. A calibrated read of someone's psyche
+// that the whole matching engine is built on — worth a strong model, and it
+// runs once per user, ever.
+const PERSONALITY_MODEL = process.env.PERSONALITY_MODEL || 'claude-sonnet-5';
+
+// The paid AI report (50 ⭐). Long-form writing the user paid for, so the model
+// cost is covered by the purchase that triggers it.
+const REPORT_MODEL = process.env.REPORT_MODEL || 'claude-sonnet-5';
+
 function textOf(response) {
   return response.content
     .filter((block) => block.type === 'text')
@@ -355,3 +368,172 @@ export async function generateWhyFactor(me, partner, lang) {
 
 /** The Dark Mode interview model, for /envcheck and the audit. */
 export function kinkModelInUse() { return KINK_MODEL; }
+
+// --- Photo safety gate ------------------------------------------------------
+//
+// Moved off Gemini 2026-08-05 (PRIV-1, option B). A profile photo is biometric
+// data about a named person, and on Google's free tier it may be used to
+// improve their models. Anthropic does not train on API traffic.
+
+/**
+ * Operator override for the photo safety gate. Defaults to fail-CLOSED: when the
+ * vision check cannot run, the upload is refused. Set PHOTO_MODERATION_FAIL_OPEN
+ * to a truthy value to accept unchecked photos instead — deliberately, with an
+ * owner alert on every skip — for the case where the model is down long enough
+ * that nobody can finish onboarding. Mirrors darkModeEnabled(), but inverted:
+ * the default of a MISSING variable is the safe answer, not the permissive one.
+ */
+export function photoModerationFailOpen() {
+  const raw = String(process.env.PHOTO_MODERATION_FAIL_OPEN ?? '').trim().toLowerCase();
+  return raw === 'true' || raw === '1' || raw === 'on' || raw === 'yes';
+}
+
+const PHOTO_SCHEMA = {
+  type: 'object',
+  properties: {
+    nsfw: { type: 'boolean' },
+    reason: { type: 'string' },
+  },
+  required: ['nsfw', 'reason'],
+  additionalProperties: false,
+};
+
+/**
+ * Vision safety gate for profile photos. Returns { nsfw:boolean, reason:string }.
+ * Conservatively rejects ONLY explicit NSFW — nudity, sexual/erotic content,
+ * pornography, or graphic violence/gore. A photo without a visible face is fine
+ * and passes (nsfw:false).
+ *
+ * The two outcomes are deliberately different KINDS of result, because they are
+ * different events: a verdict is RETURNED (the model looked and judged), and
+ * being unable to reach a verdict THROWS (nothing was checked). The caller must
+ * never conflate them — see api/photo.js.
+ *
+ * @param {string} base64Jpeg raw base64 (no data: prefix) of a JPEG image
+ */
+export async function moderatePhoto(base64Jpeg) {
+  const parsed = await claudeJson({
+    model: PHOTO_MODEL,
+    maxTokens: 300,
+    system:
+      'Ти — суворий модератор фото для застосунку знайомств. Оціни зображення на безпеку. ' +
+      'Постав nsfw=true ЛИШЕ якщо на фото є: оголеність або видимі статеві органи/оголені груди/сідниці; ' +
+      'відверто сексуальний чи еротичний контент, пози або білизна з явним сексуальним підтекстом; ' +
+      'порнографія; графічне насильство, кров, каліцтва; або будь-що з неповнолітніми у сексуалізованому контексті. ' +
+      'Постав nsfw=false для звичайних фото: портрет, селфі, люди в одязі, помірні пляжні фото у купальнику/плавках, ' +
+      'краєвиди, тварини, предмети. ВАЖЛИВО: відсутність обличчя або відсутність людини — це НОРМА і НЕ робить фото nsfw. ' +
+      'Не будь надто прискіпливим: сумніваєшся — став nsfw=false. ' +
+      'reason — коротка причина українською.',
+    user: [
+      { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64Jpeg } },
+      { type: 'text', text: 'Оціни це фото.' },
+    ],
+    schema: PHOTO_SCHEMA,
+  });
+  return { nsfw: parsed.nsfw === true, reason: String(parsed.reason || '').slice(0, 120) };
+}
+
+// --- AI-звіт (50 ⭐) ---------------------------------------------------------
+//
+// The paid long-form report. The five sections are fixed and enforced by a
+// response schema rather than parsed out of prose: a report that sometimes has
+// four sections and sometimes seven cannot be rendered, cached or translated
+// consistently, and a missing "who fits you" is exactly the part people paid for.
+//
+// On Anthropic since 2026-08-05 (PRIV-1, option B): its input is the user's
+// psychological portrait, and its output is a deep read of their inner life.
+const REPORT_SECTIONS = [
+  { key: 'core',      brief: 'хто ця людина насправді — ядро характеру, як вона влаштована всередині' },
+  { key: 'love',      brief: 'як вона любить і привʼязується: що дає в стосунках, чого потребує, як поводиться, коли близько' },
+  { key: 'strength',  brief: 'її головна сила у стосунках — і зворотний бік цієї ж сили, пастка, в яку вона через неї потрапляє' },
+  { key: 'fit',       brief: 'хто їй підходить: тип партнера, з яким це працює, і тип, з яким вигорає' },
+  { key: 'next',      brief: 'що конкретно робити далі — 2-3 практичні, здійсненні кроки, без загальних слів' },
+];
+
+const REPORT_SCHEMA = {
+  type: 'object',
+  properties: Object.fromEntries(REPORT_SECTIONS.map((s) => [s.key, { type: 'string' }])),
+  required: REPORT_SECTIONS.map((s) => s.key),
+  additionalProperties: false,
+};
+
+/**
+ * Writes the paid report. Everything factual is passed IN — the Big Five vector,
+ * the sun sign and the socionics type are computed elsewhere (deterministically,
+ * see _lib/astro.js) and handed over as givens. The model's whole job is to read
+ * them together and write; it never decides what type someone is, because a
+ * model asked twice would answer differently and the report would stop being
+ * about the person.
+ *
+ * @param {object} input { gender, goal, values[], interests[], traits (profiles row),
+ *                         sign, element, socionics: { code, mbti, axes[] } }
+ * @returns {Promise<Array<{key:string, body:string}>>} sections in fixed order
+ */
+export async function generateAiReport(input, lang) {
+  const OCEAN = {
+    trait_openness: 'відкритість до нового',
+    trait_conscientiousness: 'сумлінність',
+    trait_extraversion: 'екстраверсія',
+    trait_agreeableness: 'доброзичливість',
+    trait_neuroticism: 'емоційна реактивність',
+  };
+  const p = input.traits || {};
+  const oceanLine = Object.keys(OCEAN)
+    .filter((k) => typeof p[k] === 'number')
+    .map((k) => `${OCEAN[k]} ${p[k]}/100`)
+    .join(', ') || 'немає даних';
+
+  // Axes that landed near the midpoint are a coin flip, not a reading. Naming
+  // them forces the text to hedge exactly there instead of asserting a 51 as a
+  // verdict — the difference between an analysis and a horoscope generator.
+  const weak = ((input.socionics && input.socionics.axes) || [])
+    .filter((a) => a.weak).map((a) => a.axis);
+
+  const facts = [
+    'ДАНІ ПРО ЛЮДИНУ:',
+    `Базові риси: ${oceanLine}.`,
+    Array.isArray(p.traits_json) && p.traits_json.length ? `Ключові риси: ${p.traits_json.slice(0, 8).join(', ')}.` : '',
+    p.summary_text ? `Портрет: ${p.summary_text}` : '',
+    input.sign ? `Сонячний знак: ${input.sign}${input.element ? ` (стихія: ${input.element})` : ''}.` : '',
+    input.socionics ? `Соціотип: ${input.socionics.code} (${input.socionics.mbti}).` : '',
+    weak.length ? `УВАГА: осі ${weak.join(', ')} майже посередині — тут пиши обережно, «швидше…, ніж…», без категоричності.` : '',
+    input.goal ? `Мета в застосунку: ${input.goal}.` : '',
+    Array.isArray(input.values) && input.values.length ? `Цінності: ${input.values.slice(0, 8).join(', ')}.` : '',
+    Array.isArray(input.interests) && input.interests.length ? `Інтереси: ${input.interests.slice(0, 10).join(', ')}.` : '',
+  ].filter(Boolean).join('\n');
+
+  const parsed = await claudeJson({
+    model: REPORT_MODEL,
+    maxTokens: 4000,
+    system:
+      'Ти — Sixtio: геніальний психолог стосунків. Пишеш глибоко, конкретно й тепло, ' +
+      'звертаючись на «ти». Це платний персональний звіт — він має бути вартий своїх грошей: ' +
+      'жодної води, жодних гороскопних банальностей, жодних компліментів заради компліментів. ' +
+      genderLine(input.gender) +
+      'Головне джерело правди — психологічний профіль людини (п\'ять базових рис): ' +
+      'саме він побудований на її реальних відповідях. Знак зодіаку та соціотип — це ' +
+      'додаткові лінзи й мова опису, а не докази: спирайся на них лише там, де вони ' +
+      'збігаються з рисами, і НІКОЛИ не подавай астрологію як факт про характер. Якщо лінзи ' +
+      'суперечать рисам — вір рисам і скажи про це прямо. ' +
+      // The user paid for a reading about themselves, not for the name of the
+      // instrument that produced it — and that name is ours, not theirs to see.
+      'НІКОЛИ не називай методику, модель чи назву тесту — ні в тексті, ні в дужках. ' +
+      'Не став діагнозів і не давай медичних порад. ' +
+      'Кожен розділ — 4–6 речень, суцільним абзацом без списків і заголовків усередині:\n' +
+      REPORT_SECTIONS.map((s) => `- ${s.key}: ${s.brief}`).join('\n') + ' ' +
+      langLine(lang),
+    user: facts,
+    schema: REPORT_SCHEMA,
+  });
+
+  // Fixed order, and a section that came back empty is dropped rather than
+  // rendered as a blank card with a heading over nothing.
+  const sections = REPORT_SECTIONS
+    .map((s) => ({ key: s.key, body: String(parsed[s.key] || '').trim() }))
+    .filter((s) => s.body);
+  if (!sections.length) throw new Error('AI report came back empty');
+  return sections;
+}
+
+/** The Big Five model, for personality.js (which owns the prompt and schema). */
+export function personalityModelInUse() { return PERSONALITY_MODEL; }

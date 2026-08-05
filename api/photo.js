@@ -1,8 +1,18 @@
 import { resolveUser } from './_lib/telegram.js';
 import { getSupabase, upsertUser } from './_lib/supabase.js';
 import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
-import { moderatePhoto, photoModerationFailOpen } from './_lib/gemini.js';
-import { isQuotaError } from './_lib/geminifetch.js';
+import { moderatePhoto, photoModerationFailOpen } from './_lib/claude.js';
+// The gate runs on Anthropic now (PRIV-1, option B), so "out of quota" is an
+// HTTP 429 from that SDK rather than a typed Gemini error. Its `retry-after`
+// header, when present, is the only honest number to hand the client.
+function isRateLimit(e) {
+  return !!e && (e.status === 429 || /\b429\b|rate.?limit/i.test(String(e.message || '')));
+}
+function retryAfterOf(e) {
+  const h = e && e.headers && (e.headers['retry-after'] || e.headers.get?.('retry-after'));
+  const n = Number(h);
+  return Number.isFinite(n) && n > 0 ? Math.ceil(n) : 60;
+}
 import { signPhoto, photoKey, blurKey } from './_lib/photos.js';
 import { notifyOwner } from './_lib/bot.js';
 
@@ -39,13 +49,13 @@ function alertModerationDown(err, failOpen) {
   const reason = String(err && err.message ? err.message : err)
     .slice(0, 300)
     .replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
-  // Quota is a different incident from an outage: nothing is broken, we simply
-  // ran out of free calls this minute. Saying "DOWN" for it would send us
-  // debugging Gemini instead of reading a number.
-  const head = isQuotaError(err)
+  // Rate limiting is a different incident from an outage: nothing is broken, we
+  // are simply going too fast. Saying "DOWN" for it would send us debugging the
+  // provider instead of waiting out a window.
+  const head = isRateLimit(err)
     ? (failOpen
-      ? '⚠️ <b>Photo moderation SKIPPED — Gemini quota spent</b>\nPhotos are being stored UNCHECKED (fail-open is ON).'
-      : '⏳ <b>Photo moderation paused — Gemini quota spent</b>\nUploads are asked to retry in a minute (fail-closed).')
+      ? '⚠️ <b>Photo moderation SKIPPED — rate limited</b>\nPhotos are being stored UNCHECKED (fail-open is ON).'
+      : '⏳ <b>Photo moderation paused — rate limited</b>\nUploads are asked to retry shortly (fail-closed).')
     : (failOpen
       ? '⚠️ <b>Photo moderation is DOWN and fail-open is ON</b>\nPhotos are being stored UNCHECKED.'
       : '🚨 <b>Photo moderation is DOWN</b>\nUploads are being refused (fail-closed).');
@@ -102,9 +112,9 @@ export default async function handler(req, res) {
       if (!failOpen) {
         // 503 + Retry-After, not 500: the client already turns this into
         // "check unavailable, try again in a minute" with a retry button
-        // (onboarding.html, profile.html). Quota carries Google's own window,
-        // so the hint is a real number rather than a shrug.
-        const retryAfter = isQuotaError(modErr) ? modErr.retryAfterSec : 60;
+        // (onboarding.html, profile.html). A rate limit carries the provider's
+        // own window, so the hint is a real number rather than a shrug.
+        const retryAfter = isRateLimit(modErr) ? retryAfterOf(modErr) : 60;
         res.setHeader('Retry-After', String(retryAfter));
         return res.status(503).json({ error: 'moderation_unavailable', retryAfter });
       }
