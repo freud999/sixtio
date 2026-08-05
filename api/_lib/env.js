@@ -217,6 +217,33 @@ export function hintFor(name) {
   return check ? check.hint : '';
 }
 
+/**
+ * The verdict on a getWebhookInfo response: a problem string, or null when the
+ * inbound channel is healthy. PURE, so the rules are unit-testable — the whole
+ * point is that this judgement is never again made only by a human reading JSON.
+ *
+ * @param {object} info      the `result` of getWebhookInfo
+ * @param {string} [appUrl]  APP_URL; when set, the webhook must point at its /api/chat
+ */
+export function webhookProblem(info, appUrl) {
+  const w = info || {};
+  if (!w.url) {
+    return 'NOT SET — every /start, /stats and Stars payment is being dropped';
+  }
+  if (appUrl) {
+    const expected = `${String(appUrl).replace(/\/+$/, '')}/api/chat`;
+    if (w.url !== expected) return `points at ${w.url}, expected ${expected}`;
+  }
+  // A backlog means updates ARE arriving and are not being consumed — a
+  // different failure from "not set", and just as quiet from the outside.
+  const pending = Number(w.pending_update_count || 0);
+  if (pending > 50) return `${pending} updates queued — the endpoint is failing or too slow`;
+  if (w.last_error_message) {
+    return `last delivery failed: ${String(w.last_error_message).slice(0, 100)}`;
+  }
+  return null;
+}
+
 /** True if the alarm channel itself is among the problems. */
 export function alarmChannelBroken(problems) {
   return (problems || []).some((p) => p.level === LEVEL.ALARM);
@@ -330,6 +357,26 @@ export async function smokeEnv() {
       const { callBot } = await import('./bot.js');
       const me = await callBot('getMe', {});
       return `@${me.username}`;
+    }),
+
+    // The INBOUND channel, and the reason this probe exists.
+    //
+    // Measured 2026-08-05: the webhook had been unset for ~10 days — a token
+    // rotation clears it — and nothing noticed, because everything that reports
+    // on the bot is OUTBOUND. Alerts arrived, getMe answered, the domain served.
+    // Meanwhile every /start went unanswered, so nobody got the "open the app"
+    // button, so there were zero signups for ten days. 369 updates were sitting
+    // in Telegram's queue.
+    //
+    // The lesson is the same one as the model list: a healthy outbound call is
+    // not evidence of a healthy inbound path. Only getWebhookInfo is.
+    await probe('Telegram webhook', async () => {
+      const { callBot } = await import('./bot.js');
+      const info = await callBot('getWebhookInfo', {});
+      const bad = webhookProblem(info, process.env.APP_URL);
+      if (bad) throw new Error(bad);
+      const pending = Number(info.pending_update_count || 0);
+      return `ok${pending ? ` · ${pending} queued` : ''}`;
     }),
 
     await probe('Gemini', async () => {
