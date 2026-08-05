@@ -115,7 +115,14 @@
       }).then(function(r){ return r.ok ? r.json() : null; })
         .then(function(me){
           if (me && me.registered) {
-            try { localStorage.setItem('sixtio_me', JSON.stringify(me)); } catch(e){}
+            // Stamped, because matches.html is about to load this same payload
+            // and would otherwise re-fetch it two seconds later — and a full
+            // /api/me costs a Gemini translation call. See the freshness gate
+            // in matches.html.
+            try {
+              localStorage.setItem('sixtio_me', JSON.stringify(me));
+              localStorage.setItem('sixtio_me_at', String(Date.now()));
+            } catch(e){}
           }
           if (me && me.user && window.SixtioTheme && me.user.gender) {
             window.SixtioTheme.setGender(me.user.gender);

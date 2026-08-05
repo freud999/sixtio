@@ -160,7 +160,8 @@ const CHECKS = [
         ? null
         : 'must be comma-separated positive integer Telegram ids',
   },
-  ...['CLAUDE_MODEL', 'MATCH_MODEL', 'GEMINI_MODEL'].map((name) => ({
+  ...['CLAUDE_MODEL', 'MATCH_MODEL', 'FOLLOWUP_MODEL', 'KINK_MODEL', 'WHY_MODEL',
+      'GEMINI_MODEL', 'GEMINI_MODEL_LIGHT'].map((name) => ({
     name,
     level: LEVEL.WARN,
     required: false,
@@ -297,7 +298,8 @@ import { geminiFetch } from './geminifetch.js';
 /** The Gemini model the app will actually use. Re-exported from the one place
  *  that resolves it, so /envcheck can never report a model the callers don't
  *  use — a duplicated default is how the last one drifted out of sight. */
-export { geminiModel as geminiModelInUse } from './geminifetch.js';
+export { geminiModel as geminiModelInUse, geminiModelLight as geminiModelLightInUse } from './geminifetch.js';
+export { kinkModelInUse } from './claude.js';
 
 async function probe(name, fn) {
   try {
@@ -349,14 +351,45 @@ export async function smokeEnv() {
       return wanted;
     }),
 
+    // The light model is a SECOND thing that can be retired underneath us, and
+    // it now carries translation and the photo safety gate. Checking only the
+    // main model would report "Gemini ✅" while every upload was being refused.
+    await probe('Gemini light', async () => {
+      if (!process.env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY is not set');
+      const wanted = geminiModelLightInUse();
+      await geminiFetch(
+        { contents: [{ role: 'user', parts: [{ text: 'ping' }] }] },
+        { thinkingOff: true, light: true, label: 'Gemini light generateContent' }
+      );
+      return wanted;
+    }),
+
     await probe('Anthropic', async () => {
       const key = process.env.ANTHROPIC_API_KEY;
       if (!key) throw new Error('ANTHROPIC_API_KEY is not set');
-      const res = await fetch('https://api.anthropic.com/v1/models?limit=1', {
-        headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+      // Deliberately NOT /v1/models. Same lesson as Gemini: a catalogue listing
+      // is not evidence the model answers, and this key now carries the Dark
+      // Mode interview — the one call that must never silently fail over to
+      // anything else. So: the smallest real message, on the model that does it.
+      const model = kinkModelInUse();
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': key,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          model, max_tokens: 1, messages: [{ role: 'user', content: 'ping' }],
+        }),
       });
-      if (!res.ok) throw new Error(`models ${res.status}`);
-      return 'ok';
+      if (!res.ok) throw new Error(`messages ${res.status}: ${(await res.text()).slice(0, 120)}`);
+      // Anthropic reports the tier's real headroom in the response headers —
+      // the only honest answer to "how close are we to the next quota outage".
+      const left = res.headers.get('anthropic-ratelimit-requests-remaining');
+      const inputLeft = res.headers.get('anthropic-ratelimit-input-tokens-remaining');
+      return [model, left && `${left} req left`, inputLeft && `${inputLeft} in-tok left`]
+        .filter(Boolean).join(' · ');
     }),
   ];
 }

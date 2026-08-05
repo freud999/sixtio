@@ -18,7 +18,10 @@
 import { callBot, botLang } from './bot.js';
 import { findUserId, deleteUserCascade, armFeedback, consumeFeedback } from './supabase.js';
 import { buildReferralLink } from './referrals.js';
-import { smokeEnv, formatSmoke, validateEnv, formatProblems, geminiModelInUse } from './env.js';
+import {
+  smokeEnv, formatSmoke, validateEnv, formatProblems,
+  geminiModelInUse, geminiModelLightInUse, kinkModelInUse,
+} from './env.js';
 
 const APP_URL = process.env.APP_URL || 'https://sixtio.vercel.app';
 const OWNER_TELEGRAM_ID = Number(process.env.OWNER_TELEGRAM_ID || 0);
@@ -419,7 +422,12 @@ async function sendEnvCheck(msg) {
     `<b>${allOk ? '✅ All green' : '⚠️ Problems found'}</b>\n\n` +
     `<b>Live dependencies</b>\n<pre>${esc(formatSmoke(live))}</pre>\n` +
     `<b>Value shape</b>\n<pre>${esc(shape.length ? formatProblems(shape) : 'all values well-formed')}</pre>\n` +
-    `<b>Config</b>\n<pre>${esc(`env: ${process.env.VERCEL_ENV || 'local'}\ngemini model: ${geminiModelInUse()}`)}</pre>`;
+    `<b>Config</b>\n<pre>${esc(
+      `env: ${process.env.VERCEL_ENV || 'local'}\n` +
+      `gemini model: ${geminiModelInUse()}\n` +
+      `gemini light: ${geminiModelLightInUse()}\n` +
+      `dark mode (18+) model: ${kinkModelInUse()}`
+    )}</pre>`;
 
   await callBot('sendMessage', { chat_id: chatId, text, parse_mode: 'HTML' });
 }

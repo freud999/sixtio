@@ -15,6 +15,24 @@ const MODEL = process.env.CLAUDE_MODEL || 'claude-opus-4-8';
 // judgment — Haiku flip-flops on nuanced compatibility, so use a stronger model.
 const MATCH_MODEL = process.env.MATCH_MODEL || 'claude-sonnet-5';
 
+// Follow-ups are the FALLBACK path when Gemini's free window is spent, and they
+// fire up to five times per onboarding. On Opus that made the cheapest, most
+// frequent call in the app the most expensive one — a bill that scales with an
+// outage. One short question in the user's language is well inside Haiku.
+const FOLLOWUP_MODEL = process.env.FOLLOWUP_MODEL || 'claude-haiku-4-5';
+
+// The Dark Mode (18+) interview. Classification into a fixed enum, not writing:
+// Haiku is the right tool, and the schema constrains the output anyway.
+// It lives on Anthropic — never Gemini — because this is GDPR Art. 9 data and
+// Google's free tier trains on what it is sent. See audit PRIV-1.
+const KINK_MODEL = process.env.KINK_MODEL || 'claude-haiku-4-5';
+
+// "The Why Factor" is a paid reveal (Stars) and pure prose quality — Haiku's
+// paragraph is noticeably flatter, so this one keeps a strong model. Sonnet
+// rather than Opus: measured against matching, it holds the voice at a fraction
+// of the cost.
+const WHY_MODEL = process.env.WHY_MODEL || 'claude-sonnet-5';
+
 function textOf(response) {
   return response.content
     .filter((block) => block.type === 'text')
@@ -89,10 +107,30 @@ const PERSONA =
   'психологічний двійник людини. Твій тон — вишуканий, дорогий, преміальний, зі смаком, ' +
   'але теплий і невимушений. Ти читаєш психолінгвістику: не лише що людина каже, а як. ';
 
+/**
+ * One schema-constrained JSON call. Exists so callers that own a domain prompt
+ * (kink.js) can reach Claude without re-implementing the client, the refusal
+ * check and the JSON extraction three more times.
+ * @returns {Promise<object>} the parsed object
+ */
+export async function claudeJson({ model, system, user, schema, maxTokens = 1000 }) {
+  const response = await getClient().messages.create({
+    model,
+    max_tokens: maxTokens,
+    system,
+    messages: [{ role: 'user', content: user }],
+    output_config: { format: { type: 'json_schema', schema } },
+  });
+  if (response.stop_reason === 'refusal') {
+    throw new Error('Claude refused the request');
+  }
+  return parseModelJson(textOf(response));
+}
+
 /** One short, refined follow-up question (in the user's language). */
 export async function generateFollowup(questionText, answerText, gender, lang) {
   const response = await getClient().messages.create({
-    model: MODEL,
+    model: FOLLOWUP_MODEL,
     max_tokens: 300,
     system:
       PERSONA +
@@ -247,3 +285,73 @@ export async function scoreCandidates(person, candidates, lang) {
   parsed.reason = sanitizeAiText(parsed.reason);
   return parsed;
 }
+
+/**
+ * "The Why Factor": one thrilling, analytical paragraph on why two people are
+ * psychologically (Big Five / OCEAN) — and, when BOTH opted into the intimate
+ * layer, intimately — compatible. `me`/`partner` = { gender, name?, traits, kink }.
+ * traits = a profiles row (trait_* numbers + traits_json labels); kink = markers[]
+ * (already gated to [] by the caller unless the match is a mutual intimate opt-in).
+ *
+ * On Anthropic rather than Gemini for one reason: when `kink` is non-empty this
+ * prompt carries GDPR Art. 9 data about TWO people. Anthropic does not train on
+ * API traffic; Google's free tier does. See audit PRIV-1.
+ */
+export async function generateWhyFactor(me, partner, lang) {
+  const OCEAN = {
+    trait_openness: 'відкритість',
+    trait_conscientiousness: 'сумлінність',
+    trait_extraversion: 'екстраверсія',
+    trait_agreeableness: 'доброзичливість',
+    trait_neuroticism: 'емоційність',
+  };
+  const traitLine = (p) => {
+    if (!p) return 'немає даних';
+    const nums = [];
+    for (const k in OCEAN) if (typeof p[k] === 'number') nums.push(`${OCEAN[k]} ${p[k]}`);
+    const tags = Array.isArray(p.traits_json) ? p.traits_json.slice(0, 6).join(', ') : '';
+    return [nums.join(', '), tags && `риси: ${tags}`].filter(Boolean).join('; ') || 'немає даних';
+  };
+  const kinkLine = (arr) => (Array.isArray(arr) && arr.length ? arr.join(', ') : null);
+  const partnerName = (partner.name || '').split(' ')[0] || 'ця людина';
+
+  const myKink = kinkLine(me.kink);
+  const theirKink = kinkLine(partner.kink);
+  const intimate = myKink && theirKink;   // only when BOTH sides have markers
+
+  const response = await getClient().messages.create({
+    model: WHY_MODEL,
+    max_tokens: 1200,
+    system:
+      'Ти — Sixtio: геніальний психолог стосунків і аналітик глибинної сумісності. ' +
+      genderLine(me.gender) +
+      // The method is not named to the model, because whatever it is told the
+      // method is called turns up in the prose it writes — and how Sixtio scores
+      // people is not something to publish on a match card.
+      'НІКОЛИ не називай методику, модель чи назву тесту — ні в тексті, ні в дужках. ' +
+      'Проаналізуй два психологічні профілі за п\'ятьма базовими рисами особистості' +
+      (intimate ? ' та їхні інтимні маркери' : '') +
+      '. Напиши ОДИН захопливий, глибоко аналітичний абзац (4–6 речень), ' +
+      'звертаючись на «ти», який пояснює САМЕ ЧОМУ ви двоє ' +
+      (intimate ? 'психологічно та інтимно ' : 'психологічно ') +
+      'підходите одне одному — назви конкретні риси, що резонують або доповнюють одна одну, ' +
+      'і чому саме це створює справжнє притягання. Тон — вишуканий, преміальний, інтригуючий, ' +
+      'теплий. Без списків, без заголовків, без лапок — лише живий, плинний текст. ' +
+      langLine(lang),
+    messages: [{
+      role: 'user',
+      content:
+        `Твій профіль: ${traitLine(me.traits)}.` + (intimate ? ` Інтимні маркери: ${myKink}.` : '') + '\n' +
+        `Профіль ${partnerName}: ${traitLine(partner.traits)}.` + (intimate ? ` Інтимні маркери: ${theirKink}.` : ''),
+    }],
+  });
+  if (response.stop_reason === 'refusal') {
+    throw new Error('Claude refused the Why Factor request');
+  }
+  const text = textOf(response);
+  if (!text) throw new Error('Claude returned an empty Why Factor');
+  return text;
+}
+
+/** The Dark Mode interview model, for /envcheck and the audit. */
+export function kinkModelInUse() { return KINK_MODEL; }
