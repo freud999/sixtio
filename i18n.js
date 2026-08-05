@@ -302,6 +302,7 @@
       ob_d5_f: 'Що ти зрозуміла про кохання таке, чого не знала у 20?',
       // onboarding — system messages & controls
       ob_deepen_hello: 'Рада бачити тебе знову! Кілька нових запитань — і я зрозумію тебе ще глибше ✨',
+      ob_resume: 'З поверненням! Твої відповіді збережені — продовжуємо з того місця, де ти зупинився 🌿',
       ob_deepen_done: 'Профіль уже заповнений на 100% — нових глибоких запитань поки немає. Я додам ще ✨',
       ob_step: 'Крок {n} з {total}', ob_done_lbl: 'Готово',
       ob_write_ph: 'Напишіть відповідь...', ob_age_ph: 'Вкажи вік числом...', ob_city_ph: 'Напиши місто...',
@@ -656,6 +657,7 @@
       ob_d5: 'What did you come to understand about love that you didn\'t know at 20?',
       ob_d5_f: 'What did you come to understand about love that you didn\'t know at 20?',
       ob_deepen_hello: 'Great to see you again! A few new questions — and I\'ll understand you even deeper ✨',
+      ob_resume: 'Welcome back! Your answers are saved — let\'s pick up right where you left off 🌿',
       ob_deepen_done: 'Your profile is already 100% complete — no new deep questions for now. I\'ll add more ✨',
       ob_step: 'Step {n} of {total}', ob_done_lbl: 'Done',
       ob_write_ph: 'Type your answer...', ob_age_ph: 'Enter your age as a number...', ob_city_ph: 'Type your city...',
@@ -1007,6 +1009,7 @@
       ob_d5: 'Что ты понял о любви такого, чего не знал в 20?',
       ob_d5_f: 'Что ты поняла о любви такого, чего не знала в 20?',
       ob_deepen_hello: 'Рада видеть тебя снова! Несколько новых вопросов — и я пойму тебя ещё глубже ✨',
+      ob_resume: 'С возвращением! Твои ответы сохранены — продолжаем с того места, где ты остановился 🌿',
       ob_deepen_done: 'Профиль уже заполнен на 100% — новых глубоких вопросов пока нет. Я добавлю ещё ✨',
       ob_step: 'Шаг {n} из {total}', ob_done_lbl: 'Готово',
       ob_write_ph: 'Напишите ответ...', ob_age_ph: 'Укажи возраст числом...', ob_city_ph: 'Напиши город...',

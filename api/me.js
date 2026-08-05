@@ -180,6 +180,23 @@ export default async function handler(req, res) {
       .maybeSingle();
     if (profileError) throw profileError;
 
+    // Onboarding resume (F-15 / ВИТІК-3). Which question ids this person has
+    // already answered, so closing the app mid-interview stops meaning "start
+    // again from question one". Server-side truth on purpose: answers outlive
+    // the device, and the localStorage draft that was supposed to do this job
+    // was written for months and never once read.
+    //
+    // Asked for ONLY while there is no profile row — i.e. only while onboarding
+    // is unfinished. Everyone who has finished pays nothing for this query.
+    let answeredQuestions = [];
+    if (!profile) {
+      try {
+        const { data: answerRows } = await supabase
+          .from('answers').select('question_id').eq('user_id', user.id);
+        answeredQuestions = [...new Set((answerRows || []).map((r) => r.question_id))];
+      } catch (e) { console.error('resume state failed:', e.message); }
+    }
+
     // The user's own text, in the language they are CURRENTLY reading in.
     // Seeded with the originals so every path below has a valid value even if
     // localization is skipped or fails; localizeProfiles overwrites them.
@@ -413,6 +430,8 @@ export default async function handler(req, res) {
       profile: profile
         ? { traits: ownTraits, vibe: ownVibe, summary: ownSummary }
         : null,
+      // Onboarding resume: empty for anyone who has finished (see above).
+      answeredQuestions,
       matches,
       // Back-compat: the first match, same shape older clients expected.
       match: matches[0] || null,
