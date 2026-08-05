@@ -781,11 +781,22 @@
 
       // ---- init -------------------------------------------------------------
       function startDeepen(){
+        bootDone();
         showTyping(function(){
           addBubble(t('ob_deepen_hello'), 'bot');
           askNext();
         });
       }
+
+      // The first thing a new user ever sees (UX-1 / F-14). Both branches below
+      // wait on /api/me, whose timeout is 25 s — so until now the very first
+      // screen of the product was a white rectangle for as long as the network
+      // felt like taking, on the one screen where a person decides whether this
+      // is a real app. The typing indicator was already written and simply never
+      // shown at boot. Removed the moment either branch produces its first
+      // bubble, and harmless if a redirect happens instead.
+      var bootTyping = startTyping();
+      function bootDone(){ if (bootTyping) { bootTyping.remove(); bootTyping = null; } }
 
       if (DEEPEN) {
         // Ask what this user has NOT answered before. The pool holds five
@@ -807,6 +818,7 @@
           if (u.profileDepth >= 100 || !fresh.length) {
             // Nothing left to deepen with. Saying so beats re-asking five
             // questions that cannot move the ring any further.
+            bootDone();
             showTyping(function(){
               addBubble(t('ob_deepen_done'), 'bot');
               composer.classList.add('hidden');
@@ -824,6 +836,7 @@
       } else {
         // If this account already finished onboarding, skip straight to matches.
         api('/api/me', {}).then(function(me){
+          bootDone();
           if (me && me.user && me.user.gender && window.SixtioTheme) {
             window.SixtioTheme.setGender(me.user.gender);
           }
@@ -834,6 +847,7 @@
             askNextProfile();
           }
         }).catch(function(){
+          bootDone();
           if (localStorage.getItem('sixtio_onboarding_complete') === 'true') {
             window.location.replace('matches.html');
           } else {
