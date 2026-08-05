@@ -1,29 +1,36 @@
 // Dark Mode (18+) kink-interview analysis.
 //
-// One Gemini call turns a user's short, free-text answers about intimate
+// One Claude call turns a user's short, free-text answers about intimate
 // preferences into a small array of STANDARDIZED, non-graphic markers drawn from
 // a fixed vocabulary (KINK_MARKERS), then persists them to users.kink_markers and
 // flips dark_mode_active on. Mirrors personality.js: schema-constrained JSON out,
 // defensive re-validation, single upsert. Matching afterwards is pure JS
 // (entitlements.intimateCompatibility) — no further AI at read time.
+//
+// WHY CLAUDE AND NOT GEMINI. This is the single most sensitive payload the app
+// produces: a named adult's own words about their sexual preferences — a special
+// category under GDPR Art. 9. On Google's FREE tier, prompts may be used to
+// improve their models; Anthropic does not train on API traffic. That difference
+// is the whole reason this call moved, 2026-08-05. Do not move it back to
+// Gemini for cost or quota reasons — the quota is not what is being spent here.
+// See audit PRIV-1.
 
 import { getSupabase } from './supabase.js';
 import { KINK_MARKERS, normalizeMarkers } from './entitlements.js';
-import { geminiFetch, geminiText } from './geminifetch.js';
+import { claudeJson, kinkModelInUse } from './claude.js';
 
-// Gemini enforces the enum server-side, so it can only ever return tokens from
-// our canonical set — we still re-validate via normalizeMarkers() defensively.
+// The schema constrains the output server-side, so the model can only ever
+// return tokens from our canonical set — we still re-validate defensively.
 const RESPONSE_SCHEMA = {
   type: 'object',
   properties: {
     markers: {
       type: 'array',
       items: { type: 'string', enum: KINK_MARKERS },
-      minItems: 0,
-      maxItems: 8,
     },
   },
   required: ['markers'],
+  additionalProperties: false,
 };
 
 const SYSTEM_PROMPT = `You classify a consenting adult's answers to a short intimacy questionnaire on a dating app.
@@ -45,32 +52,20 @@ Rules:
 - Respond with the JSON object only — no commentary.`;
 
 /**
- * Calls Gemini ONCE and returns a validated marker array (subset of
+ * Calls Claude ONCE and returns a validated marker array (subset of
  * KINK_MARKERS, de-duped, ≤8). Pure — no database side effects.
  */
 export async function analyzeKinkMarkers(answers) {
-  if (!process.env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY is not set');
+  if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY is not set');
   if (!answers || !answers.trim()) throw new Error('answers is empty');
 
-  const data = await geminiFetch({
-    contents: [{ role: 'user', parts: [{ text: answers }] }],
-    systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-    generationConfig: {
-      temperature: 0.3, // low: a stable, reproducible read
-      responseMimeType: 'application/json',
-      responseSchema: RESPONSE_SCHEMA,
-    },
-  }, { thinkingOff: true });
-
-  const text = geminiText(data);
-  if (!text) throw new Error('Gemini returned an empty response');
-
-  let parsed;
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    throw new Error(`Gemini returned non-JSON: ${text.slice(0, 200)}`);
-  }
+  const parsed = await claudeJson({
+    model: kinkModelInUse(),
+    system: SYSTEM_PROMPT,
+    user: answers,
+    schema: RESPONSE_SCHEMA,
+    maxTokens: 500,
+  });
 
   // Defensive: re-validate against the canonical set and cap at 8.
   return normalizeMarkers(parsed.markers).slice(0, 8);

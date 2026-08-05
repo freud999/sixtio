@@ -21,8 +21,55 @@
 
 import { getSupabase } from './supabase.js';
 import { readingLang, writableLang } from './langdetect.js';
-import { geminiFetch, geminiText } from './geminifetch.js';
+import { geminiFetch, geminiText, isQuotaError } from './geminifetch.js';
+import { alertThrottled, escapeAlert } from './alerts.js';
 const LANG_NAME = { uk: 'Ukrainian', en: 'English', ru: 'Russian' };
+
+// --- The negative cache -----------------------------------------------------
+//
+// Success is cached forever in the DB; failure used to be cached nowhere. That
+// asymmetry is what turned one exhausted quota minute into a permanently
+// exhausted quota: a failed translation wrote nothing, so the very next page
+// view found no cache, issued the same request, failed again, and wrote nothing
+// again. Nobody wrote a retry loop — the loop ran through the user's navigation,
+// which is why it was invisible in the code.
+//
+// Five minutes per (row, language) pair. Long enough that a browsing user stops
+// re-asking, short enough that a recovered quota is picked up on the next screen
+// rather than after a redeploy. In-memory: a cold start re-asking once is fine,
+// and this must not cost a DB round-trip on a read path.
+const NEGATIVE_TTL_MS = 5 * 60 * 1000;
+const SWEEP_INTERVAL_MS = 60 * 1000;
+const failedUntil = new Map();   // `${kind}:${id}|${lang}` -> ms
+let lastSweep = 0;
+
+function negKey(kind, id, lang) {
+  return `${kind}:${id}|${lang}`;
+}
+
+function negCached(key) {
+  const until = failedUntil.get(key);
+  if (!until) return false;
+  if (until > Date.now()) return true;
+  failedUntil.delete(key);
+  return false;
+}
+
+function markFailed(keys) {
+  const now = Date.now();
+  const until = now + NEGATIVE_TTL_MS;
+  for (const k of keys) failedUntil.set(k, until);
+  if (now - lastSweep > SWEEP_INTERVAL_MS) {
+    lastSweep = now;
+    for (const [k, t] of failedUntil) if (t <= now) failedUntil.delete(k);
+  }
+}
+
+/** Test seam: forget every remembered failure. */
+export function resetTranslateFailures() {
+  failedUntil.clear();
+  lastSweep = 0;
+}
 
 /**
  * Translates a flat { key: text } bundle in one call. Keys are opaque handles —
@@ -54,7 +101,10 @@ async function translateBundle(bundle, targetLang) {
         temperature: 0.2,                    // translation, not creativity
         responseMimeType: 'application/json',
       },
-    }, { thinkingOff: true });
+      // Translation on the cheap model: it is a mechanical rewrite, not a
+      // judgement, and `light` also puts it in its own 15-RPM pool so a busy
+      // onboarding on the strong model can no longer starve the match list.
+    }, { thinkingOff: true, light: true, label: 'Gemini translate' });
     const parsed = JSON.parse(geminiText(data));
 
     // Only accept keys we asked for, and only non-empty strings: a model that
@@ -65,7 +115,20 @@ async function translateBundle(bundle, targetLang) {
     }
     return out;
   } catch (e) {
-    console.error('translateBundle failed:', e.message);
+    // Quota is a expected, survivable state on the free tier — the reader gets
+    // the original text and never sees an error — but it must still be visible
+    // to us, or "the app is in the wrong language" becomes a support mystery.
+    if (isQuotaError(e)) {
+      console.warn(`translateBundle degraded (quota, retry in ${e.retryAfterSec}s): showing originals`);
+      alertThrottled(
+        'gemini-quota-translate',
+        '⚠️ <b>Gemini quota spent — translation degraded</b>\n' +
+        'Profiles are being shown in their ORIGINAL language. No user-facing error.' +
+        `\n<pre>${escapeAlert(e.message)}</pre>`
+      );
+    } else {
+      console.error('translateBundle failed:', e.message);
+    }
     return {};
   }
 }
@@ -144,10 +207,17 @@ export async function localizeReport(report, lang, fallbackLang) {
   const applyCache = (c) => sections.map((s) => ({ key: s.key, body: c[s.key] || s.body }));
   if (cached) return applyCache(cached);
 
+  // Asked for this pair recently and it failed — don't spend a call to fail again.
+  const nk = negKey('report', report.user_id, lang);
+  if (negCached(nk)) return sections;
+
   const bundle = {};
   for (const s of sections) if (s.body) bundle[s.key] = s.body;
   const translated = await translateBundle(bundle, lang);
-  if (!Object.keys(translated).length) return sections;
+  if (!Object.keys(translated).length) {
+    markFailed([nk]);
+    return sections;
+  }
 
   try {
     await getSupabase()
@@ -174,6 +244,7 @@ export async function localizeProfiles(items, lang) {
   const result = {};
   const bundle = {};
   const wants = [];   // what each bundle key belongs to, for the write-back
+  const asked = [];   // negative-cache keys this call is responsible for
 
   for (const it of items) {
     const p = it.profile || {};
@@ -195,10 +266,12 @@ export async function localizeProfiles(items, lang) {
         if (cached) {
           result[it.key] = { ...result[it.key], ...applyProfileFields(p, cached) };
         } else {
-          const fields = profileFields(p);
+          const nk = negKey('profile', it.userId, lang);
+          const fields = negCached(nk) ? {} : profileFields(p);
           if (Object.keys(fields).length) {
             for (const [f, v] of Object.entries(fields)) bundle[`${it.key}|p|${f}`] = v;
             wants.push({ kind: 'profile', item: it });
+            asked.push(nk);
           }
         }
       }
@@ -211,8 +284,12 @@ export async function localizeProfiles(items, lang) {
         const cached = (u.bio_i18n || {})[lang];
         if (cached) result[it.key].bio = cached;
         else {
-          bundle[`${it.key}|b|bio`] = u.bio;
-          wants.push({ kind: 'bio', item: it });
+          const nk = negKey('bio', it.userId, lang);
+          if (!negCached(nk)) {
+            bundle[`${it.key}|b|bio`] = u.bio;
+            wants.push({ kind: 'bio', item: it });
+            asked.push(nk);
+          }
         }
       }
     }
@@ -221,7 +298,12 @@ export async function localizeProfiles(items, lang) {
   if (!Object.keys(bundle).length) return result;
 
   const translated = await translateBundle(bundle, lang);
-  if (!Object.keys(translated).length) return result;   // fall back to originals
+  if (!Object.keys(translated).length) {
+    // Fall back to originals — and remember, so the next page view of the same
+    // profiles doesn't spend another call finding out the same thing.
+    markFailed(asked);
+    return result;
+  }
 
   // Regroup the flat response back per item, apply, and persist the cache.
   const writes = [];

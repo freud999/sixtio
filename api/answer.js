@@ -5,6 +5,8 @@ import { generateFollowup as geminiFollowup } from './_lib/gemini.js';
 import { generateFollowup as claudeFollowup } from './_lib/claude.js';
 import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
 import { isDeepQuestion, syncProfileDepth } from './_lib/depth.js';
+import { isQuotaError } from './_lib/geminifetch.js';
+import { alertThrottled, escapeAlert } from './_lib/alerts.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -74,11 +76,25 @@ export default async function handler(req, res) {
     try {
       followup = await geminiFollowup(questionText || '', answerText, safeGender, lang);
     } catch (geminiError) {
-      console.error('Gemini followup failed:', geminiError.message);
+      if (isQuotaError(geminiError)) {
+        // Not an error — the free tier is simply spent for this minute. Worth an
+        // alert anyway, because from here every onboarding follow-up is billed
+        // to Anthropic instead of costing nothing.
+        console.warn(`Gemini followup degraded (quota, retry in ${geminiError.retryAfterSec}s) — falling back to Claude`);
+        alertThrottled(
+          'gemini-quota-followup',
+          '⏳ <b>Gemini quota spent — onboarding follow-ups on Claude</b>\n' +
+          'Onboarding continues; each follow-up is now a PAID Anthropic call.' +
+          `\n<pre>${escapeAlert(geminiError.message)}</pre>`
+        );
+      } else {
+        console.error('Gemini followup failed:', geminiError.message);
+      }
       try {
         followup = await claudeFollowup(questionText || '', answerText, safeGender, lang);
       } catch (claudeError) {
-        // AI failure must not block onboarding — the client just moves on.
+        // Both models unavailable: the question is skipped, never blocked. The
+        // client treats a null follow-up as "move on", so onboarding completes.
         console.error('Claude fallback followup failed:', claudeError.message);
       }
     }

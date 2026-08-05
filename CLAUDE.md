@@ -31,6 +31,10 @@ across uk/ru/en and light/dark. See `.claude/skills/ship`.
 - Additive Supabase migrations are authorized; destructive DB ops need explicit OK.
 - 18+ privacy is #1: free male users must NOT receive intimate tags over the API;
   intimate data reaches the AI only on mutual Dark Mode opt-in.
+- **Intimate (GDPR Art. 9) data goes to Anthropic ONLY, never Gemini** — Google's
+  free tier trains on what it receives. Enforced by `test/privacy-kink.test.js`,
+  which pins the set of files allowed to call Gemini. Photo moderation and the
+  psychological profile still go to Gemini; that is PRIV-1's remaining half.
 
 ## Deploy
 GitHub `freud999/sixtio` → Vercel project `sixtio` (team **Aura** `xaurax`),

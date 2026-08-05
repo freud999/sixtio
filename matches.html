@@ -467,7 +467,7 @@
                 note.textContent = t('likers_low');
                 if (window.SixtioPaywall) window.SixtioPaywall.open({
                   initData: initData, starsBalance: r.starsBalance || starsBal,
-                  onSuccess: function(){ window.location.reload(); }
+                  onSuccess: function(){ refreshPage(); }
                 });
               }
               return;
@@ -489,7 +489,7 @@
                 note.textContent = t('likers_low');
                 if (window.SixtioPaywall) window.SixtioPaywall.open({
                   initData: initData, starsBalance: r.starsBalance || starsBal,
-                  onSuccess: function(){ window.location.reload(); }
+                  onSuccess: function(){ refreshPage(); }
                 });
               }
               return;
@@ -517,20 +517,39 @@
         if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('medium'); } catch(e){} }
         if (window.SixtioPaywall) window.SixtioPaywall.open({
           initData: initData, starsBalance: starsBal, highlight: 'premium',
-          onSuccess: function(){ window.location.reload(); }
+          onSuccess: function(){ refreshPage(); }
         });
       });
 
       // Cache-first: paint instantly from the last response, then refresh.
+      var cachedFresh = false;
       try {
         var cached = JSON.parse(localStorage.getItem('sixtio_me') || 'null');
-        if (cached && cached.registered) render(cached);
+        if (cached && cached.registered) {
+          render(cached);
+          // index.html fetches the very same payload and then redirects here, so
+          // the refresh below used to run two seconds behind an identical
+          // response — and each full /api/me spends a Gemini translation call we
+          // do not have to spare on the free tier. Inside this window the data
+          // cannot have changed; outside it, refresh as before.
+          var at = Number(localStorage.getItem('sixtio_me_at') || 0);
+          cachedFresh = at > 0 && (Date.now() - at) < 20000;
+        }
       } catch(e){}
+
+      // A reload after a Stars purchase must NOT be served by the freshness gate
+      // above — the balance it would paint is the one from before the purchase.
+      // Dropping the stamp forces the reload to go to the server.
+      function refreshPage(){
+        try { localStorage.removeItem('sixtio_me_at'); } catch(e){}
+        window.location.reload();
+      }
 
       function load(){
         return api('/api/me', {}).then(function(me){
           if (!me.registered) { window.location.replace('onboarding.html'); return; }
           localStorage.setItem('sixtio_me', JSON.stringify(me));
+          try { localStorage.setItem('sixtio_me_at', String(Date.now())); } catch(e){}
           render(me);
         });
       }
@@ -548,11 +567,11 @@
         if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('light'); } catch(e){} }
         if (window.SixtioPaywall) window.SixtioPaywall.open({
           initData: initData, starsBalance: starsBal,
-          onSuccess: function(){ window.location.reload(); }
+          onSuccess: function(){ refreshPage(); }
         });
       });
 
-      load().catch(function(){ /* offline — cache already shown */ });
+      if (!cachedFresh) load().catch(function(){ /* offline — cache already shown */ });
     })();
   </script>
 </body>

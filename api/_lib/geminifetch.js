@@ -10,6 +10,119 @@
 
 const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
+// --- The free-tier budget ---------------------------------------------------
+//
+// gemini-3.6-flash allows 5 requests per MINUTE on the free tier. Measured
+// 2026-08-03 with six users: we exhausted it, and then kept exhausting it,
+// because nothing in the app knew the number existed. Every caller happily
+// posted into a quota that had been empty for ten minutes, and each of those
+// posts was itself a request Google counted against us.
+//
+// So the limit is enforced HERE, before the network, and a refusal is a typed
+// error rather than a generic throw: callers must be able to tell "the quota is
+// gone, degrade gracefully" from "the request was malformed". No queue — a
+// queue would hold a lambda open for the 45 seconds until the window rolls, and
+// Vercel bills that and then kills it at maxDuration anyway. Refuse fast.
+// The quota is PER MODEL. Measured 2026-08-05, a 429 body names its own quota:
+//   GenerateRequestsPerMinutePerProjectPerModel-FreeTier
+// which is why splitting the work across two models is not a micro-optimisation
+// but a second, independent pool. Budget it per model or the split buys nothing:
+// one shared counter would refuse a flash-lite call because flash was busy.
+const DEFAULT_MAX_RPM = 4;         // gemini-flash-latest measures 5; one below, so a racing instance still fits
+const DEFAULT_MAX_RPM_LIGHT = 12;  // gemini-flash-lite-latest measures 15 (burst-tested 2026-08-05)
+const WINDOW_MS = 60_000;
+
+function limitFor(isLight) {
+  const n = Number(isLight ? process.env.GEMINI_MAX_RPM_LIGHT : process.env.GEMINI_MAX_RPM);
+  if (Number.isFinite(n) && n > 0) return n;
+  return isLight ? DEFAULT_MAX_RPM_LIGHT : DEFAULT_MAX_RPM;
+}
+
+function maxRpmFor(model) {
+  const isLight = model === geminiModelLight();
+  const isMain = model === geminiModel();
+  // Both names resolving to the same model means ONE Google-side window, so the
+  // allowance has to be the smaller of the two — not the lighter model's larger
+  // one. Getting this backwards would let an operator raise the strong model's
+  // limit to 12 against a 5 RPM quota by setting GEMINI_MODEL_LIGHT to it.
+  if (isLight && isMain) return Math.min(limitFor(true), limitFor(false));
+  return limitFor(isLight);
+}
+
+// model -> { times: ms timestamps we let through (ascending), cooldownUntil }.
+// Keyed by the resolved model NAME, so pointing GEMINI_MODEL_LIGHT at the main
+// model correctly collapses the two pools back into one instead of silently
+// doubling the allowance.
+const budgets = new Map();
+
+function budgetFor(model) {
+  let b = budgets.get(model);
+  if (!b) { b = { times: [], cooldownUntil: 0 }; budgets.set(model, b); }
+  return b;
+}
+
+/**
+ * Thrown when a call was NOT made because the quota is spent — locally budgeted
+ * or refused by Google with a 429. `retryAfterSec` is Google's own hint when we
+ * have it. Distinct from every other failure on purpose: this is the one the
+ * product degrades around instead of erroring.
+ */
+export class GeminiQuotaError extends Error {
+  constructor(message, retryAfterSec) {
+    super(message);
+    this.name = 'GeminiQuotaError';
+    this.code = 'gemini_quota';
+    this.retryAfterSec = retryAfterSec;
+  }
+}
+
+/** True for a quota refusal, ours or Google's. Use this, not `instanceof`. */
+export function isQuotaError(e) {
+  return !!e && e.code === 'gemini_quota';
+}
+
+/** Take one unit of `model`'s budget, or say how long until one frees up. */
+function reserveCall(model) {
+  const b = budgetFor(model);
+  const now = Date.now();
+  if (now < b.cooldownUntil) {
+    return { ok: false, retryAfterSec: Math.max(1, Math.ceil((b.cooldownUntil - now) / 1000)) };
+  }
+  while (b.times.length && b.times[0] <= now - WINDOW_MS) b.times.shift();
+  if (b.times.length >= maxRpmFor(model)) {
+    const retryMs = b.times[0] + WINDOW_MS - now;
+    return { ok: false, retryAfterSec: Math.max(1, Math.ceil(retryMs / 1000)) };
+  }
+  b.times.push(now);
+  return { ok: true };
+}
+
+// Google reports the window in the error body as `"retryDelay": "21s"`. Trusting
+// it beats guessing: it is the only place the real remaining time is written.
+function retryAfterFromBody(body) {
+  const m = /"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/.exec(body || '');
+  return m ? Math.max(1, Math.ceil(Number(m[1]))) : 30;
+}
+
+/** Test seam: forget every model's window and cooldown. */
+export function resetGeminiBudget() {
+  budgets.clear();
+}
+
+/** For diagnostics: { model, used, limit, cooldownSec } right now. */
+export function geminiBudgetState(model) {
+  const name = model || geminiModel();
+  const b = budgetFor(name);
+  const now = Date.now();
+  while (b.times.length && b.times[0] <= now - WINDOW_MS) b.times.shift();
+  return {
+    model: name,
+    used: b.times.length,
+    limit: maxRpmFor(name),
+    cooldownSec: now < b.cooldownUntil ? Math.ceil((b.cooldownUntil - now) / 1000) : 0,
+  };
+}
+
 /** The model every call uses.
  *
  *  The default was `gemini-2.5-flash` and that was the outage: measured
@@ -22,6 +135,19 @@ const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
  *  silently changes generation under you, which is the other half of this bug. */
 export function geminiModel() {
   return process.env.GEMINI_MODEL || 'gemini-flash-latest';
+}
+
+/** The cheap model for work that does not need the strong one: translation and
+ *  the photo safety gate.
+ *
+ *  Measured 2026-08-05 by real generateContent calls (never by models.list):
+ *  gemini-flash-lite-latest answers 200 for text, for vision with inlineData,
+ *  and for responseMimeType: application/json — and its free window is 15 RPM
+ *  against the main model's 5. Note gemini-2.5-flash-lite is LISTED and
+ *  advertises generateContent yet 404s "no longer available to new users",
+ *  which is the same trap that cost seven days. Only a real call is proof. */
+export function geminiModelLight() {
+  return process.env.GEMINI_MODEL_LIGHT || 'gemini-flash-lite-latest';
 }
 
 // Which knob turns thinking down depends on the model's generation, and the
@@ -72,7 +198,18 @@ function withKnob(payload, knob) {
   };
 }
 
-async function post(model, payload) {
+// Throws GeminiQuotaError instead of posting when the budget is spent, and
+// converts a 429 from Google into the same error — so the two cases are one
+// thing to the caller, which is what they are: no answer, come back later.
+async function post(model, payload, label) {
+  const slot = reserveCall(model);
+  if (!slot.ok) {
+    throw new GeminiQuotaError(
+      `${label} skipped: free-tier budget spent on ${model}, retry in ${slot.retryAfterSec}s`,
+      slot.retryAfterSec
+    );
+  }
+
   const res = await fetch(`${API_BASE}/${model}:generateContent`, {
     method: 'POST',
     headers: {
@@ -82,13 +219,33 @@ async function post(model, payload) {
     body: JSON.stringify(payload),
   });
   if (res.ok) return { ok: true, data: await res.json() };
-  return { ok: false, status: res.status, body: await res.text() };
+
+  const body = await res.text();
+  if (res.status === 429) {
+    // Google knows the real window; our local counter was evidently optimistic
+    // (another instance, or a limit we guessed wrong). Believe the 429 and stop
+    // calling entirely until it expires — retrying here is what turned one
+    // exhausted minute into an exhausted afternoon.
+    const retryAfterSec = retryAfterFromBody(body);
+    // Only THIS model goes on ice — the quota is per model, so freezing the
+    // other pool too would throw away the whole point of splitting them.
+    budgetFor(model).cooldownUntil = Date.now() + retryAfterSec * 1000;
+    throw new GeminiQuotaError(
+      `${label} 429 on ${model}: quota exhausted, retry in ${retryAfterSec}s`,
+      retryAfterSec
+    );
+  }
+  return { ok: false, status: res.status, body };
 }
 
 /**
  * POSTs `payload` to generateContent and returns the parsed response body.
  * Throws `${label} ${status}: ${body}` on any non-2xx — the body is included
  * because "Gemini 400" on its own is what made the last outage unreadable.
+ *
+ * The one exception is quota: a spent budget or a 429 throws GeminiQuotaError
+ * (test it with isQuotaError). Callers are expected to degrade on that one —
+ * show the original text, skip the question — never to surface it as an error.
  *
  * @param {object} payload  request body WITHOUT any thinkingConfig — this owns it
  * @param {object} [opts]
@@ -98,20 +255,23 @@ async function post(model, payload) {
  *   a wrong-knob error — 404 is a missing model and 429/5xx are the service —
  *   so nothing else is retried, or we would double every outage.
  * @param {string} [opts.label]  error prefix, e.g. 'Gemini vision'
+ * @param {boolean} [opts.light]  route to the cheap model (geminiModelLight) and
+ *   its own separate per-minute pool. For work where the strong model buys
+ *   nothing: translation, the photo safety gate.
  */
 export async function geminiFetch(payload, opts = {}) {
   if (!process.env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY is not set');
-  const model = geminiModel();
+  const model = opts.light ? geminiModelLight() : geminiModel();
   const label = opts.label || 'Gemini';
 
   if (!opts.thinkingOff) {
-    const r = await post(model, payload);
+    const r = await post(model, payload, label);
     if (r.ok) return r.data;
     throw new Error(`${label} ${r.status}: ${r.body.slice(0, 500)}`);
   }
 
   const knob = pickThinkingKnob(model);
-  let r = await post(model, withKnob(payload, knob));
+  let r = await post(model, withKnob(payload, knob), label);
   if (r.ok) {
     resolvedKnob.set(model, knob);
     return r.data;
@@ -124,7 +284,7 @@ export async function geminiFetch(payload, opts = {}) {
 
   const other = knob === BUDGET ? LEVEL : BUDGET;
   console.warn(`Gemini 400 with ${knob} on "${model}" — retrying with ${other}`);
-  r = await post(model, withKnob(payload, other));
+  r = await post(model, withKnob(payload, other), label);
   if (!r.ok) {
     throw new Error(`${label} ${r.status} (tried ${knob} and ${other}): ${r.body.slice(0, 500)}`);
   }

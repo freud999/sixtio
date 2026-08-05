@@ -2,6 +2,7 @@ import { resolveUser } from './_lib/telegram.js';
 import { getSupabase, upsertUser } from './_lib/supabase.js';
 import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
 import { moderatePhoto, photoModerationFailOpen } from './_lib/gemini.js';
+import { isQuotaError } from './_lib/geminifetch.js';
 import { signPhoto, photoKey, blurKey } from './_lib/photos.js';
 import { notifyOwner } from './_lib/bot.js';
 
@@ -38,12 +39,17 @@ function alertModerationDown(err, failOpen) {
   const reason = String(err && err.message ? err.message : err)
     .slice(0, 300)
     .replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
-  notifyOwner(
-    (failOpen
+  // Quota is a different incident from an outage: nothing is broken, we simply
+  // ran out of free calls this minute. Saying "DOWN" for it would send us
+  // debugging Gemini instead of reading a number.
+  const head = isQuotaError(err)
+    ? (failOpen
+      ? '⚠️ <b>Photo moderation SKIPPED — Gemini quota spent</b>\nPhotos are being stored UNCHECKED (fail-open is ON).'
+      : '⏳ <b>Photo moderation paused — Gemini quota spent</b>\nUploads are asked to retry in a minute (fail-closed).')
+    : (failOpen
       ? '⚠️ <b>Photo moderation is DOWN and fail-open is ON</b>\nPhotos are being stored UNCHECKED.'
-      : '🚨 <b>Photo moderation is DOWN</b>\nUploads are being refused (fail-closed).') +
-    `\n<pre>${reason}</pre>`
-  ).catch(() => {});
+      : '🚨 <b>Photo moderation is DOWN</b>\nUploads are being refused (fail-closed).');
+  notifyOwner(`${head}\n<pre>${reason}</pre>`).catch(() => {});
 }
 
 export default async function handler(req, res) {
@@ -93,7 +99,15 @@ export default async function handler(req, res) {
         modErr.message
       );
       alertModerationDown(modErr, failOpen);
-      if (!failOpen) return res.status(503).json({ error: 'moderation_unavailable' });
+      if (!failOpen) {
+        // 503 + Retry-After, not 500: the client already turns this into
+        // "check unavailable, try again in a minute" with a retry button
+        // (onboarding.html, profile.html). Quota carries Google's own window,
+        // so the hint is a real number rather than a shrug.
+        const retryAfter = isQuotaError(modErr) ? modErr.retryAfterSec : 60;
+        res.setHeader('Retry-After', String(retryAfter));
+        return res.status(503).json({ error: 'moderation_unavailable', retryAfter });
+      }
     }
 
     const supabase = getSupabase();

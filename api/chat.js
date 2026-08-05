@@ -5,7 +5,7 @@ import {
 } from './_lib/supabase.js';
 import { notifyNewMessage } from './_lib/bot.js';
 import { entitlements, WHY_FACTOR_PRICE } from './_lib/entitlements.js';
-import { generateWhyFactor } from './_lib/gemini.js';
+import { generateWhyFactor } from './_lib/claude.js';
 import { handleTelegramUpdate } from './_lib/analytics.js';
 import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
 import { signPhoto, photoKey } from './_lib/photos.js';
