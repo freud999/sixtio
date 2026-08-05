@@ -320,13 +320,23 @@ export function resetEnvReportForTests() {
 // off the request path) and from the owner's /envcheck command. Never from a
 // user request: three round-trips is far too much to put in a hot path.
 
-import { geminiFetch } from './geminifetch.js';
+// NOTE the import-then-export shape below. This was written as
+//   export { geminiModel as geminiModelInUse } from './geminifetch.js';
+// which forwards the export but creates NO local binding — so every use of
+// geminiModelInUse() inside smokeEnv threw "is not defined". The probe's own
+// try/catch then dutifully reported it as "❌ Gemini", i.e. the health check
+// blamed the dependency for a bug in the health check. It went unseen because
+// the webhook was down, so /envcheck could not be run at all. Import first,
+// then re-export the local names.
+import { geminiFetch, geminiModel, geminiModelLight } from './geminifetch.js';
+import { kinkModelInUse } from './claude.js';
 
-/** The Gemini model the app will actually use. Re-exported from the one place
- *  that resolves it, so /envcheck can never report a model the callers don't
- *  use — a duplicated default is how the last one drifted out of sight. */
-export { geminiModel as geminiModelInUse, geminiModelLight as geminiModelLightInUse } from './geminifetch.js';
-export { kinkModelInUse } from './claude.js';
+/** The models the app will actually use. Re-exported from the one place that
+ *  resolves each, so /envcheck can never report a model the callers don't use —
+ *  a duplicated default is how the last one drifted out of sight. */
+const geminiModelInUse = geminiModel;
+const geminiModelLightInUse = geminiModelLight;
+export { geminiModelInUse, geminiModelLightInUse, kinkModelInUse };
 
 async function probe(name, fn) {
   try {
