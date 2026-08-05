@@ -79,7 +79,22 @@ Migration 027's `calculate_compatibility(uuid)` is deliberately KEPT as that fal
   chat (also the Telegram webhook entry), photo, rematch, delete-account, geo.
 - Key libs: `telegram.js` (initData HMAC + lang), `entitlements.js` (gender-biased
   paywall), `matching.js` (MIN_SCORE=6), `analytics.js` (bot webhook + Stars credit),
-  `events.js` (funnel), `sources.js`/`referrals.js` (attribution), `ratelimit.js`.
+  `events.js` (funnel), `sources.js`/`referrals.js` (attribution), `ratelimit.js`,
+  `compat.js` (ALL compatibility reads — never call the RPCs directly),
+  `flags.js` (kill switches; no static imports on purpose), `sentry.js` (zero-dep
+  error reporting, inert without `SENTRY_DSN`), `aibudget.js` (daily AI ceiling).
+- Kill switches, all DEFAULT ON, off only on an unambiguous false/0/off/no:
+  `AI_ENABLED`, `MATCHING_ENABLED`, `FEED_ENABLED`, `PAYMENTS_ENABLED`,
+  `PHOTOS_ENABLED`, `TRANSLATION_ENABLED`. A down switch alerts hourly and
+  `/envcheck` refuses to say "all green".
+
+## Backups
+Supabase org is on the **FREE plan → no automatic backups, no PITR** (measured
+2026-08-05). `node scripts/backup.mjs` dumps all 12 tables to JSON;
+`node scripts/restore-verify.mjs backups/<ts>` checks hashes + schema drift and
+emits an abort-guarded insert probe. Full dump→wipe→restore round trip verified
+on prod 2026-08-05 (all 12 tables, 0 mismatches, rolled back). Runbook:
+`supabase/RESTORE.md`. The dump holds Art. 9 data — `backups/` is gitignored.
 
 ## Language
 UI language is client-side (`i18n.js`); it recovers `en` from a blank Telegram
