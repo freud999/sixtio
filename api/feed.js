@@ -4,6 +4,7 @@ import { entitlements, likesLeftForClient, intimateCompatibility } from './_lib/
 import { darkActive, DARK_COLUMNS } from './_lib/darkmode.js';
 import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
 import { signPhoto, signPhotos, photoKey, blurKey } from './_lib/photos.js';
+import { compatibilityPage } from './_lib/compat.js';
 
 // Recommendation feed for the swipe deck (feed.html). Pure Supabase — no AI.
 // Candidates are opposite-gender, within ±10 years, never already swiped, and
@@ -11,6 +12,12 @@ import { signPhoto, signPhotos, photoKey, blurKey } from './_lib/photos.js';
 // trailing at 0% so the deck keeps flowing for infinite scroll.
 const MAX_AGE_GAP = 10;          // same convention as matching.js
 const DEFAULT_LIMIT = 20;
+// Hard ceiling on how many candidates one deck open pulls into the function
+// (F-09/F-10). Before this the query had no `.limit()` at all: 10k profiles
+// meant 10k rows with photos, interests and intimate columns crossing the wire
+// to build a 20-card page. 300 is ~15 pages of scrolling ahead of the user —
+// deep enough that nobody reaches the edge, small enough to stay a fast read.
+const POOL_MAX = 300;
 
 // Shared-interest ranking nudge (Layer 2): a small, capped bonus so common
 // hobbies lift a candidate in the deck without ever outweighing psychological or
@@ -110,36 +117,38 @@ export default async function handler(req, res) {
       for (const id of await getHiddenUserIds(me.id, me.blocked_users)) seen.add(id);
     } catch (e) { console.error('feed block-dedup failed:', e.message); }
 
-    // Big Five ranking + tags, in one RPC. Isolated: if the migration/RPC isn't
-    // live yet, the feed still works — every candidate just scores 0.
-    const compatByUser = {};
-    try {
-      const { data: compat, error: compatError } = await supabase.rpc(
-        'calculate_compatibility',
-        { current_user_id: me.id }
-      );
-      if (compatError) throw compatError;
-      for (const c of compat || []) {
-        compatByUser[c.user_id] = {
-          score: c.compatibility_score,
-          tags: c.compatibility_tags || [],
-        };
-      }
-    } catch (compatError) {
-      console.error('compatibility rpc failed:', compatError.message);
-    }
+    // Big Five ranking + tags. The RPC now applies the SAME gender/age prefilter
+    // as the candidate query below and returns at most POOL_MAX rows, instead of
+    // scoring every profile in the database on every deck open (F-09). Isolated:
+    // on any failure the deck still renders, every candidate just scoring 0.
+    const wantGender = (me.seeking_gender && me.seeking_gender !== 'any') ? me.seeking_gender : null;
+    const minAge = me.age ? me.age - MAX_AGE_GAP : null;
+    const maxAge = me.age ? me.age + MAX_AGE_GAP : null;
+    const compatMap = await compatibilityPage(supabase, me.id, {
+      gender: wantGender, minAge, maxAge, limit: POOL_MAX,
+    });
+    const compatByUser = Object.fromEntries(compatMap);
 
     // Prefilter at the DB (opposite gender + age window + not mass-reported) so we
     // never pull the whole user table into the function — essential at scale. The
     // wildcard 'any' preference skips the gender filter; JS still does final checks.
+    //
+    // POOL_MAX bounds the working set (F-10, partially). Ranking still happens in
+    // JavaScript, because the deck order also depends on shared interests, mutual
+    // Dark Mode and the block list — none of which the SQL ranker can see. So the
+    // pool is ordered by `last_active` rather than left to whatever order Postgres
+    // happens to return: if a cap has to cut someone, cutting dormant accounts is
+    // a defensible product rule and an arbitrary truncation is not.
     let candQuery = supabase
       .from('users')
       .select('id, name, gender, seeking_gender, age, city, photo_url, photo_blur_url, ' + DARK_COLUMNS + ', kink_markers, interests, last_active, shadow_hidden')
       .neq('id', me.id)
       .eq('shadow_hidden', false);
-    if (me.seeking_gender && me.seeking_gender !== 'any') candQuery = candQuery.eq('gender', me.seeking_gender);
-    if (me.age) candQuery = candQuery.gte('age', me.age - MAX_AGE_GAP).lte('age', me.age + MAX_AGE_GAP);
-    const { data: candidates, error: candError } = await candQuery;
+    if (wantGender) candQuery = candQuery.eq('gender', wantGender);
+    if (me.age) candQuery = candQuery.gte('age', minAge).lte('age', maxAge);
+    const { data: candidates, error: candError } = await candQuery
+      .order('last_active', { ascending: false, nullsFirst: false })
+      .limit(POOL_MAX);
     if (candError) throw candError;
 
     // Dark Mode (18+) is a mutual, opt-in layer: intimate data is computed ONLY

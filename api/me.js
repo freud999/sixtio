@@ -10,7 +10,8 @@ import { smokeEnv, formatSmoke } from './_lib/env.js';
 import { sanitizeAiText } from './_lib/claude.js';
 import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
 import { BASE_PROFILE_DEPTH, syncProfileDepth } from './_lib/depth.js';
-import { signPhoto, photoKey } from './_lib/photos.js';
+import { signPhoto, signPhotos, photoKey } from './_lib/photos.js';
+import { compatibilityFor, latestMessages } from './_lib/compat.js';
 
 // Presence window for the online dot (mirrors api/feed.js). Every /api/me and
 // /api/feed call stamps last_active, so this stays accurate without extra writes.
@@ -198,21 +199,6 @@ export default async function handler(req, res) {
       if (achError) console.error('achievements sync failed:', achError.message);
     }
 
-    // Big Five compatibility %: one RPC call ranks every scored profile against
-    // this user. We map partnerId -> score and enrich each match card below.
-    // Isolated: if the migration/RPC isn't live yet, the feed still works.
-    const compatByUser = {};
-    try {
-      const { data: compat, error: compatError } = await supabase.rpc(
-        'calculate_compatibility',
-        { current_user_id: user.id }
-      );
-      if (compatError) throw compatError;
-      for (const c of compat || []) compatByUser[c.user_id] = c.compatibility_score;
-    } catch (compatError) {
-      console.error('compatibility rpc failed:', compatError.message);
-    }
-
     // Build a public card for every match this user holds. The viewer's native
     // Telegram language (Task 26) localizes the rare server-side fallbacks.
     const lang = pickLang(body.lang, tgUser);
@@ -231,31 +217,48 @@ export default async function handler(req, res) {
     let hidden = new Set();
     try { hidden = await getHiddenUserIds(user.id, user.blocked_users); }
     catch (e) { console.error('matches block-filter failed:', e.message); }
+
+    // --- Everything the match list needs, in a fixed number of queries (F-11) --
+    // This loop used to run THREE queries per match (partner, their profile,
+    // their last message) plus one whole-table compatibility scan. Eight matches
+    // meant ~25 sequential round trips before the screen could render, and it
+    // grew with the user's success — the people who like the app most waited
+    // longest. Now it is four queries no matter how many matches there are.
+    const visible = rows.filter((m) => !hidden.has(m.partnerId));
+    const partnerIds = visible.map((m) => m.partnerId);
+    const matchIds = visible.map((m) => m.matchId);
+
+    const [partnerRows, partnerProfileRows, lastByMatch, compatByUser] = await Promise.all([
+      partnerIds.length
+        ? supabase.from('users')
+            .select('id, name, age, city, goal, interests, bio, bio_i18n, bio_lang, language_code, photo_url, ' + DARK_COLUMNS + ', kink_markers, last_active, shadow_hidden')
+            .in('id', partnerIds)
+            .then(({ data }) => data || [])
+        : Promise.resolve([]),
+      partnerIds.length
+        ? supabase.from('profiles')
+            .select('user_id, traits_json, vibe, summary_text, i18n, lang')
+            .in('user_id', partnerIds)
+            .then(({ data }) => data || [])
+        : Promise.resolve([]),
+      latestMessages(supabase, matchIds),
+      // Scores for THESE partners only, instead of ranking the whole database
+      // and reading eight rows out of the answer (F-09).
+      compatibilityFor(supabase, user.id, partnerIds),
+    ]);
+    const partnerById = new Map(partnerRows.map((p) => [p.id, p]));
+    const partnerProfileById = new Map(partnerProfileRows.map((p) => [p.user_id, p]));
+
     const matches = [];
     // Collected across the whole loop so every partner needing translation goes
     // into ONE Gemini call after it, never one call per card (see _lib/translate.js).
     const localeItems = [];
-    for (const m of rows) {
-      if (hidden.has(m.partnerId)) continue;
-      const { data: partner } = await supabase
-        .from('users')
-        .select('name, age, city, goal, interests, bio, bio_i18n, bio_lang, language_code, photo_url, ' + DARK_COLUMNS + ', kink_markers, last_active, shadow_hidden')
-        .eq('id', m.partnerId)
-        .maybeSingle();
+    for (const m of visible) {
+      const partner = partnerById.get(m.partnerId);
       if (!partner || partner.shadow_hidden) continue;
-      const { data: partnerProfile } = await supabase
-        .from('profiles')
-        .select('traits_json, vibe, summary_text, i18n, lang')
-        .eq('user_id', m.partnerId)
-        .maybeSingle();
+      const partnerProfile = partnerProfileById.get(m.partnerId) || null;
       // Last message for the chat-list preview.
-      const { data: lastRows } = await supabase
-        .from('messages')
-        .select('text, sender_id, created_at')
-        .eq('match_id', m.matchId)
-        .order('created_at', { ascending: false })
-        .limit(1);
-      const lm = lastRows && lastRows[0];
+      const lm = lastByMatch.get(m.matchId) || null;
       const card = {
         matchId: m.matchId,
         // Partner's internal user id — needed by the client to block/report them
@@ -268,11 +271,11 @@ export default async function handler(req, res) {
           : sanitizeAiText(m.reason),
         score: m.score,
         // Big Five (OCEAN) math compatibility 0..100, or null if not scored yet.
-        compatibility: m.partnerId in compatByUser ? compatByUser[m.partnerId] : null,
+        compatibility: compatByUser.has(m.partnerId) ? compatByUser.get(m.partnerId).score : null,
         // Interests shared with this partner → the "спільне: …" line on the card.
         common: sharedInterests(user.interests, partner.interests).slice(0, 3),
         lastMessage: lm
-          ? { text: lm.text, mine: lm.sender_id === user.id, createdAt: lm.created_at }
+          ? { text: lm.text, mine: lm.senderId === user.id, createdAt: lm.createdAt }
           : null,
         partner: {
           name: (partner.name || '').split(' ')[0] || NAME_FALLBACK[lang] || NAME_FALLBACK.uk,
@@ -282,7 +285,9 @@ export default async function handler(req, res) {
           interests: partner.interests || [],
           bio: partner.bio,
           // Mutual match → full photo, minted as a short-lived signed URL.
-          photoUrl: partner.photo_url ? await signPhoto(photoKey(m.partnerId), supabase) : '',
+          // Filled in one batched round trip after the loop (F-11) — signing
+          // inside it was one more sequential request per match.
+          photoUrl: '',
           // Live presence for the online dot in the chat list.
           online: isOnline(partner.last_active),
           traits: (partnerProfile && partnerProfile.traits_json) || [],
@@ -316,6 +321,14 @@ export default async function handler(req, res) {
       });
       matches.push(card);
     }
+
+    // Sign every match photo in ONE round trip. A key that fails to sign stays
+    // '' — a missing avatar, never a leaked object (SEC-1).
+    try {
+      const withPhoto = matches.filter((c) => (partnerById.get(c.partnerId) || {}).photo_url);
+      const sigMap = await signPhotos(withPhoto.map((c) => photoKey(c.partnerId)), supabase);
+      for (const c of withPhoto) c.partner.photoUrl = sigMap.get(photoKey(c.partnerId)) || '';
+    } catch (e) { console.error('match photo signing failed:', e.message); }
 
     // The Digital Twin and the bio are written ONCE, in the language their owner
     // used — so switching the interface language used to leave a fully localized

@@ -9,6 +9,7 @@ import {
   LIKE_REVEAL_PRICE, LIKES_PASS_PRICE, LIKES_PASS_DAYS, AI_REPORT_PRICE,
 } from './_lib/entitlements.js';
 import { zodiacSign, signElement, socionicsType, parseBirthDate } from './_lib/astro.js';
+import { compatibilityFor } from './_lib/compat.js';
 import { generateAiReport } from './_lib/claude.js';
 import { localizeReport } from './_lib/translate.js';
 import { processKinkInterview } from './_lib/kink.js';
@@ -446,12 +447,10 @@ async function revealMysteryCard(supabase, meId, targetId) {
   let compatibility = null;
   let tags = [];
   try {
-    const { data: compat, error } = await supabase.rpc('calculate_compatibility', {
-      current_user_id: meId,
-    });
-    if (error) throw error;
-    const hit = (compat || []).find((c) => c.user_id === targetId);
-    if (hit) { compatibility = hit.compatibility_score; tags = (hit.compatibility_tags || []).slice(0, 3); }
+    // One person's score, asked for as one person's score. This used to rank the
+    // entire database and then `.find()` the single row it wanted (F-09).
+    const hit = (await compatibilityFor(supabase, meId, [targetId])).get(targetId);
+    if (hit) { compatibility = hit.score; tags = (hit.tags || []).slice(0, 3); }
   } catch (e) {
     console.error('mystery reveal compat failed:', e.message);
   }

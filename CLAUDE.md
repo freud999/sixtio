@@ -61,8 +61,16 @@ Server uses `SUPABASE_SERVICE_ROLE_KEY` (bypasses RLS), so these are transparent
 answers HTTP 400. Every delivery is a 5-minute signed URL minted after the
 entitlement check. (This paragraph previously said the bucket was still public;
 that staleness cost a session. Security state belongs in ONE place — the audit.)
-Account deletion DOES remove both objects (`deleteUserCascade`, `supabase.js:184`),
-but swallows a failure with only a `console.error` — see SEC-1a in the audit.
+Account deletion removes both objects (`deleteUserCascade`, `supabase.js:184`) and
+a storage failure now raises a Telegram alert instead of a swallowed `console.error`
+(SEC-1a, closed 2026-08-05) — an un-erased photo is a GDPR Art. 17 breach, not a log line.
+**041 applied 2026-08-05** — `users.ai_calls_today/day` + `bump_ai_usage(uuid,int)`:
+durable, atomic per-user daily AI ceiling (`_lib/aibudget.js`, fail-OPEN by design).
+**042 applied 2026-08-05** — bounded reads: `calculate_compatibility_for(uuid,uuid[])`,
+`calculate_compatibility_page(...)` (gender/age prefilter + LIMIT),
+`latest_messages_for_matches(uuid[])`. All compatibility reads go through
+`api/_lib/compat.js`, which falls back to the old unbounded RPC on any error.
+Migration 027's `calculate_compatibility(uuid)` is deliberately KEPT as that fallback.
 
 ## Structure
 - Pages: `index` → `onboarding` → `matches`/`feed` → `match` → `chat` → `profile`/`settings`;
