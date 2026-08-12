@@ -402,6 +402,11 @@ export default async function handler(req, res) {
         // Paywall entitlement — cached client-side to gate blur / likes / deepen.
         premium: ent.premiumActive,
         premiumUntil: ent.premiumUntil,
+        // Launch-phase welcome bonus. Separate from `premium` on purpose: the
+        // UI must be able to say "free until <date>" rather than imply the
+        // person subscribed to something.
+        welcomeBonus: ent.welcomeBonus,
+        welcomeBonusUntil: ent.welcomeBonusUntil,
         likesLeft: likesLeftForClient(ent),   // null = unlimited
         blur: ent.blur,
         // Who liked you: the number is always free, the names are what is gated.

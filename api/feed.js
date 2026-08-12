@@ -13,7 +13,25 @@ import { mutualGenderMatch, wantedGender } from './_lib/gendermatch.js';
 // Candidates are opposite-gender, within ±10 years, never already swiped, and
 // ranked by Big Five compatibility (highest first), with unscored profiles
 // trailing at 0% so the deck keeps flowing for infinite scroll.
-const MAX_AGE_GAP = 10;          // same convention as matching.js
+// Age window for the DECK. The matchmaker (_lib/matching.js) keeps its own,
+// tighter ±10 — an AI-proposed pair should still be a sensible pair.
+//
+// Launch phase: effectively off. With a handful of users a ±10 window is not a
+// preference, it is an empty screen, and an empty deck is the one thing a
+// dating app cannot survive on day one. FEED_MAX_AGE_GAP tightens it back to a
+// real number the moment there are enough people to be choosy — no deploy.
+//
+// Age has NOT stopped mattering: it is now a ranking nudge instead of a wall,
+// so closer ages still come first, they simply no longer erase everyone else.
+const DEFAULT_MAX_AGE_GAP = 200;
+function maxAgeGap() {
+  const n = Number(process.env.FEED_MAX_AGE_GAP);
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_MAX_AGE_GAP;
+}
+// How much a year of age difference costs in deck order. Small on purpose: it
+// must never outweigh real compatibility, only break ties between strangers.
+const AGE_RANK_PENALTY_PER_YEAR = 0.4;
+const AGE_RANK_PENALTY_MAX = 20;
 const DEFAULT_LIMIT = 20;
 // Hard ceiling on how many candidates one deck open pulls into the function
 // (F-09/F-10). Before this the query had no `.limit()` at all: 10k profiles
@@ -158,8 +176,9 @@ export default async function handler(req, res) {
     // the SQL prefilter and the JS rule below can never disagree — a wildcard
     // here is what let same-gender profiles into a straight user's deck.
     const wantGender = wantedGender(me);
-    const minAge = me.age ? me.age - MAX_AGE_GAP : null;
-    const maxAge = me.age ? me.age + MAX_AGE_GAP : null;
+    const gap = maxAgeGap();
+    const minAge = me.age ? me.age - gap : null;
+    const maxAge = me.age ? me.age + gap : null;
     const compatMap = await compatibilityPage(supabase, me.id, {
       gender: wantGender, minAge, maxAge, limit: POOL_MAX,
     });
@@ -224,7 +243,7 @@ export default async function handler(req, res) {
       // matching.js and simply missing from the likers list.
       if (!mutualGenderMatch(me, c)) continue;
       // Preferred age range — ±10 years, no geographical radius.
-      if (me.age && Math.abs(me.age - c.age) > MAX_AGE_GAP) continue;
+      if (me.age && Math.abs(me.age - c.age) > gap) continue;
 
       const hit = compatByUser[c.id];
       const card = {
@@ -241,8 +260,13 @@ export default async function handler(req, res) {
         _photoKey: ent.blur
           ? (c.photo_blur_url ? blurKey(c.id) : '')
           : (c.photo_url ? photoKey(c.id) : ''),
-        // 0..100; unscored profiles get 0 so they sort after scored ones.
-        compatibility: hit ? hit.score : 0,
+        // 0..100, or NULL when this profile has no Big Five yet. Null, not 0:
+        // "we have not measured you two" and "you are 0% compatible" are
+        // different statements, and showing the second for the first insults a
+        // person who has simply not been analysed yet. The client renders null
+        // as "—" with an empty ring. Ranking still treats it as 0, so scored
+        // profiles lead the deck and unscored ones follow instead of vanishing.
+        compatibility: hit ? hit.score : null,
         // Compatibility tags drive the "Why you match" reason line on the card.
         tags: hit ? (hit.tags || []).slice(0, 3) : [],
         // The candidate's own interests → value chips under the reason.
@@ -281,9 +305,16 @@ export default async function handler(req, res) {
     // mutual Dark Mode layer is on, ranking uses the BEST of general vs
     // intimate compatibility, so a 0%-personality / high-kink-overlap profile
     // surfaces near the top instead of drowning at the tail (Task 24).
+    // Age is a nudge here, not a wall (see maxAgeGap). It used to remove people
+    // outright; now a bigger gap only costs order, and never enough to bury
+    // someone genuinely compatible under a stranger who happens to be 25.
+    const agePenalty = (c) => (me.age && c.age)
+      ? Math.min(AGE_RANK_PENALTY_MAX, Math.abs(me.age - c.age) * AGE_RANK_PENALTY_PER_YEAR)
+      : 0;
     const rankScore = (c) =>
       Math.max(c.compatibility || 0, c.darkMode ? (c.intimateCompatibility || 0) : 0)
-      + Math.min(INTEREST_BOOST_MAX, (c.sharedInterests || 0) * INTEREST_BOOST_PER);
+      + Math.min(INTEREST_BOOST_MAX, (c.sharedInterests || 0) * INTEREST_BOOST_PER)
+      - agePenalty(c);
     ranked.sort((a, b) => rankScore(b) - rankScore(a));
 
     const start = Math.max(0, parseInt(offset, 10) || 0);

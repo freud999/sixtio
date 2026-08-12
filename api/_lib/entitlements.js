@@ -22,13 +22,46 @@ export const LIKES_PASS_DAYS = 7;
 export const AI_REPORT_PRICE = 50;        // ⭐ for the written personal report (bought once, kept forever)
 export const DAY_MS = 24 * 60 * 60 * 1000;
 
+// --- Welcome bonus: everything free for everyone, until a date -------------
+//
+// A launch-phase decision, not a bug: with a handful of users a paywall does
+// not earn money, it just removes the only thing that makes the product look
+// alive. So for this window every account is treated as Premium — no blur, no
+// like ceiling, no per-reveal charges.
+//
+// Implemented as a DATE, not as a flag and not by writing premium_until onto
+// every row. A date covers people who sign up tomorrow without a backfill, it
+// expires by itself if nobody remembers it, and it leaves each user's real
+// premium_until untouched — so when the window closes, anyone who actually paid
+// still has exactly what they paid for. Rewriting user rows would have
+// destroyed that distinction permanently.
+//
+// WELCOME_FREE_UNTIL (env, ISO date) moves or ends it without a deploy: set it
+// to a past date to switch the paywall back on immediately.
+const DEFAULT_WELCOME_FREE_UNTIL = '2026-09-11T23:59:59Z';   // 30 days from 2026-08-12
+
+export function welcomeFreeUntil() {
+  const raw = String(process.env.WELCOME_FREE_UNTIL || DEFAULT_WELCOME_FREE_UNTIL).trim();
+  const ms = new Date(raw).getTime();
+  // An unparseable value must NOT silently hand the product away for free, and
+  // must not crash either: fall back to the built-in date.
+  return Number.isFinite(ms) ? ms : new Date(DEFAULT_WELCOME_FREE_UNTIL).getTime();
+}
+
+/** Is the free-for-everyone welcome window open right now? */
+export function welcomeBonusActive(now = Date.now()) {
+  return now < welcomeFreeUntil();
+}
+
 export function entitlements(user) {
   const now = Date.now();
   const isFemale = user && user.gender === 'female';
   const premiumUntilMs = user && user.premium_until ? new Date(user.premium_until).getTime() : 0;
+  const welcome = welcomeBonusActive(now);
 
-  // Females are always entitled; males only while their subscription is live.
-  const premiumActive = isFemale || premiumUntilMs > now;
+  // Females are always entitled; males only while their subscription is live —
+  // plus everybody, while the welcome window is open.
+  const premiumActive = welcome || isFemale || premiumUntilMs > now;
 
   // Remaining free likes only matters for the metered (non-premium male) tier.
   let likesLeft = Infinity;
@@ -42,6 +75,12 @@ export function entitlements(user) {
   return {
     isFemale,
     premiumActive,
+    // True only while the welcome window is what is granting access. Kept
+    // separate from premiumActive so the UI can say "welcome bonus" instead of
+    // "Premium" — telling someone they are a subscriber when they are not is
+    // how you get an angry message the day it ends.
+    welcomeBonus: welcome,
+    welcomeBonusUntil: welcome ? new Date(welcomeFreeUntil()).toISOString() : null,
     premiumUntil: premiumUntilMs ? new Date(premiumUntilMs).toISOString() : null,
     blur: !premiumActive,                       // free males only
     likesLeft,                                   // Infinity when unlimited
