@@ -81,6 +81,9 @@ Migration 027's `calculate_compatibility(uuid)` is deliberately KEPT as that fal
   paywall), `matching.js` (MIN_SCORE=6), `analytics.js` (bot webhook + Stars credit),
   `events.js` (funnel), `sources.js`/`referrals.js` (attribution), `ratelimit.js`,
   `compat.js` (ALL compatibility reads — never call the RPCs directly),
+  `gendermatch.js` (the ONE mutual-gender rule — feed, matchmaker and likers all
+  go through `mutualGenderMatch`; `'any'` resolves to the opposite gender, it is
+  NOT a wildcard),
   `flags.js` (kill switches; no static imports on purpose), `sentry.js` (zero-dep
   error reporting, inert without `SENTRY_DSN`), `aibudget.js` (daily AI ceiling).
 - Kill switches, all DEFAULT ON, off only on an unambiguous false/0/off/no:

@@ -7,6 +7,7 @@ import { rateLimit, LIMITS, sendRateLimited } from './_lib/ratelimit.js';
 import { signPhoto, signPhotos, photoKey, blurKey } from './_lib/photos.js';
 import { compatibilityPage } from './_lib/compat.js';
 import { flagEnabled } from './_lib/flags.js';
+import { mutualGenderMatch, wantedGender } from './_lib/gendermatch.js';
 
 // Recommendation feed for the swipe deck (feed.html). Pure Supabase — no AI.
 // Candidates are opposite-gender, within ±10 years, never already swiped, and
@@ -153,7 +154,10 @@ export default async function handler(req, res) {
     // as the candidate query below and returns at most POOL_MAX rows, instead of
     // scoring every profile in the database on every deck open (F-09). Isolated:
     // on any failure the deck still renders, every candidate just scoring 0.
-    const wantGender = (me.seeking_gender && me.seeking_gender !== 'any') ? me.seeking_gender : null;
+    // 'any' resolves to the opposite gender rather than dropping the filter, so
+    // the SQL prefilter and the JS rule below can never disagree — a wildcard
+    // here is what let same-gender profiles into a straight user's deck.
+    const wantGender = wantedGender(me);
     const minAge = me.age ? me.age - MAX_AGE_GAP : null;
     const maxAge = me.age ? me.age + MAX_AGE_GAP : null;
     const compatMap = await compatibilityPage(supabase, me.id, {
@@ -214,10 +218,11 @@ export default async function handler(req, res) {
     for (const c of candidates || []) {
       if (seen.has(c.id)) continue;                              // already swiped / blocked
       if (c.shadow_hidden) continue;                             // mass-reported, auto-hidden
-      if (!c.gender || !c.seeking_gender || !c.age) continue;    // incomplete profile
-      // Opposite gender by mutual preference ('any' is a wildcard on either side).
-      if (me.seeking_gender !== 'any' && c.gender !== me.seeking_gender) continue;
-      if (c.seeking_gender !== 'any' && me.gender !== c.seeking_gender) continue;
+      if (!c.gender || !c.age) continue;                         // incomplete profile
+      // The one gender rule, shared with the matchmaker and the likers list
+      // (_lib/gendermatch.js). It was two inline conditions here, duplicated in
+      // matching.js and simply missing from the likers list.
+      if (!mutualGenderMatch(me, c)) continue;
       // Preferred age range — ±10 years, no geographical radius.
       if (me.age && Math.abs(me.age - c.age) > MAX_AGE_GAP) continue;
 

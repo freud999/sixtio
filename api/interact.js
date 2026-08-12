@@ -513,7 +513,10 @@ async function listLikers(res, tgUser) {
   const supabase = getSupabase();
   const { data: me, error } = await supabase
     .from('users')
-    .select('id, gender, premium, premium_until, daily_likes_count, last_like_reset, ' +
+    // seeking_gender is needed for the mutual-gender rule below: without it the
+    // likers list would fall back to "opposite of my gender" and quietly ignore
+    // an explicit preference.
+    .select('id, gender, seeking_gender, premium, premium_until, daily_likes_count, last_like_reset, ' +
             'liked_users, disliked_users, blocked_users, likes_pass_until, revealed_likers')
     .eq('telegram_id', tgUser.id)
     .maybeSingle();

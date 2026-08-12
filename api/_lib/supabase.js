@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { reportEnvOnce } from './env.js';
+import { mutualGenderMatch } from './gendermatch.js';
 
 // Every function that touches the database imports this module, so its load is
 // the earliest point in a cold start that is common to all of them. Checking
@@ -274,7 +275,9 @@ export async function getHiddenUserIds(userId, myBlockedList) {
 export async function getPendingLikers(me, columns = 'id', limit = 100) {
   const { data, error } = await getSupabase()
     .from('users')
-    .select(columns + ', id, shadow_hidden, last_active')
+    // gender + seeking_gender are always fetched, whatever the caller asked for,
+    // because the mutual-gender rule below is not optional.
+    .select(columns + ', id, gender, seeking_gender, shadow_hidden, last_active')
     .contains('liked_users', [me.id])
     .order('last_active', { ascending: false })
     .limit(limit);
@@ -283,7 +286,11 @@ export async function getPendingLikers(me, columns = 'id', limit = 100) {
   const answered = new Set([...(me.liked_users || []), ...(me.disliked_users || [])]);
   const hidden = await getHiddenUserIds(me.id, me.blocked_users);
   return (data || []).filter(
+    // The gender rule was MISSING here, and this is the worst screen to miss it
+    // on: "who liked you" charges Stars to reveal a name. Someone the deck would
+    // never show could appear here, and be paid for. Same rule as the deck now.
     (u) => !u.shadow_hidden && !answered.has(u.id) && !hidden.has(u.id)
+        && mutualGenderMatch(me, u)
   );
 }
 

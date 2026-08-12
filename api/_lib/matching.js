@@ -2,6 +2,7 @@ import { getSupabase, getHiddenUserIds, getMatchesFor } from './supabase.js';
 import { scoreCandidates } from './claude.js';
 import { notifyMatchBoth } from './bot.js';
 import { flagEnabled } from './flags.js';
+import { mutualGenderMatch, wantedGender } from './gendermatch.js';
 
 // Who can match with whom by relationship goal: "situational" is open to everyone.
 const COMPATIBLE_GOALS = {
@@ -77,7 +78,10 @@ export async function runMatching(userId, lang = 'uk') {
     .eq('shadow_hidden', false)
     .gte('age', me.age - MAX_AGE_GAP)
     .lte('age', me.age + MAX_AGE_GAP);
-  if (me.seeking_gender !== 'any') candQuery = candQuery.eq('gender', me.seeking_gender);
+  // 'any' resolves to the opposite gender (_lib/gendermatch.js), so this SQL
+  // prefilter and the JS rule below cannot disagree.
+  const wantGender = wantedGender(me);
+  if (wantGender) candQuery = candQuery.eq('gender', wantGender);
   const { data: candidates, error: candError } = await candQuery;
   if (candError) throw candError;
 
@@ -92,8 +96,8 @@ export async function runMatching(userId, lang = 'uk') {
   const prelim = [];
   for (const c of candidates || []) {
     if (hidden.has(c.id) || pairedIds.has(c.id)) continue;  // blocked or already paired
-    if (!c.gender || !c.seeking_gender || !c.goal || !c.age) continue;
-    if (c.seeking_gender !== 'any' && me.gender !== c.seeking_gender) continue;
+    if (!c.gender || !c.goal || !c.age) continue;
+    if (!mutualGenderMatch(me, c)) continue;   // the one shared rule
     if (!(COMPATIBLE_GOALS[me.goal] || []).includes(c.goal)) continue;
     prelim.push(c);
   }
