@@ -6,6 +6,33 @@
   var tg = window.Telegram && window.Telegram.WebApp;
   var root = document.documentElement;
 
+  // --- Vertical swipe: let the PAGE scroll, not the app close -----------------
+  //
+  // On Android, a downward swipe inside a Mini App is claimed by Telegram to
+  // minimise or close the window. That gesture is the same one a person makes to
+  // scroll, so on any screen taller than the viewport — the onboarding chat, the
+  // profile, the policy — scrolling either did nothing or dropped them out of
+  // the app entirely. It is not a layout bug: the container scrolls fine, the
+  // touch never reaches it.
+  //
+  // disableVerticalSwipes() (Bot API 7.7+) hands the gesture back to the page.
+  // Guarded twice over — isVersionAtLeast is itself absent on old clients, and an
+  // older Telegram must degrade to today's behaviour rather than throw during
+  // startup and take the theme down with it.
+  //
+  // Lives here, in the one file every page already loads, because the bug is
+  // every page's and ten copies of this would mean nine chances to miss one.
+  try {
+    if (tg) {
+      if (tg.ready) tg.ready();
+      if (tg.expand) tg.expand();
+      if (tg.disableVerticalSwipes &&
+          (!tg.isVersionAtLeast || tg.isVersionAtLeast('7.7'))) {
+        tg.disableVerticalSwipes();
+      }
+    }
+  } catch (e) { /* an old client keeps the old behaviour; nothing else breaks */ }
+
   function stored(){
     try { var v = localStorage.getItem('sixtio_theme'); return (v === 'light' || v === 'dark') ? v : null; } catch(e){ return null; }
   }
