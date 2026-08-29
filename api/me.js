@@ -551,9 +551,20 @@ const RETENTION_BATCH = 50;
 // repair old rows would be a worse bug than the one it fixes. At 5/day the
 // current backlog clears in under a week and then costs nothing, because there
 // is nothing left to find.
+// A COUNT cap alone was not enough, and that was a real bug in the first
+// version of this: each repair is a Claude call of roughly 5-8s, so five of
+// them is 25-40s — on its own more than vercel.json's maxDuration: 30, before
+// the smoke test and the retention pushes had even been counted. The count
+// bounds the money; only a clock bounds the function.
 const BACKFILL_PER_RUN = 5;
+const TICK_BUDGET_MS = 24_000;   // leave ~6s of the 30 for the response + ping
 
-async function backfillMissingTraits() {
+async function backfillMissingTraits(tickStartedAt = Date.now()) {
+  const outOfTime = () => Date.now() - tickStartedAt > TICK_BUDGET_MS;
+  if (outOfTime()) {
+    console.warn('traits backfill skipped: no time left in this tick');
+    return;
+  }
   try {
     const supabase = getSupabase();
     // A Twin exists but the OCEAN vector does not — exactly the needsTraits
@@ -570,6 +581,13 @@ async function backfillMissingTraits() {
     const { questionLabel } = await import('./_lib/questions.js');
     let done = 0;
     for (const row of rows) {
+      // Re-checked before EVERY repair, not once at the top: the loop is what
+      // spends the time, so the deadline has to be read inside it. Whatever is
+      // left over is simply picked up on the next tick.
+      if (outOfTime()) {
+        console.warn(`traits backfill stopped early: ${done} repaired, out of time`);
+        break;
+      }
       try {
         const { data: answers } = await supabase
           .from('answers')
@@ -614,8 +632,8 @@ async function cronRetentionTrigger(req, res) {
   // check that would have caught BOTH of today's silent failures: the retention
   // cron itself had been dead for 14 hours, and Gemini had been 404ing for a
   // week, with the app returning 200 throughout.
+  const tickStartedAt = Date.now();
   await runSmokeTest();
-  await backfillMissingTraits();
 
   try {
     const supabase = getSupabase();
@@ -640,6 +658,12 @@ async function cronRetentionTrigger(req, res) {
       if (upErr) console.error('retention stamp failed:', upErr.message);
       else sent++;
     }
+
+    // Repair work goes LAST, and only with time left over. Retention pushes are
+    // the job this cron exists for; the backfill is a nice-to-have that must
+    // never be able to starve it. Running it first — as it briefly did — is
+    // exactly the mistake its own comment warned against.
+    await backfillMissingTraits(tickStartedAt);
 
     await pingDeadMansSwitch();
     return res.status(200).json({ ok: true, candidates: (users || []).length, sent });
