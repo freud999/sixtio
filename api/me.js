@@ -676,18 +676,48 @@ async function cronRetentionTrigger(req, res) {
       .lt('last_active', cutoff)
       .or(`last_retention_push.is.null,last_retention_push.lt.${cutoff}`)
       .not('telegram_id', 'is', null)
+      // Skip accounts Telegram has permanently refused. Without this the batch
+      // spends its slots, every 48 hours forever, on people who blocked the bot
+      // or never opened a chat with it — while reachable users wait behind them.
+      .is('bot_unreachable_at', null)
       .limit(RETENTION_BATCH);
     if (error) throw error;
 
-    let sent = 0;
+    let sent = 0, unreachable = 0, failed = 0;
     for (const u of users || []) {
-      await notifyRetention(u.telegram_id, u.language_code);
+      const r = await notifyRetention(u.telegram_id, u.language_code);
+
+      if (r && r.permanent) {
+        // Record the fact and stop trying. Cleared the moment they talk to the
+        // bot again (see api/_lib/analytics.js), so this is never a life sentence.
+        unreachable++;
+        await supabase.from('users')
+          .update({
+            bot_unreachable_at: new Date().toISOString(),
+            bot_unreachable_reason: String(r.reason || '').slice(0, 200),
+          })
+          .eq('id', u.id);
+        continue;
+      }
+
+      if (!r || !r.sent) {
+        // Transient (a 500, a timeout). Do NOT stamp: leaving the row untouched
+        // is what makes tomorrow's tick retry it.
+        failed++;
+        continue;
+      }
+
+      // Stamped ONLY on real delivery. It used to be stamped unconditionally,
+      // so "53 users pushed" counted 43 messages Telegram had refused.
       const { error: upErr } = await supabase
         .from('users')
         .update({ last_retention_push: new Date().toISOString() })
         .eq('id', u.id);
       if (upErr) console.error('retention stamp failed:', upErr.message);
       else sent++;
+    }
+    if (unreachable || failed) {
+      console.warn(`retention: ${sent} delivered, ${unreachable} permanently unreachable, ${failed} retryable`);
     }
 
     // Repair work goes LAST, and only with time left over. Retention pushes are
@@ -698,7 +728,9 @@ async function cronRetentionTrigger(req, res) {
     await checkFunnelHealth();
 
     await pingDeadMansSwitch();
-    return res.status(200).json({ ok: true, candidates: (users || []).length, sent });
+    return res.status(200).json({
+      ok: true, candidates: (users || []).length, sent, unreachable, failed,
+    });
   } catch (e) {
     console.error('cron_retention_trigger failed:', e);
     return res.status(500).json({ ok: false, error: 'Internal error' });

@@ -177,6 +177,22 @@ export async function handleTelegramUpdate(req, res, update) {
     const cb = update.callback_query;
     const msg = update.message;
 
+    // ANY inbound message proves a chat with the bot exists and is not blocked,
+    // whatever the message says. So an "unreachable" mark is lifted here rather
+    // than by a retry — retrying is precisely what we stopped doing, and without
+    // this the mark would be permanent and the user would never be nudged again.
+    // Best-effort: an update must never fail over a bookkeeping write.
+    const talker = (msg && msg.from && msg.from.id) || (cb && cb.from && cb.from.id);
+    if (talker) {
+      getSupabase().from('users')
+        .update({ bot_unreachable_at: null, bot_unreachable_reason: null })
+        .eq('telegram_id', talker)
+        .not('bot_unreachable_at', 'is', null)
+        .then(({ error }) => {
+          if (error) console.error('clear unreachable failed:', error.message);
+        }, () => {});
+    }
+
     // --- Telegram Stars payments (Task 19) -------------------------------
     // The bot webhook points here, so Stars checkout updates arrive on this path.
     // pre_checkout_query MUST be answered ok:true within 10s or Telegram voids the

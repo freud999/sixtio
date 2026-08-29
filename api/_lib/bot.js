@@ -132,14 +132,46 @@ export async function notifyReferralBonus(telegramId, langCode) {
 // --- Retention engine (Task 9) -----------------------------------------
 // Fire-and-forget nudge with an "Open Sixtio" button; self-guarded so a user
 // who never pressed Start (can't be messaged) never breaks the caller.
+/**
+ * Telegram refusals that will NEVER succeed on retry.
+ *
+ *   "bot was blocked by the user" — they blocked us.
+ *   "chat not found"             — no conversation with the bot exists at all.
+ *                                  A Mini App opened from a link does not create
+ *                                  one, so a user can register, complete the
+ *                                  interview and be permanently unreachable
+ *                                  without ever doing anything wrong.
+ *   "user is deactivated"        — the account is gone.
+ *
+ * Everything else (a 500, a timeout, a rate limit) is worth trying again.
+ */
+export function isPermanentlyUnreachable(message) {
+  return /bot was blocked|chat not found|user is deactivated|bot can't initiate conversation/i
+    .test(String(message || ''));
+}
+
+/**
+ * @returns {Promise<{sent: boolean, permanent: boolean, reason: string|null}>}
+ *
+ * It used to swallow the error and return nothing, so callers stamped
+ * "delivered" on messages that were refused. A send function that cannot say
+ * whether it sent anything makes every metric built on it a guess.
+ */
 async function nudge(telegramId, text, langCode, url) {
   const reply_markup = {
     inline_keyboard: [[{ text: dict(langCode).open_btn, web_app: { url: url || APP_URL } }]],
   };
   try {
     await callBot('sendMessage', { chat_id: telegramId, text, reply_markup });
+    return { sent: true, permanent: false, reason: null };
   } catch (e) {
-    console.error(`nudge to ${telegramId} failed:`, e.message);
+    const reason = String((e && e.message) || e);
+    const permanent = isPermanentlyUnreachable(reason);
+    // A permanent refusal is not an incident — it is a fact about that user, and
+    // logging it at error level 43 times a day buries the ones that matter.
+    if (permanent) console.warn(`nudge to ${telegramId} skipped (permanent): ${reason}`);
+    else console.error(`nudge to ${telegramId} failed:`, reason);
+    return { sent: false, permanent, reason };
   }
 }
 
@@ -154,7 +186,7 @@ export async function notifyInstantMatch(userA, userB) {
 
 /** 48-hour inactivity retention nudge. Never throws. */
 export async function notifyRetention(telegramId, langCode) {
-  await nudge(telegramId, dict(langCode).retention, langCode);
+  return nudge(telegramId, dict(langCode).retention, langCode);
 }
 
 /** Pings a user that their match sent them a new in-app message. */
