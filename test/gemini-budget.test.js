@@ -133,12 +133,15 @@ test('a failed translation is remembered, so the next view costs nothing', async
     try {
       const first = await localizeProfiles(items, 'en');
       assert.equal(first.a.vibe, 'тиха сила', 'falls back to the original');
-      assert.equal(calls.length, 1);
+      // TWO attempts, not one: a 500 is transient, so the light model retries
+      // on the main one (2026-08-29). One VIEW may cost two attempts — what
+      // this test is about is that the NEXT view costs none.
+      assert.equal(calls.length, 2, 'primary attempt + fallback attempt');
 
       // The whole bug: this second view used to issue the same doomed request.
       const second = await localizeProfiles(items, 'en');
       assert.equal(second.a.vibe, 'тиха сила');
-      assert.equal(calls.length, 1, 'no second request within the negative TTL');
+      assert.equal(calls.length, 2, 'no further requests within the negative TTL');
     } finally { restore(); }
   });
 });
@@ -153,7 +156,9 @@ test('the negative cache is per language, not a blanket mute', async () => {
     try {
       await localizeProfiles(items, 'en');
       await localizeProfiles(items, 'ru');
-      assert.equal(calls.length, 2, 'a different reader language is a different question');
+      // Two attempts per language (primary + fallback), and crucially NOT zero
+      // for 'ru': muting one language must never mute the others.
+      assert.equal(calls.length, 4, 'a different reader language is a different question');
     } finally { restore(); }
   });
 });

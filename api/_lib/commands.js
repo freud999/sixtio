@@ -21,7 +21,7 @@ import { buildReferralLink } from './referrals.js';
 import { flagStates, flagsDown } from './flags.js';
 import { sentryConfigured } from './sentry.js';
 import {
-  smokeEnv, formatSmoke, validateEnv, formatProblems,
+  smokeEnv, formatSmoke, smokeHealthy, validateEnv, formatProblems,
   geminiModelInUse, geminiModelLightInUse, kinkModelInUse,
 } from './env.js';
 
@@ -422,7 +422,7 @@ async function sendEnvCheck(msg) {
   // A kill switch left down is the realistic failure here — not the emergency
   // itself, but forgetting to switch back. So "all green" is FALSE while any
   // switch is off: /envcheck must never report health while a feature is dark.
-  const allOk = !shape.length && live.every((r) => r.ok) && !down.length;
+  const allOk = !shape.length && smokeHealthy(live) && !down.length;
 
   const text =
     `<b>${allOk ? '✅ All green' : '⚠️ Problems found'}</b>\n\n` +

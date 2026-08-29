@@ -305,11 +305,15 @@ export async function geminiFetch(payload, opts = {}) {
   const model = opts.light ? geminiModelLight() : geminiModel();
   const label = opts.label || 'Gemini';
 
-  // Falling back to the light model is only useful when it is a DIFFERENT
-  // model — it has its own free-tier window (15 RPM vs 5) and its own load, so
-  // it is genuinely a second chance rather than the same queue twice.
-  const fallback = geminiModelLight();
-  const canFallBack = !opts.light && !opts.noFallback && fallback !== model;
+  // The fallback is the OTHER model, whichever way round we started.
+  //
+  // Corrected 2026-08-29: this first shipped as main -> light only, which helped
+  // nothing, because nothing calls the main model. Translation — Gemini's only
+  // job — passes `light: true`, so the retry it actually needs is light -> main.
+  // Each model has its own free-tier window (15 RPM vs 5) and its own load, so
+  // the other one is a genuine second chance and not the same queue twice.
+  const fallback = opts.light ? geminiModel() : geminiModelLight();
+  const canFallBack = !opts.noFallback && fallback !== model;
 
   try {
     return await attempt(model, payload, label, opts);

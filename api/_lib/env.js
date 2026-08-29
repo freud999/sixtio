@@ -381,12 +381,28 @@ const geminiModelInUse = geminiModel;
 const geminiModelLightInUse = geminiModelLight;
 export { geminiModelInUse, geminiModelLightInUse, kinkModelInUse };
 
-async function probe(name, fn) {
+/**
+ * `warnOnly` marks a dependency the app can lose without losing a feature —
+ * a spare, not a wheel. Its failure is reported (⚠️) but does not make the
+ * whole check red.
+ *
+ * This exists because of a real, measured mistake: /envcheck reported
+ * "Problems found" for `gemini-flash-latest`, which NOTHING in the app calls.
+ * Translation — Gemini's only remaining job — runs on the light model, and that
+ * one was green. An alarm about a dependency nobody uses is worse than no
+ * alarm: it is loud, it is wrong, and it teaches you to ignore the next one.
+ */
+async function probe(name, fn, opts = {}) {
   try {
     const detail = await fn();
     return { name, ok: true, detail: detail || 'ok' };
   } catch (e) {
-    return { name, ok: false, detail: String((e && e.message) || e).slice(0, 200) };
+    return {
+      name,
+      ok: false,
+      warn: !!opts.warnOnly,
+      detail: String((e && e.message) || e).slice(0, 200),
+    };
   }
 }
 
@@ -432,7 +448,15 @@ export async function smokeEnv() {
       return `ok${pending ? ` · ${pending} queued` : ''}`;
     }),
 
-    await probe('Gemini', async () => {
+    // WARN-ONLY, and this is the point: nothing in the app calls this model.
+    // Gemini's only job is translation (PRIV-1), and translateBundle passes
+    // `light: true`. The main model is the FALLBACK the light one retries onto,
+    // so its being down costs a second chance, never a feature.
+    //
+    // Measured 2026-08-29: this probe was reporting ❌ and turning the whole
+    // /envcheck red while translation was working perfectly. Naming it
+    // "Gemini fallback" so the line says what it is.
+    await probe('Gemini fallback', async () => {
       if (!process.env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY is not set');
       const wanted = geminiModelInUse();
       // Deliberately NOT models.list. That list is not evidence: measured
@@ -454,17 +478,17 @@ export async function smokeEnv() {
         { thinkingOff: true, label: 'Gemini generateContent', noFallback: true }
       );
       return wanted;
-    }),
+    }, { warnOnly: true }),
 
-    // The light model is a SECOND thing that can be retired underneath us, and
-    // it now carries translation and the photo safety gate. Checking only the
-    // main model would report "Gemini ✅" while every upload was being refused.
-    await probe('Gemini light', async () => {
+    // THIS is the one that matters: the model translation actually runs on.
+    // If it is down, profiles are shown in their original language to readers
+    // who cannot read it — the one screen where the text IS the content.
+    await probe('Gemini translation', async () => {
       if (!process.env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY is not set');
       const wanted = geminiModelLightInUse();
       await geminiFetch(
         { contents: [{ role: 'user', parts: [{ text: 'ping' }] }] },
-        { thinkingOff: true, light: true, label: 'Gemini light generateContent' }
+        { thinkingOff: true, light: true, label: 'Gemini translate', noFallback: true }
       );
       return wanted;
     }),
@@ -526,6 +550,15 @@ export async function smokeEnv() {
 /** Renders smoke results as a ✅/❌ list. Contains no values, only verdicts. */
 export function formatSmoke(results) {
   return (results || [])
-    .map((r) => `${r.ok ? '✅' : '❌'} ${r.name}: ${r.detail}`)
+    .map((r) => `${r.ok ? '✅' : r.warn ? '⚠️' : '❌'} ${r.name}: ${r.detail}`)
     .join('\n');
+}
+
+/**
+ * Did anything that MATTERS fail? A warn-only probe (a spare, not a wheel) is
+ * shown but does not make the check red — otherwise the alarm cries wolf and
+ * stops being read, which is the real way monitoring dies.
+ */
+export function smokeHealthy(results) {
+  return (results || []).every((r) => r.ok || r.warn);
 }

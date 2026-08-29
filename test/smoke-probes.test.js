@@ -41,7 +41,11 @@ test('no probe fails with an internal error of its own', async () => {
     }
     // And the probes we added must actually be present.
     const names = results.map((r) => r.name);
-    assert.ok(names.includes('Gemini light'), 'the light model must be probed too');
+    // Renamed 2026-08-29 from "Gemini light" to what it means for a user: this
+    // is the model translation actually runs on, and its failure shows profiles
+    // in a language the reader cannot read.
+    assert.ok(names.includes('Gemini translation'), 'the model translation uses must be probed');
+    assert.ok(names.includes('Gemini fallback'), 'and the spare, so a silent single point of failure is visible');
     assert.ok(names.includes('Telegram webhook'), 'the inbound channel must be probed');
   } finally {
     globalThis.fetch = realFetch;

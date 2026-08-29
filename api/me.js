@@ -687,7 +687,10 @@ async function pingDeadMansSwitch() {
 async function runSmokeTest() {
   try {
     const results = await smokeEnv();
-    const failed = results.filter((r) => !r.ok);
+    // Warn-only probes are reported but never wake the owner: a spare tyre
+    // being flat is not a 3am alert, and an alert that fires for it stops
+    // being read before the one that matters arrives.
+    const failed = results.filter((r) => !r.ok && !r.warn);
     if (!failed.length) return;
     console.error(`smoke test failed:\n${formatSmoke(failed)}`);
     await notifyOwner(
