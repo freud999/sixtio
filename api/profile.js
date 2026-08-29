@@ -23,6 +23,14 @@ export default async function handler(req, res) {
     const rl = rateLimit(`profile:${tgUser.id}`, LIMITS.ai_heavy);
     if (!rl.allowed) return sendRateLimited(res, rl.retryAfterSec);
 
+    // This handler does two AI calls back to back — the Digital Twin, then the
+    // matchmaker — inside vercel.json's maxDuration: 30. Measured 2026-08-29:
+    // that budget was blown, repeatedly ("matching failed: Request timed out"
+    // x5, plus hard "Task timed out after 30 seconds" kills). A hard kill is
+    // the worst outcome available: no catch runs, no response reaches the
+    // client, and the user's finished onboarding ends in a spinner — even
+    // though their Twin was already saved.
+    const startedAt = Date.now();
     const supabase = getSupabase();
     const userId = await upsertUser(tgUser);
 
@@ -90,12 +98,25 @@ export default async function handler(req, res) {
       console.error('source attribution failed:', srcError.message);
     }
 
-    // Instant matchmaking: try to pair this user right after their profile is ready.
-    // Never let matching (or its bot notifications) fail the profile response.
-    try {
-      await runMatching(userId, lang);
-    } catch (matchError) {
-      console.error('matching failed:', matchError.message);
+    // Instant matchmaking: try to pair this user right after their profile is
+    // ready. Never let matching (or its bot notifications) fail the response —
+    // and never let it run us into the function's own deadline.
+    //
+    // MATCH_BUDGET_MS is what is left over. The matchmaker's own AI call is
+    // capped at AI_TIMEOUT_MS (20s), so starting it with less than that on the
+    // clock is choosing a hard kill over a skipped pairing. A skipped pairing
+    // costs nothing: the user gets their Twin, and matching happens on their
+    // next open or on the daily cron. A kill costs the whole response.
+    const MATCH_BUDGET_MS = 21_000;
+    const elapsed = Date.now() - startedAt;
+    if (elapsed > MATCH_BUDGET_MS) {
+      console.warn(`matching skipped: profile took ${elapsed}ms, no room inside maxDuration`);
+    } else {
+      try {
+        await runMatching(userId, lang);
+      } catch (matchError) {
+        console.error('matching failed:', matchError.message);
+      }
     }
 
     return res.status(200).json(profile);

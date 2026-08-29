@@ -438,6 +438,21 @@ export default async function handler(req, res) {
         : null,
       // Onboarding resume: empty for anyone who has finished (see above).
       answeredQuestions,
+      // --- Self-healing flags (2026-08-29) ---------------------------------
+      // Measured: 40 users had a Digital Twin and only 15 had Big Five. The
+      // extraction was fired exactly once, from the onboarding card, at the
+      // moment the user taps "Continue" — and navigation cancels in-flight
+      // requests. One cancelled request meant no compatibility score, forever.
+      //
+      // So the app now notices and repairs itself: the client re-fires the
+      // missing step on every open until it lands. Both flags are derived from
+      // rows this handler ALREADY loaded, so they cost no extra query.
+      //
+      // needsTraits: the Twin exists but the Big Five vector does not.
+      needsTraits: !!profile && profile.trait_extraversion == null,
+      // needsTwin: a finished interview with no Twin row at all — /api/profile
+      // never completed. 5 is the number of main onboarding questions.
+      needsTwin: !profile && answeredQuestions.length >= 5,
       matches,
       // Back-compat: the first match, same shape older clients expected.
       match: matches[0] || null,

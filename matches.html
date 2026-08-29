@@ -545,12 +545,36 @@
         window.location.reload();
       }
 
+      // Self-repair for the two onboarding steps that can be lost to a
+      // cancelled request (see needsTraits/needsTwin in api/me.js). Fired at
+      // most once per app open, with keepalive so leaving the screen does not
+      // kill it — the same mistake that lost 62% of Big Five vectors in the
+      // first place. Deliberately silent: the user is not told their profile
+      // was incomplete, it simply becomes complete.
+      var repairFired = false;
+      function repairProfile(me){
+        if (repairFired) return;
+        var path = me.needsTwin ? '/api/profile'
+                 : me.needsTraits ? '/api/analyze-traits' : null;
+        if (!path) return;
+        repairFired = true;
+        try {
+          fetch(path, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ initData: (tg && tg.initData) || '' }),
+            keepalive: true
+          }).catch(function(){});
+        } catch (e) {}
+      }
+
       function load(){
         return api('/api/me', {}).then(function(me){
           if (!me.registered) { window.location.replace('onboarding.html'); return; }
           localStorage.setItem('sixtio_me', JSON.stringify(me));
           try { localStorage.setItem('sixtio_me_at', String(Date.now())); } catch(e){}
           render(me);
+          repairProfile(me);
         });
       }
 

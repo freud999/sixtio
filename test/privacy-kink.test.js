@@ -23,11 +23,25 @@ function jsFiles() {
   const out = [];
   for (const dir of ROOTS) {
     for (const e of readdirSync(dir, { withFileTypes: true })) {
-      if (e.isFile() && e.name.endsWith('.js')) out.push(`${dir}/${e.name}`.replace(/\\/g, '/'));
+      // `!e.isDirectory()`, NOT `e.isFile()`. Measured 2026-08-29: after the
+      // project folder was moved into OneDrive and back, Windows reported 38 of
+      // 41 source files as reparse points — isFile() returned false for almost
+      // the whole repo, and this scan silently dropped from 42 files to 3.
+      //
+      // That is the worst failure a test like this can have. It kept passing
+      // while proving nothing: a new Gemini door in any of the 39 invisible
+      // files would have gone unnoticed. isDirectory() is the property we
+      // actually mean, and it survives placeholders and symlinks.
+      if (!e.isDirectory() && e.name.endsWith('.js')) out.push(`${dir}/${e.name}`.replace(/\\/g, '/'));
     }
   }
   return out;
 }
+
+// The lower bound exists because the check above already went blind once, and
+// nothing complained. A scan that finds almost nothing must FAIL, not pass —
+// otherwise "no new Gemini doors" means "we did not look".
+const MIN_FILES_SCANNED = 30;
 
 /** Source with comments stripped: comments are where we RECORD this rule. */
 function codeOf(file) {
@@ -55,6 +69,14 @@ const GEMINI_DOORS = [
   'api/_lib/translate.js',    // profile/bio/report translation — the ONLY job left
   'api/_lib/env.js',          // the /envcheck ping
 ];
+
+test('the scan can actually see the repository', () => {
+  // Guards the two tests below from passing vacuously. Without it, a
+  // filesystem quirk turns a whole-repo privacy proof into a no-op.
+  const n = jsFiles().length;
+  assert.ok(n >= MIN_FILES_SCANNED,
+    `only ${n} source files were scanned — the Gemini-door check is blind, fix the walk before trusting it`);
+});
 
 test('only the pinned files talk to Gemini', () => {
   const callers = jsFiles().filter((f) => /geminiFetch\s*\(|generativelanguage/.test(codeOf(f)));

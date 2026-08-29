@@ -37,7 +37,12 @@ const WINDOW_MS = 60_000;
 // Translation is the fastest call in the app and the least worth waiting for —
 // its failure mode is "show the original", which costs nothing. Well inside
 // vercel.json's maxDuration: 30, so a stall still leaves room to answer.
-const DEFAULT_TIMEOUT_MS = 12_000;
+// 8s, not 12s — because there are now TWO attempts (main model, then the light
+// one) and both have to finish inside vercel.json's maxDuration: 30 alongside
+// everything else /api/me does. 8+8 leaves real headroom; 12+12 would not.
+// Translation is also the least worth waiting for: its failure mode is "show
+// the original text", which costs nothing.
+const DEFAULT_TIMEOUT_MS = 8_000;
 
 function timeoutMs() {
   const n = Number(process.env.GEMINI_TIMEOUT_MS);
@@ -300,10 +305,51 @@ export async function geminiFetch(payload, opts = {}) {
   const model = opts.light ? geminiModelLight() : geminiModel();
   const label = opts.label || 'Gemini';
 
+  // Falling back to the light model is only useful when it is a DIFFERENT
+  // model — it has its own free-tier window (15 RPM vs 5) and its own load, so
+  // it is genuinely a second chance rather than the same queue twice.
+  const fallback = geminiModelLight();
+  const canFallBack = !opts.light && fallback !== model;
+
+  try {
+    return await attempt(model, payload, label, opts);
+  } catch (e) {
+    if (!canFallBack || !isTransient(e)) throw e;
+    console.warn(`${label}: "${model}" is ${e.status === 503 ? 'overloaded' : 'not answering'} — retrying on "${fallback}"`);
+    return attempt(fallback, payload, label, opts);
+  }
+}
+
+/**
+ * Transient = the request deserves a second chance on another model.
+ *
+ * Measured 2026-08-29: Google's free tier answered `503 "This model is
+ * currently experiencing high demand"` and, more often, simply stopped
+ * answering until the deadline. Neither is our bug and neither is permanent —
+ * but a single attempt turned both into "profiles shown in the wrong language".
+ *
+ * A 429 is deliberately NOT here: the quota is spent, and hammering a second
+ * model is how you spend that one too. It stays a typed refusal the caller
+ * degrades around.
+ */
+function isTransient(e) {
+  if (!e || e.code === 'gemini_quota') return false;
+  if (e.status >= 500) return true;
+  return /timed out after/.test(String(e.message || ''));
+}
+
+/** One model's worth of the request, including the thinking-knob dance. */
+async function attempt(model, payload, label, opts) {
+  const fail = (r, extra) => {
+    const err = new Error(`${label} ${r.status}${extra || ''}: ${r.body.slice(0, 500)}`);
+    err.status = r.status;   // so isTransient() can tell 503 from 400
+    return err;
+  };
+
   if (!opts.thinkingOff) {
     const r = await post(model, payload, label);
     if (r.ok) return r.data;
-    throw new Error(`${label} ${r.status}: ${r.body.slice(0, 500)}`);
+    throw fail(r);
   }
 
   const knob = pickThinkingKnob(model);
@@ -314,16 +360,12 @@ export async function geminiFetch(payload, opts = {}) {
   }
 
   // Already learned this model's knob, or a failure a different knob can't fix.
-  if (r.status !== 400 || resolvedKnob.get(model) === knob) {
-    throw new Error(`${label} ${r.status}: ${r.body.slice(0, 500)}`);
-  }
+  if (r.status !== 400 || resolvedKnob.get(model) === knob) throw fail(r);
 
   const other = knob === BUDGET ? LEVEL : BUDGET;
   console.warn(`Gemini 400 with ${knob} on "${model}" — retrying with ${other}`);
   r = await post(model, withKnob(payload, other), label);
-  if (!r.ok) {
-    throw new Error(`${label} ${r.status} (tried ${knob} and ${other}): ${r.body.slice(0, 500)}`);
-  }
+  if (!r.ok) throw fail(r, ` (tried ${knob} and ${other})`);
   resolvedKnob.set(model, other);
   console.warn(`Gemini: "${model}" accepts ${other} — knob resolved for this instance`);
   return r.data;

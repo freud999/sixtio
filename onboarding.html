@@ -764,12 +764,32 @@
         localStorage.setItem('sixtio_onboarding_complete', 'true');
         composer.classList.add('hidden');
         var typingEl = startTyping();
+        // Big Five extraction, fired with keepalive:true and deliberately NOT
+        // through api(), which attaches a 25s AbortController.
+        //
+        // Measured 2026-08-29: 40 users had a Digital Twin and only 15 had Big
+        // Five — 62% missing, on the number the entire product is sold on. This
+        // one line was the cause. It fired at the exact moment the user is
+        // looking at their finished card and about to tap "Continue", and a
+        // navigation cancels every in-flight fetch. The old comment promised the
+        // traits "fill in shortly after". Nothing filled them in, ever.
+        //
+        // keepalive lets the request outlive the page. It is also repeated from
+        // matches.html on every open until it succeeds (needsTraits, api/me.js),
+        // so one failure is no longer permanent.
+        function kickTraits(){
+          try {
+            fetch('/api/analyze-traits', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ initData: (tg && tg.initData) || '' }),
+              keepalive: true
+            }).catch(function(){});
+          } catch (e) {}
+        }
         api('/api/profile', {}).then(function(profile){
           typingEl.remove();
-          // Background Big Five extraction — split into its own request so the
-          // Digital Twin stays under Vercel Hobby's 10s limit. Fire-and-forget:
-          // the UI never waits on it and traits fill in shortly after.
-          api('/api/analyze-traits', {}).catch(function(){ /* fills in later */ });
+          kickTraits();
           if (profile && profile.traits) {
             localStorage.setItem('sixtio_profile', JSON.stringify(profile));
             renderProfileCard(profile);
@@ -779,6 +799,11 @@
           addContinueButton();
         }).catch(function(){
           typingEl.remove();
+          // The Twin request failed or was killed at 30s — but the answers are
+          // already saved, so the traits can still be extracted. Previously
+          // kickTraits() lived only in the success path, which meant a slow
+          // /api/profile cost the user their Big Five as well as their card.
+          kickTraits();
           renderFallbackCard();
           addContinueButton();
         });
