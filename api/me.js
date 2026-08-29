@@ -114,6 +114,7 @@ export default async function handler(req, res) {
 
     if (body.op === 'submit_extra_question') return submitExtraQuestion(res, tgUser, body);
     if (body.op === 'update_location') return updateLocation(res, tgUser, body);
+    if (body.op === 'write_access') return grantWriteAccess(res, tgUser);
 
     const supabase = getSupabase();
     const { data: user, error } = await supabase
@@ -640,6 +641,35 @@ async function checkFunnelHealth() {
     );
   } catch (e) {
     console.error('funnel health check skipped:', e.message);
+  }
+}
+
+/**
+ * The user just granted the bot permission to message them (requestWriteAccess).
+ *
+ * Clearing bot_unreachable_at is the whole point: they were excluded from every
+ * notification path — retention, matches, new messages — and this is what puts
+ * them back. Measured 2026-08-29: 43 of 66 users were in that state and 14 of
+ * them had a match nobody could tell them about.
+ *
+ * Never trusts the client beyond "the user said yes": the flag is cleared, and
+ * if Telegram still refuses, the very next send re-marks them. So a client that
+ * lies here buys one wasted message, not a permanent wrong state.
+ */
+async function grantWriteAccess(res, tgUser) {
+  try {
+    const supabase = getSupabase();
+    const { error } = await supabase
+      .from('users')
+      .update({ bot_unreachable_at: null, bot_unreachable_reason: null })
+      .eq('telegram_id', tgUser.id);
+    if (error) throw new Error(error.message);
+    return res.status(200).json({ ok: true });
+  } catch (e) {
+    console.error('write_access grant failed:', e.message);
+    // Not worth an error to the client: the permission itself is already given
+    // on Telegram's side, and the next failed send will re-mark the row anyway.
+    return res.status(200).json({ ok: false });
   }
 }
 

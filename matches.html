@@ -6,10 +6,10 @@
 <title data-i18n="title_matches">Sixtio — метчі</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="i18n.js?v=47"></script>
-<script src="theme.js?v=47"></script>
-<script src="paywall.js?v=47"></script>
-<link rel="stylesheet" href="theme.css?v=47" />
+<script src="i18n.js?v=48"></script>
+<script src="theme.js?v=48"></script>
+<script src="paywall.js?v=48"></script>
+<link rel="stylesheet" href="theme.css?v=48" />
 <style>
   body{
     display:flex; flex-direction:column; align-items:center;
@@ -575,6 +575,13 @@
           try { localStorage.setItem('sixtio_me_at', String(Date.now())); } catch(e){}
           render(me);
           repairProfile(me);
+          // Only for people who HAVE a match. A permission prompt on an empty
+          // screen is noise; on a screen showing a person who matched you it is
+          // obviously worth granting. 14 users had a match and no way to be told
+          // about it — this is the screen where that gets fixed.
+          if (window.SixtioNotify && (me.matches || []).length) {
+            setTimeout(function(){ window.SixtioNotify.ask('has_match'); }, 900);
+          }
         });
       }
 

@@ -33,6 +33,60 @@
     }
   } catch (e) { /* an old client keeps the old behaviour; nothing else breaks */ }
 
+  // --- Permission to message the user ---------------------------------------
+  //
+  // Measured 2026-08-29: 2 of 66 users had ever pressed /start. The other 64
+  // opened the Mini App directly — from an app link or the menu button — and
+  // that does NOT create a chat with the bot. Telegram then forbids the bot
+  // from writing first: "chat not found". A broadcast reached 23 of 66.
+  //
+  // The damage is not the broadcast. It is that 14 people had a MATCH and could
+  // not be told about it. Match → notification → return is the entire loop of a
+  // dating product, and it was broken for two thirds of the userbase, silently,
+  // because nothing about it looks like an error.
+  //
+  // requestWriteAccess (Bot API 6.9+) asks for exactly that permission without
+  // leaving the app. Called at moments of real intent, never on a cold open.
+  window.SixtioNotify = {
+    /**
+     * Ask once. Returns quickly and never throws.
+     * @param {string} reason  a key used only to space out repeat asks
+     */
+    ask: function (reason) {
+      try {
+        if (!tg || !tg.requestWriteAccess) return;
+        if (tg.isVersionAtLeast && !tg.isVersionAtLeast('6.9')) return;
+        var key = 'sixtio_write_access';
+        var state = null;
+        try { state = JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) {}
+        if (state && state.granted) return;
+        // A declined request is a decision, not an invitation to keep asking.
+        // Nagging is how a bot gets blocked — and 14 users already have.
+        var WEEK = 7 * 24 * 3600 * 1000;
+        if (state && state.askedAt && Date.now() - state.askedAt < WEEK) return;
+
+        tg.requestWriteAccess(function (granted) {
+          try {
+            localStorage.setItem(key, JSON.stringify({
+              granted: !!granted, askedAt: Date.now(), reason: reason || '',
+            }));
+          } catch (e) {}
+          // Tell the server so this account leaves the "unreachable" list and
+          // starts receiving match notifications again. Fire-and-forget.
+          if (!granted) return;
+          try {
+            fetch('/api/me', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ op: 'write_access', initData: (tg && tg.initData) || '' }),
+              keepalive: true,
+            }).catch(function () {});
+          } catch (e) {}
+        });
+      } catch (e) { /* never let a permission prompt break a screen */ }
+    },
+  };
+
   function stored(){
     try { var v = localStorage.getItem('sixtio_theme'); return (v === 'light' || v === 'dark') ? v : null; } catch(e){ return null; }
   }
