@@ -15,7 +15,7 @@
 // It lives in /api/_lib so it adds ZERO Vercel functions (Hobby caps at 12).
 // Every reply is localized uk/ru/en via the sender's live Telegram language_code.
 
-import { callBot, botLang } from './bot.js';
+import { callBot, botLang, isPermanentlyUnreachable } from './bot.js';
 import { findUserId, deleteUserCascade, armFeedback, consumeFeedback } from './supabase.js';
 import { buildReferralLink } from './referrals.js';
 import { flagStates, flagsDown } from './flags.js';
@@ -385,6 +385,7 @@ export async function handleUserCommand(msg) {
   }
 
   if (cmd === '/envcheck') { await sendEnvCheck(msg); return true; }
+  if (cmd === '/broadcast') { await broadcast(msg); return true; }
 
   // 4) A plain (non-command) message right after a bare /feedback — captured as
   // feedback via the armed DB flag, so the user doesn't have to reply-quote.
@@ -410,6 +411,125 @@ export async function handleUserCommand(msg) {
  * A non-owner sender is consumed silently rather than refused, so the command's
  * existence is not discoverable by trying it.
  */
+// --- /broadcast — a message to everyone, sent on purpose ------------------
+//
+// TWO STEPS, ALWAYS. `/broadcast` previews and sends nothing; `/broadcast send`
+// delivers. Forty messages to real people cannot be unsent, and a one-word
+// command that fires them on the first keystroke is a mistake waiting for a
+// tired evening.
+//
+// The copy is split by what is TRUE for that person. Nine users have a match
+// they have never written to — telling them "someone is waiting" is both the
+// strongest thing we can say and a fact. Telling the other fifty-seven the same
+// thing would be a lie, and a dating app that lies about matches is finished.
+const BROADCAST = {
+  waiting: {
+    uk: '💜 <b>Тебе чекають</b>\n\nУ Sixtio є пара, з якою ви збіглися — але розмова так і не почалась. Іноді достатньо одного «привіт».\n\nЗаглянь, хто це.',
+    ru: '💜 <b>Тебя ждут</b>\n\nВ Sixtio есть пара, с которой вы совпали — но разговор так и не начался. Иногда достаточно одного «привет».\n\nЗагляни, кто это.',
+    en: '💜 <b>Someone is waiting</b>\n\nYou have a match on Sixtio — but the conversation never started. Sometimes one "hi" is all it takes.\n\nCome see who it is.',
+  },
+  comeback: {
+    uk: '💜 <b>Повертайся</b>\n\nВідколи ти заходив, у Sixtio додались нові люди. Можливо, серед них є той, з ким у тебе справжня сумісність — не за фото, а за характером.\n\nЗаглянь на хвилинку.',
+    ru: '💜 <b>Возвращайся</b>\n\nС твоего последнего визита в Sixtio появились новые люди. Возможно, среди них тот, с кем у тебя настоящая совместимость — не по фото, а по характеру.\n\nЗагляни на минутку.',
+    en: '💜 <b>Come back</b>\n\nNew people have joined Sixtio since you were last here. One of them might be someone you are genuinely compatible with — by character, not by photo.\n\nTake a look.',
+  },
+};
+
+// A repeat inside this window is refused. The realistic way to hurt 66 people
+// at once is not malice, it is running the command twice.
+const BROADCAST_COOLDOWN_MS = 20 * 60 * 60 * 1000;
+
+async function broadcast(msg) {
+  const chatId = msg.chat.id;
+  if (!OWNER_TELEGRAM_ID || Number(msg.from && msg.from.id) !== OWNER_TELEGRAM_ID) return;
+
+  const confirmed = /^\/broadcast\s+send\b/i.test(String(msg.text || '').trim());
+  const { getSupabase } = await import('./supabase.js');
+  const supabase = getSupabase();
+
+  // Audience: everyone Telegram has not permanently refused. Test accounts are
+  // included on purpose — the owner should receive their own broadcast and see
+  // exactly what everybody else saw.
+  const { data: users, error } = await supabase
+    .from('users')
+    .select('id, telegram_id, language_code, last_broadcast_at')
+    .not('telegram_id', 'is', null)
+    .is('bot_unreachable_at', null);
+  if (error) {
+    await callBot('sendMessage', { chat_id: chatId, text: `broadcast: cannot read audience — ${error.message}` });
+    return;
+  }
+
+  // Who gets which text. One query for the whole audience rather than one per
+  // person: 66 round trips inside a 30s function is how a send gets truncated
+  // halfway, which is worse than not sending at all.
+  const { data: waitingRows } = await supabase.rpc('users_with_silent_match');
+  const waiting = new Set((waitingRows || []).map((r) => r.user_id));
+
+  const fresh = Date.now() - BROADCAST_COOLDOWN_MS;
+  const recipients = (users || []).filter(
+    (u) => !u.last_broadcast_at || new Date(u.last_broadcast_at).getTime() < fresh
+  );
+  const skippedRecent = (users || []).length - recipients.length;
+
+  if (!confirmed) {
+    const nWaiting = recipients.filter((u) => waiting.has(u.id)).length;
+    await callBot('sendMessage', {
+      chat_id: chatId,
+      parse_mode: 'HTML',
+      text:
+        '📣 <b>Broadcast preview — nothing has been sent</b>\n\n' +
+        `Recipients: <b>${recipients.length}</b>` +
+        (skippedRecent ? ` (${skippedRecent} skipped: messaged in the last 20h)` : '') + '\n' +
+        `• “someone is waiting”: <b>${nWaiting}</b> (they have a match and never wrote)\n` +
+        `• “come back”: <b>${recipients.length - nWaiting}</b>\n\n` +
+        '<b>Variant A</b>\n' + BROADCAST.waiting.uk + '\n\n' +
+        '<b>Variant B</b>\n' + BROADCAST.comeback.uk + '\n\n' +
+        'Delivery is unknown until it is tried — accounts that never opened a chat ' +
+        'with the bot cannot receive anything, and this send is what discovers them.\n\n' +
+        'To send for real: <code>/broadcast send</code>',
+    });
+    return;
+  }
+
+  let sent = 0, unreachable = 0, failed = 0;
+  for (const u of recipients) {
+    const lang = botLang(u.language_code);
+    const text = (waiting.has(u.id) ? BROADCAST.waiting : BROADCAST.comeback)[lang]
+      || (waiting.has(u.id) ? BROADCAST.waiting : BROADCAST.comeback).uk;
+    try {
+      await callBot('sendMessage', {
+        chat_id: u.telegram_id, text, parse_mode: 'HTML',
+        reply_markup: { inline_keyboard: [[{ text: d(u.language_code).open_btn, web_app: { url: APP_URL } }]] },
+      });
+      sent++;
+      await supabase.from('users')
+        .update({ last_broadcast_at: new Date().toISOString() }).eq('id', u.id);
+    } catch (e) {
+      const reason = String((e && e.message) || e);
+      if (isPermanentlyUnreachable(reason)) {
+        unreachable++;
+        await supabase.from('users')
+          .update({ bot_unreachable_at: new Date().toISOString(), bot_unreachable_reason: reason.slice(0, 200) })
+          .eq('id', u.id);
+      } else {
+        failed++;
+        console.error(`broadcast to ${u.telegram_id} failed:`, reason);
+      }
+    }
+  }
+
+  await callBot('sendMessage', {
+    chat_id: chatId,
+    parse_mode: 'HTML',
+    text:
+      '📣 <b>Broadcast finished</b>\n' +
+      `✅ delivered: <b>${sent}</b>\n` +
+      `🚫 unreachable: <b>${unreachable}</b> (blocked, or never opened a chat — now skipped in future sends)\n` +
+      `⚠️ retryable failures: <b>${failed}</b>`,
+  });
+}
+
 async function sendEnvCheck(msg) {
   const chatId = msg.chat.id;
   if (!OWNER_TELEGRAM_ID || Number(msg.from && msg.from.id) !== OWNER_TELEGRAM_ID) return;
