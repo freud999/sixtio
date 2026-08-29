@@ -1,4 +1,5 @@
 import { getSupabase } from './supabase.js';
+import { funnelHealth, formatFunnelHealth } from './funnelhealth.js';
 import { callBot, botLang } from './bot.js';
 import { handleUserCommand, handleUserCallback } from './commands.js';
 import { captureStartSource, sourceStats } from './sources.js';
@@ -429,11 +430,15 @@ async function buildDashboard(periodKey) {
 
   const p = PERIODS[periodKey] || PERIODS['24h'];
   const since = new Date(now.getTime() - p.ms);
-  const [d, funnel] = await Promise.all([
+  // Funnel HEALTH is period-independent on purpose: it answers 'is the
+  // pipeline intact right now', not 'what happened this week'. A broken step
+  // does not become acceptable because you are looking at a 30-day window.
+  const [d, funnel, health] = await Promise.all([
     rpc(supabase, since, now),
     funnelRpc(supabase, since, now),
+    funnelHealth().catch(() => null),
   ]);
-  return renderPeriod(d, p.label, funnel);
+  return renderPeriod(d, p.label, funnel, health);
 }
 
 // Funnel events (migration 033) keyed by event name. Never fatal: the funnel is
@@ -507,7 +512,7 @@ export function renderFunnel(f) {
   ];
 }
 
-function renderPeriod(d, label, funnel) {
+function renderPeriod(d, label, funnel, health) {
   const total = num(d.total_users);
   const male = num(d.male), female = num(d.female);
   const tx = d.tx_all || {}, txP = d.tx_period_by_feature || {};
@@ -545,6 +550,11 @@ function renderPeriod(d, label, funnel) {
     `• Реферальних реєстрацій: <b>${refs}</b>  ·  K-фактор: <b>${kFactor}</b>`,
     `• AI: 🧠 Why Factor <b>${num(tx.why_factor)}</b> · 🎤 Інтерв'ю <b>${num(d.ai_interviews)}</b> · 💞 Скоринг <b>${num(d.ai_matches)}</b>`,
     ...renderFunnel(funnel),
+    ...(health ? [
+      '',
+      '🩺 <b>ЗДОРОВʼЯ ВОРОНКИ</b>',
+      `<pre>${esc(formatFunnelHealth(health))}</pre>`,
+    ] : []),
     '',
     `📈 <i>Оновлено ${fmtTime(new Date())}</i>`,
   ].join('\n');

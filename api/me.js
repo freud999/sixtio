@@ -612,6 +612,37 @@ async function backfillMissingTraits(tickStartedAt = Date.now()) {
   }
 }
 
+/**
+ * Alerts when a stage of the funnel is losing people it should not be losing.
+ *
+ * This is the alarm that did not exist on 2026-08-29, when 25 of 40 users sat
+ * without a Big Five vector for a month. Nothing had thrown: the request was
+ * cancelled by a page navigation, and a cancelled request is not an error in
+ * the logs, in Vercel's error groups, or in an error reporter. The only thing
+ * that could have noticed was a question asked of the OUTCOME.
+ *
+ * Daily and throttled, and only for steps the SERVER owns — a person choosing
+ * not to upload a photo is a product outcome, not a fault. An alarm that fires
+ * for normal behaviour is an alarm nobody reads.
+ */
+async function checkFunnelHealth() {
+  try {
+    const { funnelHealth, formatFunnelHealth } = await import('./_lib/funnelhealth.js');
+    const health = await funnelHealth();
+    if (!health || !health.problems.length) return;
+    const { alertThrottled, escapeAlert } = await import('./_lib/alerts.js');
+    alertThrottled(
+      'funnel-health',
+      '🩺 <b>A funnel step is losing people</b>\n' +
+      'Nothing threw an error — this is measured from the data itself.\n' +
+      `<pre>${escapeAlert(formatFunnelHealth(health))}</pre>`,
+      12 * 60 * 60 * 1000,
+    );
+  } catch (e) {
+    console.error('funnel health check skipped:', e.message);
+  }
+}
+
 async function cronRetentionTrigger(req, res) {
   const secret = process.env.CRON_SECRET;
   // Node lowercases header names; read both casings defensively regardless.
@@ -664,6 +695,7 @@ async function cronRetentionTrigger(req, res) {
     // never be able to starve it. Running it first — as it briefly did — is
     // exactly the mistake its own comment warned against.
     await backfillMissingTraits(tickStartedAt);
+    await checkFunnelHealth();
 
     await pingDeadMansSwitch();
     return res.status(200).json({ ok: true, candidates: (users || []).length, sent });

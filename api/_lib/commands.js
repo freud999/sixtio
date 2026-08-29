@@ -437,7 +437,12 @@ async function sendEnvCheck(msg) {
       `gemini light: ${geminiModelLightInUse()}\n` +
       `dark mode (18+) model: ${kinkModelInUse()}\n` +
       `kill switches: ${flagStates().map((f) => `${f.name}=${f.on ? 'on' : 'OFF'}`).join(', ')}\n` +
-      `error reporting: ${sentryConfigured() ? 'Sentry on' : 'NONE — errors vanish with the logs'}`
+      `error reporting: ${sentryConfigured() ? 'Sentry on' : 'NONE — errors vanish with the logs'}\n` +
+      // Stated, never PINGED from here: pinging on demand would reset the
+      // watchdog's timer and hide exactly the thing it exists to catch — a
+      // cron that has stopped running. The switch must only ever be fed by
+      // the cron itself.
+      `dead-man switch: ${process.env.HEALTHCHECK_URL ? 'configured' : 'NONE — a dead cron would be silent'}`
     )}</pre>`;
 
   await callBot('sendMessage', { chat_id: chatId, text, parse_mode: 'HTML' });
