@@ -539,6 +539,61 @@ async function updateLocation(res, tgUser, body) {
 // stays well under the serverless time budget; the cron drains the rest next tick.
 const RETENTION_BATCH = 50;
 
+// Backfill for the Big Five vectors lost before the keepalive fix (2026-08-29).
+//
+// The client repairs itself on the next app open — but 41 of 66 users had not
+// opened the app in a week, and someone who never comes back never heals. This
+// walks a few of them per day from the server side, where no user has to be
+// present.
+//
+// BOUNDED ON PURPOSE. Every one of these is a paid Anthropic call, so the cap
+// is small and the loop is sequential: a backfill that empties the AI budget to
+// repair old rows would be a worse bug than the one it fixes. At 5/day the
+// current backlog clears in under a week and then costs nothing, because there
+// is nothing left to find.
+const BACKFILL_PER_RUN = 5;
+
+async function backfillMissingTraits() {
+  try {
+    const supabase = getSupabase();
+    // A Twin exists but the OCEAN vector does not — exactly the needsTraits
+    // condition the client uses, asked server-side.
+    const { data: rows, error } = await supabase
+      .from('profiles')
+      .select('user_id')
+      .is('trait_extraversion', null)
+      .limit(BACKFILL_PER_RUN);
+    if (error) throw new Error(error.message);
+    if (!rows || !rows.length) return;
+
+    const { processOnboardingPersonality } = await import('./_lib/personality.js');
+    const { questionLabel } = await import('./_lib/questions.js');
+    let done = 0;
+    for (const row of rows) {
+      try {
+        const { data: answers } = await supabase
+          .from('answers')
+          .select('question_id, answer_text')
+          .eq('user_id', row.user_id)
+          .order('created_at', { ascending: true });
+        if (!answers || !answers.length) continue;
+        const text = answers
+          .map((a) => `Питання: ${questionLabel(a.question_id)}\nВідповідь: ${a.answer_text}\n`)
+          .join('');
+        await processOnboardingPersonality(row.user_id, text);
+        done++;
+      } catch (one) {
+        // One bad row must not stop the queue — it will be retried tomorrow.
+        console.error(`traits backfill failed for ${row.user_id}:`, one.message);
+      }
+    }
+    if (done) console.warn(`traits backfill: repaired ${done}/${rows.length} profiles`);
+  } catch (e) {
+    // Never fail the cron over a repair job. Retention pushes matter more.
+    console.error('traits backfill skipped:', e.message);
+  }
+}
+
 async function cronRetentionTrigger(req, res) {
   const secret = process.env.CRON_SECRET;
   // Node lowercases header names; read both casings defensively regardless.
@@ -560,6 +615,7 @@ async function cronRetentionTrigger(req, res) {
   // cron itself had been dead for 14 hours, and Gemini had been 404ing for a
   // week, with the app returning 200 throughout.
   await runSmokeTest();
+  await backfillMissingTraits();
 
   try {
     const supabase = getSupabase();
