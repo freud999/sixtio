@@ -309,7 +309,7 @@ export async function geminiFetch(payload, opts = {}) {
   // model — it has its own free-tier window (15 RPM vs 5) and its own load, so
   // it is genuinely a second chance rather than the same queue twice.
   const fallback = geminiModelLight();
-  const canFallBack = !opts.light && fallback !== model;
+  const canFallBack = !opts.light && !opts.noFallback && fallback !== model;
 
   try {
     return await attempt(model, payload, label, opts);

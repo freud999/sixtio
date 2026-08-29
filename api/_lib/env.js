@@ -444,9 +444,14 @@ export async function smokeEnv() {
       // So: send the smallest real request, through the same door the app uses.
       // That proves the key, the model, and the thinking knob at once — the
       // three things that were separately broken — and nothing less does.
+      // noFallback: the app retries a 503 or a timeout on the light model,
+      // which is right for a user request and WRONG for a health check. A probe
+      // that quietly succeeds via the spare tyre reports "all green" while the
+      // main model is down — the same class of lie as blaming a dependency for
+      // your own bug. /envcheck must answer for THIS model or not at all.
       await geminiFetch(
         { contents: [{ role: 'user', parts: [{ text: 'ping' }] }] },
-        { thinkingOff: true, label: 'Gemini generateContent' }
+        { thinkingOff: true, label: 'Gemini generateContent', noFallback: true }
       );
       return wanted;
     }),
