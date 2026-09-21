@@ -540,6 +540,12 @@ async function updateLocation(res, tgUser, body) {
 // stays well under the serverless time budget; the cron drains the rest next tick.
 const RETENTION_BATCH = 50;
 
+// Three nudges in a lifetime, then silence. The gaps widen because the first
+// "come back" after two quiet days is a reminder and the fourth is nagging —
+// and nagging is measurably how this bot got blocked by a third of its users.
+const RETENTION_MAX_PUSHES = 3;
+const RETENTION_GAPS_H = [48, 24 * 7, 24 * 21];   // before 1st, 2nd, 3rd
+
 // Backfill for the Big Five vectors lost before the keepalive fix (2026-08-29).
 //
 // The client repairs itself on the next app open — but 41 of 66 users had not
@@ -700,11 +706,24 @@ async function cronRetentionTrigger(req, res) {
     const supabase = getSupabase();
     const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
 
+    // A LIFETIME BUDGET, not an endless drip.
+    //
+    // Measured 2026-09-21: 44 of 133 users blocked the bot after receiving at
+    // least one message from it. This query used to re-nudge every inactive
+    // account every 48 hours with no end, so someone who drifted away for three
+    // weeks collected about ten "come back" messages. Nobody is persuaded by the
+    // tenth. They block — and a blocked bot can never deliver the one message
+    // that would actually bring them back, a real match.
+    //
+    // Three nudges, spaced further apart each time (see RETENTION_GAPS_H), and
+    // then silence. Real events — a match, a message — are never rationed; this
+    // only limits the unprompted "we miss you".
     const { data: users, error } = await supabase
       .from('users')
-      .select('id, telegram_id, last_retention_push, language_code')
+      .select('id, telegram_id, last_retention_push, language_code, retention_push_count')
       .lt('last_active', cutoff)
       .or(`last_retention_push.is.null,last_retention_push.lt.${cutoff}`)
+      .lt('retention_push_count', RETENTION_MAX_PUSHES)
       .not('telegram_id', 'is', null)
       // Skip accounts Telegram has permanently refused. Without this the batch
       // spends its slots, every 48 hours forever, on people who blocked the bot
@@ -713,8 +732,15 @@ async function cronRetentionTrigger(req, res) {
       .limit(RETENTION_BATCH);
     if (error) throw error;
 
-    let sent = 0, unreachable = 0, failed = 0;
+    let sent = 0, unreachable = 0, failed = 0, tooSoon = 0;
     for (const u of users || []) {
+      // The SQL above can only apply one cutoff, so the widening gap is enforced
+      // here: nudge N waits RETENTION_GAPS_H[N] hours, not a flat 48.
+      const n = u.retention_push_count || 0;
+      const gapH = RETENTION_GAPS_H[n] || RETENTION_GAPS_H[RETENTION_GAPS_H.length - 1];
+      const lastMs = u.last_retention_push ? new Date(u.last_retention_push).getTime() : 0;
+      if (lastMs && Date.now() - lastMs < gapH * 3600 * 1000) { tooSoon++; continue; }
+
       const r = await notifyRetention(u.telegram_id, u.language_code);
 
       if (r && r.permanent) {
@@ -739,15 +765,18 @@ async function cronRetentionTrigger(req, res) {
 
       // Stamped ONLY on real delivery. It used to be stamped unconditionally,
       // so "53 users pushed" counted 43 messages Telegram had refused.
+      // The counter increments only here too, for the same reason: a nudge that
+      // was refused did not cost the user anything, so it must not cost them one
+      // of their three.
       const { error: upErr } = await supabase
         .from('users')
-        .update({ last_retention_push: new Date().toISOString() })
+        .update({ last_retention_push: new Date().toISOString(), retention_push_count: n + 1 })
         .eq('id', u.id);
       if (upErr) console.error('retention stamp failed:', upErr.message);
       else sent++;
     }
-    if (unreachable || failed) {
-      console.warn(`retention: ${sent} delivered, ${unreachable} permanently unreachable, ${failed} retryable`);
+    if (unreachable || failed || tooSoon) {
+      console.warn(`retention: ${sent} delivered, ${unreachable} permanently unreachable, ${failed} retryable, ${tooSoon} still inside their gap`);
     }
 
     // Repair work goes LAST, and only with time left over. Retention pushes are
@@ -759,7 +788,7 @@ async function cronRetentionTrigger(req, res) {
 
     await pingDeadMansSwitch();
     return res.status(200).json({
-      ok: true, candidates: (users || []).length, sent, unreachable, failed,
+      ok: true, candidates: (users || []).length, sent, unreachable, failed, tooSoon,
     });
   } catch (e) {
     console.error('cron_retention_trigger failed:', e);
