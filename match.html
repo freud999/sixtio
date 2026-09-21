@@ -6,10 +6,10 @@
 <title data-i18n="title_match">Sixtio — наш метч</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="i18n.js?v=48"></script>
-<script src="theme.js?v=48"></script>
-<script src="paywall.js?v=48"></script>
-<link rel="stylesheet" href="theme.css?v=48" />
+<script src="i18n.js?v=49"></script>
+<script src="theme.js?v=49"></script>
+<script src="paywall.js?v=49"></script>
+<link rel="stylesheet" href="theme.css?v=49" />
 <style>
   body{
     display:flex; flex-direction:column; align-items:center;
@@ -295,13 +295,41 @@
             .catch(function(){});
         });
       }
+      // Telegram's WebView has NO window.prompt — it is a no-op or returns ''
+      // depending on platform. Measured 2026-09-21: the only report this app has
+      // ever received arrived with reason = null, because the prompt never
+      // appeared. A report with no reason cannot be moderated — you are left
+      // guessing between harassment and someone simply not replying.
+      //
+      // showPopup is the native control that DOES exist, and three fixed reasons
+      // beat free text anyway: one tap, no typing, and countable afterwards.
       function doReport(){
         if (!partnerId) return;
+        var send = function(reason){
+          safeApi({ op: 'report', targetId: partnerId, reason: reason || '' })
+            .then(function(){ notify(t('mn_reported')); setTimeout(goBack, 600); })
+            .catch(function(){});
+        };
+        if (tg && tg.showPopup) {
+          try {
+            tg.showPopup({
+              title: t('mn_report'),
+              message: t('mn_report_q'),
+              buttons: [
+                { id: 'r1', type: 'destructive', text: t('mn_report_r1') },
+                { id: 'r2', type: 'default', text: t('mn_report_r2') },
+                { id: 'r3', type: 'default', text: t('mn_report_r3') },
+              ],
+            }, function(id){
+              if (!id) return;   // dismissed is NOT a report
+              send(id === 'r1' ? t('mn_report_r1') : id === 'r2' ? t('mn_report_r2') : t('mn_report_r3'));
+            });
+            return;
+          } catch (e) { /* fall through to the browser path */ }
+        }
         var reason = window.prompt ? window.prompt(t('mn_report_q'), '') : '';
         if (reason === null) return;
-        safeApi({ op: 'report', targetId: partnerId, reason: reason || '' })
-          .then(function(){ notify(t('mn_reported')); setTimeout(goBack, 600); })
-          .catch(function(){});
+        send(reason);
       }
       document.getElementById('menuBtn').addEventListener('click', function(){
         if (!partnerId) return;
