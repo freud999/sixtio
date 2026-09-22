@@ -88,6 +88,51 @@ export function entitlements(user) {
   };
 }
 
+// --- Premium notices (trial welcome + expiry reminders) ---------------------
+//
+// Every new account starts with TRIAL_DAYS of Premium (migration 047 — a column
+// default, so no registration path can miss it). The app says so once, and
+// then reminds the user before it ends, twice: 3 days out and on the last day.
+//
+// Decided HERE, on the server, from the same clock the paywall uses. The client
+// only asks "which popup, if any" and remembers which ones it has shown. If the
+// two disagreed, someone would be told "Premium ends tomorrow" by a screen that
+// has already started blurring their photos — or the reverse.
+export const TRIAL_DAYS = 10;
+const NOTICE_D3 = 3;
+const NOTICE_D1 = 1;
+
+/**
+ * Which premium popup this user should see right now, or null.
+ *
+ * @returns {null | {kind: 'welcome'|'d3'|'d1', daysLeft: number, until: string, trial: boolean}}
+ *
+ * Women get none. Premium is theirs by policy, permanently — a "your trial ends
+ * in 3 days" message would be false, and a welcome to a "10-day" gift they
+ * already have forever would be a strange thing to celebrate.
+ *
+ * Only ONE kind at a time, the most urgent. Someone who first opens the app on
+ * day 9 needs "last day", not a welcome.
+ */
+export function premiumNotice(user, now = Date.now()) {
+  if (!user || user.gender === 'female') return null;
+  const untilMs = user.premium_until ? new Date(user.premium_until).getTime() : 0;
+  if (!untilMs || untilMs <= now) return null;
+
+  const daysLeft = Math.ceil((untilMs - now) / DAY_MS);
+  // A trial is a premium_until that still equals the grant + TRIAL_DAYS. The
+  // moment they buy, purchase_premium moves it and this stops being a trial —
+  // so a paying user is never shown a welcome to something they paid for.
+  const grantMs = user.trial_granted_at ? new Date(user.trial_granted_at).getTime() : 0;
+  const trial = !!grantMs && Math.abs(untilMs - (grantMs + TRIAL_DAYS * DAY_MS)) < 60 * 60 * 1000;
+
+  const until = new Date(untilMs).toISOString();
+  if (daysLeft <= NOTICE_D1) return { kind: 'd1', daysLeft, until, trial };
+  if (daysLeft <= NOTICE_D3) return { kind: 'd3', daysLeft, until, trial };
+  if (trial) return { kind: 'welcome', daysLeft, until, trial };
+  return null;
+}
+
 // JSON-safe likes counter: null means unlimited (never leak Infinity).
 export function likesLeftForClient(ent) {
   return ent.premiumActive ? null : ent.likesLeft;

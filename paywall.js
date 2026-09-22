@@ -345,5 +345,83 @@
     return { close: close };
   }
 
-  window.SixtioPaywall = { open: open };
+  // --- Premium notices: trial welcome + expiry reminders --------------------
+  //
+  // The SERVER decides which notice applies (premiumNotice in
+  // api/_lib/entitlements.js), from the same clock the paywall enforces. This
+  // only renders it and remembers that it did.
+  //
+  // "Seen" is keyed by (premium_until, kind). When the user extends, the expiry
+  // moves, the key changes, and the next cycle's reminders fire again on their
+  // own — nothing to reset, and nothing that can get stuck "already seen".
+  function dateOf(iso) {
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    // UTC, so nobody east of Greenwich is promised a day they do not get.
+    var p = function (n) { return (n < 10 ? '0' : '') + n; };
+    return p(d.getUTCDate()) + '.' + p(d.getUTCMonth() + 1) + '.' + d.getUTCFullYear();
+  }
+
+  function showNotice(notice, ctx) {
+    ctx = ctx || {};
+    if (!notice || !notice.kind || !notice.until) return false;
+    var key = 'sixtio_pnotice:' + notice.until + ':' + notice.kind;
+    try { if (localStorage.getItem(key)) return false; } catch (e) {}
+
+    var T = tg();
+    if (!T || !T.showPopup) return false;   // outside Telegram: nothing to show
+
+    var plural = window.SixtioI18n && window.SixtioI18n.plural;
+    var days = plural ? plural('pn_days', notice.daysLeft) : String(notice.daysLeft);
+    var date = dateOf(notice.until);
+
+    var spec;
+    if (notice.kind === 'welcome') {
+      spec = {
+        title: t('pn_welcome_title'),
+        message: t('pn_welcome_msg', { date: date }),
+        buttons: [{ id: 'ok', type: 'default', text: t('pn_welcome_btn') }],
+      };
+    } else {
+      spec = {
+        title: t(notice.kind === 'd1' ? 'pn_d1_title' : 'pn_d3_title'),
+        message: notice.kind === 'd1'
+          ? t('pn_d1_msg', { date: date, price: PREMIUM_PRICE })
+          : t('pn_d3_msg', { days: days }),
+        buttons: [
+          { id: 'extend', type: 'default', text: t('pn_extend_btn') },
+          { id: 'later', type: 'cancel', text: t('pn_later_btn') },
+        ],
+      };
+    }
+
+    try {
+      T.showPopup(spec, function (id) {
+        // Marked seen whatever they tapped, including dismissing it. A reminder
+        // that comes back on every open until you buy is how bots get blocked —
+        // measured, 44 of 133 users (2026-09-21).
+        try { localStorage.setItem(key, String(Date.now())); } catch (e) {}
+        if (id !== 'extend') return;
+        haptic('medium');
+        open({
+          initData: ctx.initData,
+          starsBalance: ctx.starsBalance || 0,
+          subtitle: t('pn_shop_sub'),
+          highlight: 'premium',
+          // They ARE Premium right now, which correctly hides the likes pass
+          // (Premium includes it). The Premium option itself is always shown,
+          // and highlighted, because extending it is the point of this sheet.
+          premium: true,
+          onSuccess: ctx.onSuccess,
+        });
+      });
+      return true;
+    } catch (e) {
+      // Another popup already open (Telegram allows one at a time). Not marked
+      // seen, so it simply shows on the next open instead.
+      return false;
+    }
+  }
+
+  window.SixtioPaywall = { open: open, showNotice: showNotice };
 })();

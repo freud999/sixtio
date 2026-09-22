@@ -4,7 +4,7 @@ import { getSupabase, getMatchesFor, getHiddenUserIds, getPendingLikers } from '
 import { buildReferralLink, rewardReferrerOnEngagement } from './_lib/referrals.js';
 import { trackReturn } from './_lib/events.js';
 import { localizeProfiles } from './_lib/translate.js';
-import { entitlements, likesLeftForClient, likesPassActive, intimateCompatibility } from './_lib/entitlements.js';
+import { entitlements, likesLeftForClient, likesPassActive, intimateCompatibility, premiumNotice } from './_lib/entitlements.js';
 import { darkActive, darkModeEnabled, consentStale, DARK_COLUMNS } from './_lib/darkmode.js';
 import { notifyRetention, notifyOwner } from './_lib/bot.js';
 import { smokeEnv, formatSmoke } from './_lib/env.js';
@@ -119,7 +119,7 @@ export default async function handler(req, res) {
     const supabase = getSupabase();
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, name, gender, seeking_gender, goal, age, city, interests, core_values, bio, photo_url, stars_balance, premium, premium_until, daily_likes_count, last_like_reset, ' + DARK_COLUMNS + ', kink_markers, liked_users, disliked_users, blocked_users, likes_pass_until, profile_depth, achievements, referred_by, referral_rewarded')
+      .select('id, name, gender, seeking_gender, goal, age, city, interests, core_values, bio, photo_url, stars_balance, premium, premium_until, daily_likes_count, last_like_reset, ' + DARK_COLUMNS + ', kink_markers, liked_users, disliked_users, blocked_users, likes_pass_until, profile_depth, achievements, referred_by, referral_rewarded, trial_granted_at')
       .eq('telegram_id', tgUser.id)
       .maybeSingle();
     if (error) throw error;
@@ -406,6 +406,9 @@ export default async function handler(req, res) {
         // Launch-phase welcome bonus. Separate from `premium` on purpose: the
         // UI must be able to say "free until <date>" rather than imply the
         // person subscribed to something.
+        // Trial welcome / expiry reminder, decided from the same clock the
+        // paywall reads — see premiumNotice in _lib/entitlements.js.
+        premiumNotice: premiumNotice(user),
         welcomeBonus: ent.welcomeBonus,
         welcomeBonusUntil: ent.welcomeBonusUntil,
         likesLeft: likesLeftForClient(ent),   // null = unlimited
