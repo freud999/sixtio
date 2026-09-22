@@ -562,7 +562,12 @@ async function sendEnvCheck(msg) {
       // watchdog's timer and hide exactly the thing it exists to catch — a
       // cron that has stopped running. The switch must only ever be fed by
       // the cron itself.
-      `dead-man switch: ${process.env.HEALTHCHECK_URL ? 'configured' : 'NONE — a dead cron would be silent'}`
+      `dead-man switch: ${process.env.HEALTHCHECK_URL ? 'configured' : 'NONE — a dead cron would be silent'}\n` +
+      // Two independent defences guard Stars crediting: this shared secret on
+      // every webhook call, and a per-payment check against Telegram's own
+      // transaction list (verifyStarCharge). The second works regardless; this
+      // line says whether the first one exists, which nothing else showed.
+      `payment webhook auth: ${process.env.TELEGRAM_WEBHOOK_SECRET ? 'secret set (2 layers)' : 'NO SECRET — charge verification only (1 layer)'}`
     )}</pre>`;
 
   await callBot('sendMessage', { chat_id: chatId, text, parse_mode: 'HTML' });
