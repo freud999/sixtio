@@ -46,8 +46,49 @@ function getClient() {
       timeout: timeoutMs(),
       maxRetries: 0,
     });
+    // Wrap the ONE method every call in this app goes through, so a billing
+    // failure is noticed wherever it happens rather than in seven catch blocks.
+    const create = client.messages.create.bind(client.messages);
+    client.messages.create = async (...args) => {
+      try {
+        return await create(...args);
+      } catch (e) {
+        noteBillingFailure(e);
+        throw e;
+      }
+    };
   }
   return client;
+}
+
+/**
+ * An empty Anthropic balance is not a transient error and must not wait for the
+ * daily smoke test to be noticed.
+ *
+ * Measured 2026-10-07: the credits ran out at 20:01 UTC and the cron reported it
+ * at 12:41 the next day — sixteen hours later. In between, every Digital Twin,
+ * Big Five, follow-up and photo check failed: five people registered, four
+ * finished the whole interview, and not one of them got a profile.
+ *
+ * It is also the one AI failure the app cannot degrade around. Every other
+ * fallback assumes the provider comes back on its own; this one stays broken
+ * until a human pays, so a human has to be told at once.
+ */
+function noteBillingFailure(e) {
+  const msg = String((e && e.message) || e);
+  if (!/credit balance is too low|billing|insufficient.*(credit|quota|funds)/i.test(msg)) return;
+  // Hourly, not per request: during an outage this fires on every call.
+  import('./alerts.js').then(({ alertThrottled, escapeAlert }) => {
+    alertThrottled(
+      'anthropic-billing',
+      '🚨 <b>Anthropic has no credit — AI is DOWN</b>\n' +
+      'Digital Twin, Big Five, follow-ups, photo moderation and AI reports are all failing. ' +
+      'Onboarding still saves answers, but nobody gets a profile.\n' +
+      'Top up at console.anthropic.com → Plans &amp; Billing. Nothing else will fix it.' +
+      `\n<pre>${escapeAlert(msg.slice(0, 300))}</pre>`,
+      60 * 60 * 1000,
+    );
+  }).catch(() => {});
 }
 
 /** Test seam: drop the memoised client so a new timeout takes effect. */
