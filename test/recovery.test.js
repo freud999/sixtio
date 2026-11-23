@@ -7,7 +7,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { recoverStep } from '../api/_lib/recovery.js';
+import { recoverStep, isPermanentModerationError } from '../api/_lib/recovery.js';
 
 const recovery = readFileSync('api/_lib/recovery.js', 'utf8');
 const photo = readFileSync('api/photo.js', 'utf8');
@@ -36,8 +36,49 @@ test('nothing left means a clean null, and no AI is called', async () => {
 test('photos are checked FIRST — they are already on screen', () => {
   // The deck reads candidates from users, not profiles: a person with no Twin
   // still appears, with their unchecked photo, on an 18+ product.
-  assert.match(recovery,
-    /return \(await phasePhotos\(supabase, concurrency\)\)\s*\|\| \(await phaseTwins\(supabase, concurrency\)\)\s*\|\| \(await phaseTraits\(supabase, concurrency\)\);/);
+  assert.match(recovery, /const phases = \[phasePhotos, phaseTwins, phaseTraits\];/);
+});
+
+test('a stuck photo does not hold every Twin behind it', async () => {
+  // 2026-11-23: one photo failed on every /recover, and because photos run
+  // first, all 38 Twins waited behind it. A phase that moves nothing now hands
+  // the rest of the call to the next phase, and its failure is still reported.
+  const calls = [];
+  const users = [{ id: 'u1', telegram_id: 1 }];
+  const db = {
+    rpc: (name) => { calls.push(name); return Promise.resolve({ data: [], error: null }); },
+    storage: { from: () => ({ download: async () => ({ data: null, error: { message: 'Internal error' } }) }) },
+    from: (table) => {
+      const q = {
+        select: () => q, not: () => q, is: () => q, limit: () => q, eq: () => q, order: () => q,
+        then: (ok) => Promise.resolve({ data: table === 'users' ? users : [], error: null }).then(ok),
+      };
+      return q;
+    },
+  };
+  const r = await recoverStep({ supabase: db });
+  assert.ok(calls.includes('users_needing_twin'), 'the Twin phase must still get its turn');
+  assert.equal(r.phase, 'photos', 'and the stuck item is still reported, not swallowed');
+  assert.equal(r.failed.length, 1);
+});
+
+test('only a verdict that can never come is final — outages stay retryable', () => {
+  const p = (message, status) => isPermanentModerationError(Object.assign(new Error(message), { status }));
+  assert.equal(p('Claude refused the request'), true);
+  assert.equal(p('no JSON object in model output'), true);
+  assert.equal(p('Could not process image', 400), true);
+  // These would hide honest photos if treated as final.
+  assert.equal(p('Your credit balance is too low to access the Anthropic API', 400), false);
+  assert.equal(p('Request timed out'), false);
+  assert.equal(p('rate_limit_error', 429), false);
+  assert.equal(p('Overloaded', 529), false);
+  assert.equal(p('fetch failed'), false);
+});
+
+test('an unverifiable photo is hidden like an NSFW one — never shown, never deleted', () => {
+  const block = recovery.slice(recovery.indexOf('verdict = await moderatePhoto'), recovery.indexOf('if (verdict.nsfw)'));
+  assert.match(block, /if \(!isPermanentModerationError\(e\)\) throw e;/);
+  assert.match(block, /photo_url: null, photo_blur_url: null, photo_checked_at: now/);
 });
 
 test('one phase per call, so a call always fits inside the 30s limit', () => {
@@ -63,7 +104,7 @@ test('only FINISHED interviews get a Twin — five main questions, follow-ups ex
 test('a rejected photo is hidden, never deleted', () => {
   // Clearing the two columns removes it from every screen; the files stay so a
   // wrong verdict can be undone. A batch job does not get to destroy user files.
-  const nsfw = recovery.slice(recovery.indexOf('if (verdict.nsfw)'), recovery.indexOf("return 'rejected'"));
+  const nsfw = recovery.slice(recovery.indexOf('if (verdict.nsfw)'), recovery.lastIndexOf("return 'rejected'"));
   assert.match(nsfw, /photo_url: null, photo_blur_url: null/);
   assert.doesNotMatch(recovery, /storage\.from\('photos'\)\.remove/);
 });

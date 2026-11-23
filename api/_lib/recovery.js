@@ -40,6 +40,26 @@ const DEFAULT_CONCURRENCY = 8;
 
 const errMsg = (e) => String((e && e.message) || e).slice(0, 160);
 
+/**
+ * Will retrying this moderation call ever give a different answer? A refusal, an
+ * unparseable verdict or a 400 about the image itself will not. A timeout, a
+ * 429/5xx, an empty balance or a network error will — those must stay retryable,
+ * or one bad minute at Anthropic would hide every honest photo in the batch.
+ */
+export function isPermanentModerationError(e) {
+  const status = e && (e.status || e.statusCode);
+  const msg = errMsg(e);
+  if (/credit balance|rate.?limit|overloaded|timeout|timed out|abort|ECONN|fetch failed|disabled/i.test(msg)) return false;
+  if (status === 400) return true;
+  return /refused|no JSON|unbalanced JSON|unexpected shape|image|media.?type/i.test(msg);
+}
+
+// A phase that made no progress and finished this fast leaves room in the 30s
+// budget for the next phase in the same call. A stuck item must not stall
+// everything queued behind it.
+const FALLTHROUGH_MS = 8_000;
+const progressed = (r) => r && (r.done > 0 || (r.rejected && r.rejected.length > 0));
+
 /** Run fn over items, all at once, collecting outcomes instead of throwing. */
 async function settle(items, fn) {
   const results = await Promise.allSettled(items.map(fn));
@@ -124,7 +144,22 @@ async function phasePhotos(supabase, limit) {
       throw new Error(`download: ${dlErr.message}`);
     }
     const base64 = Buffer.from(await blob.arrayBuffer()).toString('base64');
-    const verdict = await moderatePhoto(base64);
+    let verdict;
+    try {
+      verdict = await moderatePhoto(base64);
+    } catch (e) {
+      // A photo the checker can NEVER judge (refused, malformed, not really a
+      // JPEG) failed on every /recover forever — and, photos running first, it
+      // held all 38 Twins behind it (2026-11-23). It is treated exactly as a live
+      // upload is with fail-open off: unverified means not shown. Files are kept.
+      if (!isPermanentModerationError(e)) throw e;
+      const { error: upErr } = await supabase.from('users')
+        .update({ photo_url: null, photo_blur_url: null, photo_checked_at: now })
+        .eq('id', u.id);
+      if (upErr) throw new Error(upErr.message);
+      rejected.push({ id: u.id, reason: `unverifiable: ${errMsg(e).slice(0, 60)}` });
+      return 'rejected';
+    }
 
     if (verdict.nsfw) {
       // Stop SERVING it, do not destroy it. Clearing the two columns removes the
@@ -172,7 +207,17 @@ export async function recoveryBacklog(supabase = getSupabase()) {
  * @returns {Promise<null | {phase, done, failed:[], rejected?:[]}>} null = nothing left
  */
 export async function recoverStep({ concurrency = DEFAULT_CONCURRENCY, supabase = getSupabase() } = {}) {
-  return (await phasePhotos(supabase, concurrency))
-      || (await phaseTwins(supabase, concurrency))
-      || (await phaseTraits(supabase, concurrency));
+  const phases = [phasePhotos, phaseTwins, phaseTraits];
+  let stalled = null;
+  for (const phase of phases) {
+    const t0 = Date.now();
+    const r = await phase(supabase, concurrency);
+    if (!r) continue;                       // nothing to do here
+    if (progressed(r)) return r;
+    // Work existed but none of it moved. Report it, and if time allows, let the
+    // next phase run rather than spend every call on the same stuck item.
+    stalled = stalled || r;
+    if (Date.now() - t0 > FALLTHROUGH_MS) return stalled;
+  }
+  return stalled;
 }
