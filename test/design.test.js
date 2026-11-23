@@ -36,6 +36,16 @@ test('rolling back is one constant, and it names a real design', () => {
   assert.match(themeJs, /root\.setAttribute\('data-design', design\)/);
 });
 
+test('a cached, expired photo URL is never requested, and a failed one never shows broken', () => {
+  // Signed URLs live 5 minutes; screens paint from an older cache first.
+  assert.match(themeJs, /exp \* 1000 > Date\.now\(\) \+ 15000/);
+  assert.match(themeJs, /document\.addEventListener\('error', function \(e\)[\s\S]{0,200}img\.src = PHOTO_PH;/);
+  for (const p of ['chat.html', 'conversation.html', 'match.html', 'matches.html', 'profile.html']) {
+    const html = readFileSync(p, 'utf8');
+    assert.doesNotMatch(html, /if \((pt|p|u|partner)\.photoUrl\) \{/, `${p} renders a photo URL without checking its expiry`);
+  }
+});
+
 test('every page loads the Glow layer AFTER theme.css, on the same ?v=', () => {
   for (const p of pages) {
     const html = readFileSync(p, 'utf8');

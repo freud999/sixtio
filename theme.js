@@ -26,6 +26,49 @@
   try { var ds = localStorage.getItem('sixtio_design'); if (ds && DESIGNS[ds]) design = ds; } catch (e) {}
   root.setAttribute('data-design', design);
 
+  // --- Photos: never a broken image ------------------------------------------
+  //
+  // Every photo is a signed URL that lives 5 minutes (SEC-1). Screens paint
+  // first from the cached /api/me — and since 2026-11-23 a returning user lands
+  // on that cache directly — so its URLs are routinely expired. They used to
+  // render as broken-image icons (or their alt text) until the fresh response
+  // replaced them. Two guards:
+  //  1. SixtioPhoto.ok(url) reads the token's own expiry; pages skip a URL that
+  //     is already dead and draw their placeholder instead of requesting it.
+  //  2. Any <img> that still fails is swapped for a soft gradient placeholder.
+  var PHOTO_PH = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">' +
+    '<stop offset="0" stop-color="#8F6BFF"/><stop offset="1" stop-color="#FF4DA6"/></linearGradient></defs>' +
+    '<rect width="100" height="100" fill="url(#g)"/>' +
+    '<circle cx="50" cy="40" r="16" fill="#fff" fill-opacity=".55"/><path d="M20 88c4-18 16-26 30-26s26 8 30 26z" fill="#fff" fill-opacity=".55"/></svg>');
+  window.SixtioPhoto = {
+    placeholder: PHOTO_PH,
+    /** false for an empty URL or a signed URL whose token has expired (or is about to). */
+    ok: function (url) {
+      if (!url) return false;
+      var m = /[?&]token=([^&]+)/.exec(url);
+      if (!m) return true;                      // not a signed URL — let it try
+      try {
+        var p = m[1].split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+        while (p.length % 4) p += '=';
+        var exp = JSON.parse(atob(p)).exp;
+        return !exp || exp * 1000 > Date.now() + 15000;
+      } catch (e) { return true; }
+    },
+  };
+  document.addEventListener('error', function (e) {
+    var img = e.target;
+    if (!img || img.tagName !== 'IMG' || img.getAttribute('data-ph') === '1') return;
+    img.setAttribute('data-ph', '1');
+    img.alt = '';
+    img.src = PHOTO_PH;
+  }, true);
+  // An element reused for a fresh, working URL must be guarded again next time.
+  document.addEventListener('load', function (e) {
+    var img = e.target;
+    if (img && img.tagName === 'IMG' && img.src !== PHOTO_PH) img.removeAttribute('data-ph');
+  }, true);
+
   // --- The ghost logo, as inline SVG -------------------------------------------
   // Vector, so it is sharp at any size and transparent on both themes; ids are
   // suffixed per call so two logos on one page never share a gradient.
