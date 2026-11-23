@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title data-i18n="title_onboarding">Sixtio — знайомство</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="i18n.js?v=51"></script>
-<script src="theme.js?v=51"></script>
-<link rel="stylesheet" href="theme.css?v=51" />
-<link rel="stylesheet" href="theme-glow.css?v=51" />
+<script src="i18n.js?v=52"></script>
+<script src="theme.js?v=52"></script>
+<link rel="stylesheet" href="theme.css?v=52" />
+<link rel="stylesheet" href="theme-glow.css?v=52" />
 <style>
   /* height, not min-height. theme.css sets body{min-height:100dvh}, which is a
      FLOOR — so on this fixed-shell layout the .chat{flex:1} had no bounded box
@@ -63,6 +63,7 @@
   .option-btn.secondary{ background:var(--chip); border-color:var(--hair); color:var(--muted); font-weight:500; }
   .option-btn.sel{ color:#fff; border-color:transparent;
     background:linear-gradient(120deg, var(--a2), var(--a1)); }
+  .opt-break{ flex-basis:100%; height:2px; }
   .option-btn.gps{ color:#fff; border:none;
     background:linear-gradient(120deg, var(--a2), var(--a1));
     box-shadow:0 8px 22px -10px var(--glow); }
@@ -363,9 +364,13 @@
           });
           wrap.appendChild(b);
         });
+        // Actions start on their own row, so "Done" never reads as one more tag.
+        var brk = document.createElement('div');
+        brk.className = 'opt-break';
+        wrap.appendChild(brk);
         var done = document.createElement('button');
         done.type = 'button';
-        done.className = 'option-btn gps';
+        done.className = 'option-btn gps ob-done';
         done.textContent = t(doneKey);
         done.addEventListener('click', function(){
           if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('light'); } catch(e){} }

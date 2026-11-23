@@ -181,6 +181,30 @@ html[data-design="glow"][data-theme="dark"] .bubble.typing,
 html[data-design="glow"][data-theme="dark"] .msg.them{ background:#1E1836; border-color:rgba(167,139,255,.12); }
 html[data-design="glow"] .typing-dot{ background:#FF4DA6; }
 
+/* onboarding quick-picks: three roles that must never look alike —
+   a tag (violet tint), a SELECTED tag (solid violet), and the actions:
+   Done / share location (magenta, glowing) and Skip (clear outline). */
+html[data-design="glow"] .option-btn.sel{
+  background:linear-gradient(120deg,#6D4CFF,#8F6BFF); color:#fff; border-color:transparent;
+  box-shadow:0 6px 16px -8px rgba(var(--acc-rgb),.7);
+}
+html[data-design="glow"] .option-btn.gps{
+  background:linear-gradient(120deg,#FF2D7A,#FF5FA8); color:#fff; border:none;
+  padding:12px 22px; font-weight:700;
+  box-shadow:0 10px 24px -8px rgba(var(--mag-rgb),.75), 0 0 0 3px rgba(var(--mag-rgb),.14);
+}
+html[data-design="glow"] .option-btn.ob-done::before{ content:'✓'; margin-right:7px; font-weight:800; }
+html[data-design="glow"] .option-btn.secondary{
+  background:transparent; color:var(--ink2); font-weight:600;
+  border:1.5px solid var(--hair-strong);
+}
+html[data-design="glow"][data-theme="dark"] .option-btn.secondary{
+  color:#E6E0FF; border-color:rgba(255,255,255,.32);
+}
+html[data-design="glow"][data-theme="dark"] .option-btn:not(.sel):not(.gps):not(.secondary){
+  background:rgba(124,92,255,.14); border-color:rgba(167,139,255,.3); color:#C9B8FF;
+}
+
 /* swipe deck */
 html[data-design="glow"] .card{ box-shadow:0 30px 70px -28px rgba(var(--acc-rgb),.55); }
 html[data-design="glow"][data-theme="dark"] .card{
