@@ -80,5 +80,7 @@ test('/geminimodels proves models by a real call, never by the catalogue', () =>
   assert.match(probe, /\[geminiModelLight\(\), geminiModel\(\), \.\.\.listed\]/);
   const cmd = readFileSync('api/_lib/commands.js', 'utf8');
   // A fallback sharing the translation model's pool is no fallback at all.
-  assert.match(cmd, /working\.find\(\(r\) => r\.model !== primary\)/);
+  assert.match(cmd, /const spares = working\.filter\(\(r\) => r\.model !== primary\);/);
+  // Google retires -preview models within weeks; a fallback must outlive them.
+  assert.match(cmd, /spares\.find\(\(r\) => !isPreview\(r\.model\)\) \|\| spares\[0\]/);
 });

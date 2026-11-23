@@ -603,7 +603,11 @@ async function geminiModels(msg) {
   const primary = geminiModelLightInUse();
   const fallback = geminiModelInUse();
   const working = results.filter((r) => r.ok).sort((a, b) => a.ms - b.ms);
-  const pick = working.find((r) => r.model !== primary);
+  // Stable before preview: a fallback is there for the bad day, and Google
+  // retires -preview models within weeks. Speed only breaks ties within a class.
+  const isPreview = (m) => /preview|exp/i.test(m);
+  const spares = working.filter((r) => r.model !== primary);
+  const pick = spares.find((r) => !isPreview(r.model)) || spares[0];
 
   const tag = (m) => (m === primary ? ' ← translation' : m === fallback ? ' ← fallback now' : '');
   const lines = results
