@@ -6,6 +6,72 @@
   var tg = window.Telegram && window.Telegram.WebApp;
   var root = document.documentElement;
 
+  // --- Which design ------------------------------------------------------------
+  //
+  // 'glow'    = Electric Violet + Magenta (theme-glow.css), live since 2026-11-23
+  // 'classic' = «Clarity» (indigo / ember), still complete in theme.css
+  //
+  // TO ROLL BACK THE WHOLE APP: change DESIGN to 'classic' and bump ?v=. Nothing
+  // else — theme-glow.css only ever applies under html[data-design="glow"].
+  // One device can preview either with ?design=classic or ?design=glow; that
+  // choice is remembered on that device until ?design=default clears it.
+  var DESIGN = 'glow';
+  var DESIGNS = { glow: 1, classic: 1 };
+  try {
+    var q = (location.search.match(/[?&]design=([a-z]+)/) || [])[1];
+    if (q === 'default') localStorage.removeItem('sixtio_design');
+    else if (q && DESIGNS[q]) localStorage.setItem('sixtio_design', q);
+  } catch (e) {}
+  var design = DESIGN;
+  try { var ds = localStorage.getItem('sixtio_design'); if (ds && DESIGNS[ds]) design = ds; } catch (e) {}
+  root.setAttribute('data-design', design);
+
+  // --- The ghost logo, as inline SVG -------------------------------------------
+  // Vector, so it is sharp at any size and transparent on both themes; ids are
+  // suffixed per call so two logos on one page never share a gradient.
+  var logoSeq = 0;
+  var GHOST = 'M6 44C6 22 22 6 42 6s36 16 36 38v36c0 8-8 10-12 4-4-6-10-6-12 0-3 8-15 8-18 0-2-6-8-6-12 0-4 6-14 6-18-4z';
+  var HEART = 'M0 -6C-3 -12-12-11-12-4c0 6 7 10 12 14 5-4 12-8 12-14 0-7-9-8-12-2z';
+  window.SixtioLogo = function () {
+    var s = 'sx' + (++logoSeq);
+    return '<svg class="sx-logo" viewBox="12 2 182 142" role="img" aria-label="Sixtio">' +
+      '<defs>' +
+        '<linearGradient id="' + s + 'gl" x1="0" y1="0" x2=".3" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".6" stop-color="#EDE6FF"/><stop offset="1" stop-color="#C9B8FF"/></linearGradient>' +
+        '<linearGradient id="' + s + 'gr" x1="0" y1="0" x2=".3" y2="1"><stop offset="0" stop-color="#FF9BD0"/><stop offset=".55" stop-color="#FF4DA6"/><stop offset="1" stop-color="#E0167A"/></linearGradient>' +
+        '<linearGradient id="' + s + 'h" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FF8CC6"/><stop offset="1" stop-color="#FF2D7A"/></linearGradient>' +
+        '<filter id="' + s + 'f" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>' +
+      '</defs>' +
+      // left ghost — pale lavender, looking right
+      '<g class="sx-ghost-l"><g transform="translate(14 46) scale(1.02)">' +
+        '<path d="' + GHOST + '" fill="url(#' + s + 'gl)" filter="url(#' + s + 'f)" opacity=".98"/>' +
+        '<path d="M16 22c4-8 12-12 20-12" stroke="#fff" stroke-width="4" stroke-linecap="round" fill="none" opacity=".7"/>' +
+        '<ellipse cx="44" cy="44" rx="6" ry="9" fill="#1B1240"/><ellipse cx="62" cy="44" rx="6" ry="9" fill="#1B1240"/>' +
+        '<ellipse cx="45.5" cy="40.5" rx="2" ry="2.6" fill="#fff" opacity=".85"/><ellipse cx="63.5" cy="40.5" rx="2" ry="2.6" fill="#fff" opacity=".85"/>' +
+      '</g></g>' +
+      // right ghost — magenta, looking left, with a little heart
+      '<g class="sx-ghost-r"><g transform="translate(106 46) scale(1.02)">' +
+        '<path d="' + GHOST + '" fill="url(#' + s + 'gr)" filter="url(#' + s + 'f)"/>' +
+        '<path d="M16 22c4-8 12-12 20-12" stroke="#fff" stroke-width="4" stroke-linecap="round" fill="none" opacity=".45"/>' +
+        '<ellipse cx="22" cy="44" rx="6" ry="9" fill="#2A0A24"/><ellipse cx="40" cy="44" rx="6" ry="9" fill="#2A0A24"/>' +
+        '<ellipse cx="23.5" cy="40.5" rx="2" ry="2.6" fill="#fff" opacity=".85"/><ellipse cx="41.5" cy="40.5" rx="2" ry="2.6" fill="#fff" opacity=".85"/>' +
+        '<g transform="translate(68 18) rotate(18) scale(.85)"><path d="' + HEART + '" fill="url(#' + s + 'h)" stroke="#fff" stroke-opacity=".5" stroke-width="1.5"/></g>' +
+      '</g></g>' +
+      // the heart between them
+      '<g class="sx-heart-top"><g transform="translate(100 28) scale(1.55)" filter="url(#' + s + 'f)">' +
+        '<path d="' + HEART + '" fill="url(#' + s + 'h)"/>' +
+        '<path d="M-7 -5c0-3 2-4 4-4" stroke="#fff" stroke-width="1.6" stroke-linecap="round" fill="none" opacity=".75"/>' +
+      '</g></g>' +
+    '</svg>';
+  };
+  function paintLogos() {
+    var els = document.querySelectorAll('[data-sixtio-logo]');
+    for (var i = 0; i < els.length; i++) {
+      if (!els[i].firstElementChild) els[i].innerHTML = window.SixtioLogo();
+    }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', paintLogos);
+  else paintLogos();
+
   // --- Vertical swipe: let the PAGE scroll, not the app close -----------------
   //
   // On Android, a downward swipe inside a Mini App is claimed by Telegram to

@@ -5,8 +5,13 @@ Telegram Mini App dating service. AI matchmaker: a short interview builds a
 
 ## Stack
 - Frontend: vanilla multi-page HTML + inline JS. Shared assets on every page:
-  `i18n.js`, `theme.js`, `paywall.js`, `theme.css`, each with a `?v=NN` cache-buster
-  (currently **v=43** — bump ALL references together on any shared-asset change).
+  `i18n.js`, `theme.js`, `paywall.js`, `theme.css`, `theme-glow.css`, each with a
+  `?v=NN` cache-buster (currently **v=51** — bump ALL references together on any
+  shared-asset change).
+- Design: «Glow» (violet + magenta, ghost logo) is a LAYER in `theme-glow.css`,
+  scoped to `html[data-design="glow"]`, over the complete old «Clarity» in
+  `theme.css`. Roll back = `DESIGN = 'classic'` in `theme.js` + bump `?v=`; exact
+  pre-Glow tree = git tag `design-clarity`. Preview per device: `?design=classic|glow|default`.
 - Backend: Vercel serverless (`api/*.js`), ESM. Logic in `api/_lib/`.
 - DB/storage: Supabase. AI: **Anthropic Claude for everything**; Google Gemini
   for translation only (see the privacy constraint below).

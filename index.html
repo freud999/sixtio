@@ -5,9 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Sixtio</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="i18n.js?v=50"></script>
-<script src="theme.js?v=50"></script>
-<link rel="stylesheet" href="theme.css?v=50" />
+<script src="i18n.js?v=51"></script>
+<script src="theme.js?v=51"></script>
+<link rel="stylesheet" href="theme.css?v=51" />
+<link rel="stylesheet" href="theme-glow.css?v=51" />
 <style>
   body{
     display:flex; flex-direction:column;
@@ -40,6 +41,9 @@
   @keyframes link{ 0%,25%{transform:translateY(-50%) scaleX(0);opacity:0} 50%,68%{transform:translateY(-50%) scaleX(1);opacity:1} 90%,100%{transform:translateY(-50%) scaleX(0);opacity:0} }
 
   .wordmark{ font-size:46px; line-height:1; }
+  html[data-design="glow"] .wordmark{ font-size:54px; }
+  .brand-sub{ margin-top:8px; font-size:13px; font-weight:600; letter-spacing:.42em;
+    padding-left:.42em; color:var(--muted); }
   .thesis{ font-size:21px; font-weight:600; line-height:1.32; max-width:310px; letter-spacing:-0.3px; }
 
   .sub-card{ max-width:330px; padding:16px 18px; font-size:14px; line-height:1.6; color:var(--hint); }
@@ -61,12 +65,17 @@
   <div data-lang-switch style="position:fixed; top:calc(env(safe-area-inset-top) + 10px); right:14px; z-index:5;"></div>
 
   <div class="top">
-    <div class="hero" aria-hidden="true">
+    <!-- Glow: the ghost logo in a glass tile. Classic: the original orb. -->
+    <div class="sx-tile glow-only" aria-hidden="true"><div data-sixtio-logo style="width:100%"></div></div>
+    <div class="hero classic-only" aria-hidden="true">
       <div class="line"></div>
       <div class="dot a"></div>
       <div class="dot b"></div>
     </div>
-    <h1 class="wordmark led grad-text">Sixtio</h1>
+    <div class="brand">
+      <h1 class="wordmark led grad-text">Sixtio</h1>
+      <div class="brand-sub glow-only">AI DATING</div>
+    </div>
     <p class="thesis" id="thesis" data-i18n="idx_thesis">Не свайпи. Знайомства, які справді мають сенс.</p>
     <div class="sub-card glass">
       <span id="sub" data-i18n="idx_sub">Sixtio — розумна сваха. Вона ставить кілька щирих запитань, вивчає, хто ви, і знаходить людину, з якою у вас справжня сумісність.</span>

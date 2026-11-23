@@ -1,0 +1,269 @@
+/* ============================================================
+   Sixtio design «Glow» — Electric Violet + Magenta (2026-11-23)
+   Dark  = deep space #0B0B0F, neon violet→magenta glow, glass tiles
+   Light = porcelain-lavender #FCFCFE, the same accents, soft pink halos
+
+   A LAYER over theme.css, never a replacement. Every rule is scoped to
+   html[data-design="glow"], which theme.js sets. The previous design
+   («Clarity») is still fully in theme.css underneath, so going back is a
+   one-word change in theme.js (DESIGN = 'classic'), or the git tag
+   `design-clarity` for the exact pre-Glow tree. One viewer can preview
+   either with ?design=classic / ?design=glow (remembered per device).
+   ============================================================ */
+
+/* markup that exists for one design only */
+html:not([data-design="glow"]) .glow-only{ display:none !important; }
+html[data-design="glow"] .classic-only{ display:none !important; }
+
+/* ---------------- tokens: light ---------------- */
+html[data-design="glow"],
+html[data-design="glow"][data-theme="light"]{
+  --bg1:#FCFCFE; --bg2:#F3F0FF; --bg2-soft:rgba(243,240,255,.55);
+  --surface:#FFFFFF; --glass:rgba(255,255,255,.78); --glass-soft:rgba(255,255,255,.66); --glass-badge:rgba(255,255,255,.94);
+  --ink:#16122B; --ink2:#3A3456; --ink3:#5C5675; --muted:#8C86A6; --muted2:#8580A0; --faint:#B5B0CC;
+  --strong:#16122B; --track:#ECE8FA; --chip:#F0ECFF; --chip2:#F5F2FF;
+  --hair:rgba(109,76,255,.07); --hair2:rgba(109,76,255,.11); --hair3:rgba(109,76,255,.17); --hair-strong:rgba(109,76,255,.3);
+  --coral-card1:#FFF3F8; --coral-card2:#FFEDF5; --coral-ink:#D81B6A; --coral-mut:#B07A98; --coral-desc:#7E6A86; --coral:#FF2D7A;
+  --star-bg:rgba(246,185,59,.14); --star-border:rgba(246,185,59,.36); --star-ink:#996911;
+  --acc:#6D4CFF; --acc2:#FF2D7A; --acc-rgb:109,76,255; --mag-rgb:255,45,122;
+  --acc-grad:linear-gradient(100deg,#6D4CFF 0%,#A04BF5 48%,#FF2D7A 100%);
+  --success:#2FA36B; --warn:#C98A2E;
+
+  --a1:#6D4CFF; --a2:#FF2D7A; --a3:#FF4DA6; --glow:rgba(109,76,255,.34);
+  --neon-b:#6D4CFF; --neon-p:#FF2D7A; --accent-current:var(--acc);
+  --bg:#FCFCFE; --bg-grad:linear-gradient(175deg,#FCFCFE 0%,#F5F2FF 60%,#FFF1F7 100%);
+  --text:#16122B; --hint:#8580A0; --card:#FFFFFF;
+  --glass-grad:linear-gradient(158deg, rgba(255,255,255,.92), rgba(255,255,255,.74));
+  --glass-bg:rgba(255,255,255,.8); --glass-border:rgba(109,76,255,.1);
+  --glass-hi:rgba(255,255,255,.9); --glass-shadow:0 18px 44px -22px rgba(109,76,255,.38);
+  --faux-glass:rgba(255,255,255,.7); --aura-deep:#EDE6FF; --dots:rgba(109,76,255,.05);
+  --on-accent:#ffffff;
+}
+
+/* ---------------- tokens: dark ---------------- */
+html[data-design="glow"][data-theme="dark"]{
+  --bg1:#100C1E; --bg2:#0B0B0F; --bg2-soft:rgba(11,11,15,.55);
+  --surface:#17132A; --glass:rgba(26,20,46,.72); --glass-soft:rgba(34,26,60,.55); --glass-badge:rgba(23,19,42,.92);
+  --ink:#FFFFFF; --ink2:#DCD5F5; --ink3:#B9B0DA; --muted:#8F87B0; --muted2:#8A82AC; --faint:#5A5378;
+  --strong:#2A2148; --track:#262043; --chip:#211B3B; --chip2:#1C1733;
+  --hair:rgba(167,139,255,.09); --hair2:rgba(167,139,255,.13); --hair3:rgba(167,139,255,.19); --hair-strong:rgba(167,139,255,.34);
+  --coral-card1:#2A0F24; --coral-card2:#220C1E; --coral-ink:#FF7AB8; --coral-mut:#C890B0; --coral-desc:#B79DB0; --coral:#FF4DA6;
+  --star-bg:rgba(246,185,59,.15); --star-border:rgba(246,185,59,.42); --star-ink:#F6C868;
+  --acc:#7C5CFF; --acc2:#FF2D7A; --acc-rgb:124,92,255; --mag-rgb:255,45,122;
+  --acc-grad:linear-gradient(100deg,#6D4CFF 0%,#A64BF0 48%,#FF2D7A 100%);
+  --success:#3BC486; --warn:#E0A43C;
+
+  --a1:#7C5CFF; --a2:#FF2D7A; --a3:#FF4DA6; --glow:rgba(124,92,255,.5);
+  --neon-b:#7C5CFF; --neon-p:#FF2D7A; --accent-current:var(--acc);
+  --bg:#0B0B0F; --bg-grad:radial-gradient(120% 70% at 50% -10%, #24124A 0%, #120B26 45%, #0B0B0F 100%);
+  --text:#FFFFFF; --hint:#8A82AC; --card:#17132A;
+  --glass-grad:linear-gradient(158deg, rgba(36,27,66,.78), rgba(22,17,40,.66));
+  --glass-bg:rgba(26,20,46,.72); --glass-border:rgba(167,139,255,.16);
+  --glass-hi:rgba(200,180,255,.12); --glass-shadow:0 20px 48px -20px rgba(0,0,0,.75);
+  --faux-glass:rgba(34,26,60,.55); --aura-deep:#0B0B0F; --dots:rgba(200,180,255,.06);
+  --on-accent:#ffffff;
+}
+html[data-design="glow"][data-gender]{ --a1:var(--acc); --a2:var(--acc2); --a3:var(--coral); }
+
+/* ---------------- backdrop: violet / magenta halos, stars in the dark ---------------- */
+html[data-design="glow"] .bg-aura.one{ background:radial-gradient(circle, rgba(124,92,255,.55), transparent 70%); opacity:.5; }
+html[data-design="glow"] .bg-aura.two{ background:radial-gradient(circle, rgba(255,45,122,.45), transparent 70%); opacity:.38; }
+html[data-design="glow"][data-theme="dark"] .bg-aura.one{ opacity:.55; }
+html[data-design="glow"][data-theme="dark"] .bg-aura.two{ opacity:.26;
+  background:radial-gradient(circle, rgba(220,60,200,.55), transparent 70%); }
+html[data-design="glow"][data-theme="dark"] .bg-dots{
+  /* sparse starfield instead of the grid */
+  background-image:
+    radial-gradient(1px 1px at 12% 18%, rgba(255,255,255,.55), transparent 60%),
+    radial-gradient(1px 1px at 68% 9%, rgba(255,255,255,.45), transparent 60%),
+    radial-gradient(1.4px 1.4px at 84% 36%, rgba(255,160,220,.55), transparent 60%),
+    radial-gradient(1px 1px at 30% 62%, rgba(255,255,255,.35), transparent 60%),
+    radial-gradient(1.2px 1.2px at 52% 84%, rgba(190,170,255,.5), transparent 60%),
+    radial-gradient(1px 1px at 90% 74%, rgba(255,255,255,.4), transparent 60%),
+    radial-gradient(1px 1px at 6% 88%, rgba(255,255,255,.3), transparent 60%);
+  background-size:340px 520px;
+}
+
+/* ---------------- glass ---------------- */
+html[data-design="glow"] .glass{ border-radius:22px; }
+html[data-design="glow"][data-theme="dark"] .glass{
+  box-shadow:var(--glass-shadow), inset 0 1px 0 var(--glass-hi), 0 0 0 1px rgba(124,92,255,.06);
+}
+
+/* ---------------- aura card: violet → magenta ---------------- */
+html[data-design="glow"] .aura-card{
+  background:
+    radial-gradient(120% 90% at 0% 0%, rgba(255,255,255,.18), transparent 50%),
+    linear-gradient(135deg, #6D4CFF 0%, #A64BF0 50%, #FF2D7A 100%);
+  box-shadow:0 18px 48px -16px rgba(var(--acc-rgb),.55), 0 10px 40px -18px rgba(var(--mag-rgb),.5);
+}
+
+/* ---------------- text ---------------- */
+html[data-design="glow"] .grad-text{
+  background:linear-gradient(100deg,#6D4CFF 0%,#A64BF0 45%,#FF2D7A 100%);
+  -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+}
+html[data-design="glow"][data-theme="dark"] .grad-text{
+  background:linear-gradient(100deg,#8F6BFF 0%,#C35BF5 45%,#FF4D94 100%);
+  -webkit-background-clip:text; background-clip:text;
+  filter:drop-shadow(0 0 18px rgba(var(--acc-rgb),.35));
+}
+
+/* ---------------- buttons: gradient pill with glow ---------------- */
+html[data-design="glow"] .btn-primary{
+  border-radius:999px;
+  background:var(--acc-grad);
+  box-shadow:0 14px 30px -12px rgba(var(--acc-rgb),.65), 0 10px 26px -14px rgba(var(--mag-rgb),.55);
+}
+html[data-design="glow"] .btn-primary:active{
+  box-shadow:0 8px 18px -10px rgba(var(--acc-rgb),.6);
+}
+html[data-design="glow"][data-theme="dark"] .btn-primary{
+  box-shadow:0 0 0 1px rgba(255,255,255,.08) inset, 0 14px 34px -10px rgba(var(--acc-rgb),.8), 0 8px 30px -12px rgba(var(--mag-rgb),.7);
+}
+html[data-design="glow"] .btn-ink{ background:var(--strong); }
+
+html[data-design="glow"] .chip-pill{ border-radius:999px; }
+html[data-design="glow"] .chip-pill.alt{ color:var(--acc); background:var(--chip); border-color:var(--hair2); }
+html[data-design="glow"][data-theme="dark"] .chip-pill.alt{ color:#C9B8FF; }
+
+/* ---------------- header controls ---------------- */
+html[data-design="glow"] .theme-toggle{
+  border-radius:999px; box-shadow:0 6px 18px -10px rgba(var(--acc-rgb),.5);
+}
+html[data-design="glow"] .stars-pill{ border-radius:999px; }
+
+/* ---------------- bottom nav: glass pill, active icon in a glowing orb ---------------- */
+html[data-design="glow"] .tab-bar{
+  border-radius:999px; padding:8px 10px;
+  border:1px solid rgba(255,255,255,.9);
+  box-shadow:0 20px 44px -18px rgba(var(--acc-rgb),.45);
+}
+html[data-design="glow"][data-theme="dark"] .tab-bar{
+  background:rgba(22,17,40,.78);
+  border-color:rgba(167,139,255,.18);
+  box-shadow:0 20px 48px -16px rgba(0,0,0,.8), 0 0 30px -12px rgba(var(--acc-rgb),.45);
+}
+html[data-design="glow"] .tab-item{ border-radius:999px; }
+html[data-design="glow"] .tab-item.active::before{
+  width:46px; height:46px; border-radius:50%;
+  background:var(--acc-grad);
+  box-shadow:0 10px 24px -6px rgba(var(--acc-rgb),.7), 0 6px 22px -8px rgba(var(--mag-rgb),.6);
+}
+html[data-design="glow"][data-theme="dark"] .tab-item.active::before{
+  box-shadow:0 0 22px rgba(var(--acc-rgb),.65), 0 0 34px -6px rgba(var(--mag-rgb),.5);
+}
+html[data-design="glow"] .tab-item.active::after{
+  /* the small glowing dot under the active tab */
+  content:''; position:absolute; left:50%; bottom:-3px; width:5px; height:5px; margin-left:-2.5px;
+  border-radius:50%; background:#FF2D7A; box-shadow:0 0 8px rgba(var(--mag-rgb),.9);
+}
+
+/* ---------------- avatars: violet → magenta ring ---------------- */
+html[data-design="glow"] .story-avatar{
+  background:conic-gradient(from 200deg, #6D4CFF, #A64BF0, #FF2D7A, #FF4DA6, #6D4CFF) border-box;
+  box-shadow:0 12px 30px -10px rgba(var(--acc-rgb),.6), 0 0 26px -8px rgba(var(--mag-rgb),.45);
+}
+
+/* ---------------- page components (classes owned by single pages) ---------------- */
+/* chat bubbles — mine are violet glass, theirs stay neutral */
+html[data-design="glow"] .bubble.user,
+html[data-design="glow"] .bubble.photo,
+html[data-design="glow"] .msg.me{
+  background:linear-gradient(120deg,#6D4CFF,#9A55F7);
+  box-shadow:0 10px 24px -12px rgba(var(--acc-rgb),.7);
+}
+html[data-design="glow"] .bubble.bot,
+html[data-design="glow"] .bubble.typing,
+html[data-design="glow"] .msg.them{ box-shadow:0 8px 22px -16px rgba(var(--acc-rgb),.35); }
+html[data-design="glow"][data-theme="dark"] .bubble.bot,
+html[data-design="glow"][data-theme="dark"] .bubble.typing,
+html[data-design="glow"][data-theme="dark"] .msg.them{ background:#1E1836; border-color:rgba(167,139,255,.12); }
+html[data-design="glow"] .typing-dot{ background:#FF4DA6; }
+
+/* swipe deck */
+html[data-design="glow"] .card{ box-shadow:0 30px 70px -28px rgba(var(--acc-rgb),.55); }
+html[data-design="glow"][data-theme="dark"] .card{
+  box-shadow:0 30px 70px -24px rgba(0,0,0,.85), 0 0 0 1px rgba(167,139,255,.12), 0 0 40px -18px rgba(var(--acc-rgb),.55);
+}
+html[data-design="glow"] .card-badge{
+  /* the ring itself is painted inline from the score (feed.html) in --acc */
+  box-shadow:0 14px 32px -10px rgba(var(--acc-rgb),.6), 0 0 22px -6px rgba(var(--mag-rgb),.5);
+}
+html[data-design="glow"] .card-badge .num i{ color:#FF2D7A; }
+html[data-design="glow"] .card-tag{ border-radius:999px; }
+html[data-design="glow"] .card-tag::before{ background:#FF2D7A; }
+html[data-design="glow"] .act{ border-radius:50%; }
+html[data-design="glow"] .act.nope{ box-shadow:0 12px 28px -12px rgba(var(--acc-rgb),.5); }
+html[data-design="glow"] .act.like{
+  background:var(--acc-grad);
+  box-shadow:0 12px 28px -8px rgba(var(--acc-rgb),.65), 0 0 26px -6px rgba(var(--mag-rgb),.6);
+}
+html[data-design="glow"] .badge.like{ background:linear-gradient(135deg,rgba(109,76,255,.9),rgba(255,45,122,.9)); }
+html[data-design="glow"] .mystery{
+  box-shadow:0 14px 34px -20px rgba(var(--acc-rgb),.45), 0 0 26px -12px rgba(var(--mag-rgb),.45);
+}
+
+/* 18+ Dark Mode accents: magenta instead of the old coral */
+html[data-design="glow"] .card-dark{ background:rgba(var(--mag-rgb),.07); border-color:rgba(var(--mag-rgb),.22); }
+html[data-design="glow"] .dark-tag,
+html[data-design="glow"] .row-dark-tag{ background:rgba(var(--mag-rgb),.1); border-color:rgba(var(--mag-rgb),.26); }
+
+/* ---------------- the ghost logo (markup from SixtioLogo in theme.js) ---------------- */
+.sx-logo{ display:block; width:100%; height:auto; overflow:visible; }
+.sx-logo .sx-heart-top{ transform-origin:100px 26px; animation:sxBeat 2.6s ease-in-out infinite; }
+.sx-logo .sx-ghost-l{ animation:sxFloatL 4.2s ease-in-out infinite; }
+.sx-logo .sx-ghost-r{ animation:sxFloatR 4.2s ease-in-out infinite; }
+/* on light surfaces the pale ghost needs an edge, or it dissolves into the tile */
+html[data-theme="light"] .sx-logo .sx-ghost-l{ filter:drop-shadow(0 6px 10px rgba(109,76,255,.28)) drop-shadow(0 0 1px rgba(109,76,255,.35)); }
+html[data-theme="light"] .sx-logo .sx-ghost-r{ filter:drop-shadow(0 6px 12px rgba(255,45,122,.35)); }
+@keyframes sxBeat{ 0%,100%{ transform:scale(1) } 12%{ transform:scale(1.12) } 24%{ transform:scale(.98) } 36%{ transform:scale(1.06) } }
+@keyframes sxFloatL{ 0%,100%{ transform:translateY(0) } 50%{ transform:translateY(-3px) } }
+@keyframes sxFloatR{ 0%,100%{ transform:translateY(-2px) } 50%{ transform:translateY(2px) } }
+
+/* the glass app-icon tile that holds the logo on the welcome screen */
+.sx-tile{
+  position:relative; width:184px; height:184px; border-radius:46px;
+  display:flex; align-items:center; justify-content:center; padding:16px 12px 10px;
+}
+html[data-theme="dark"] .sx-tile{
+  background:
+    radial-gradient(90% 70% at 50% 0%, rgba(124,92,255,.35), transparent 70%),
+    radial-gradient(80% 60% at 50% 110%, rgba(255,45,122,.3), transparent 70%),
+    #0E0A1C;
+  border:2px solid transparent;
+  background-clip:padding-box;
+  box-shadow:
+    0 0 0 2px rgba(124,92,255,.85),
+    0 0 0 3px rgba(255,45,122,.35),
+    0 0 40px -4px rgba(124,92,255,.75),
+    0 0 70px -10px rgba(255,45,122,.6),
+    inset 0 1px 0 rgba(255,255,255,.25),
+    inset 0 0 30px rgba(124,92,255,.25);
+}
+html[data-theme="light"] .sx-tile{
+  background:
+    radial-gradient(90% 70% at 30% 10%, rgba(255,255,255,1), rgba(255,255,255,.55) 60%),
+    linear-gradient(160deg, #F6F2FF, #FFEFF7);
+  border:1px solid rgba(255,255,255,.95);
+  box-shadow:
+    0 24px 60px -22px rgba(109,76,255,.5),
+    0 14px 50px -24px rgba(255,45,122,.5),
+    inset 0 2px 0 rgba(255,255,255,1),
+    inset 0 -10px 30px rgba(109,76,255,.08);
+}
+.sx-tile::after{
+  /* glass sheen */
+  content:''; position:absolute; left:12px; right:12px; top:8px; height:30%;
+  border-radius:36px 36px 50% 50% / 36px 36px 22% 22%;
+  background:linear-gradient(180deg, rgba(255,255,255,.13), rgba(255,255,255,0));
+  pointer-events:none;
+}
+html[data-theme="light"] .sx-tile::after{ background:linear-gradient(180deg, rgba(255,255,255,.75), rgba(255,255,255,0)); }
+
+@media (prefers-reduced-motion: reduce){
+  .sx-logo .sx-heart-top,.sx-logo .sx-ghost-l,.sx-logo .sx-ghost-r{ animation:none; }
+}
+@media (prefers-reduced-transparency: reduce){
+  html[data-design="glow"] .tab-bar{ background:var(--surface) !important; }
+}
