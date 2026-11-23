@@ -382,3 +382,54 @@ export function geminiText(data) {
     .join('')
     .trim();
 }
+
+/**
+ * Which Gemini models ACTUALLY answer for this API key, right now.
+ *
+ * Google has retired the model this app depended on twice, and both times the
+ * dead model was still LISTED by models.list and still advertised
+ * generateContent — gemini-2.5-flash and gemini-2.5-flash-lite both 404'd
+ * "no longer available to new users" while appearing in the catalogue. So the
+ * list is used only to find CANDIDATES; the evidence is one real generateContent
+ * call per candidate.
+ *
+ * Calls run in parallel and each model has its own free-tier pool, so one
+ * probe costs one request per model and nothing from the pools translation
+ * depends on beyond that single call.
+ *
+ * @returns {Promise<Array<{model:string, ok:boolean, ms:number, detail:string}>>}
+ */
+export async function probeGeminiModels({ max = 10 } = {}) {
+  if (!process.env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY is not set');
+
+  const res = await fetch(`${API_BASE}?pageSize=200`, {
+    headers: { 'x-goog-api-key': process.env.GEMINI_API_KEY },
+    signal: AbortSignal.timeout(8_000),
+  });
+  if (!res.ok) throw new Error(`models.list ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  const listed = ((await res.json()).models || [])
+    .filter((m) => (m.supportedGenerationMethods || []).includes('generateContent'))
+    .map((m) => String(m.name || '').replace(/^models\//, ''))
+    // Text models only: image/audio/live/embedding variants cannot translate.
+    .filter((n) => /flash/i.test(n) && !/image|tts|audio|live|embed|vision|computer|robotics/i.test(n));
+
+  // The two models in use are always probed, listed or not — "is what we run on
+  // still alive" is the question that matters most. Stable aliases first.
+  const wanted = [geminiModelLight(), geminiModel(), ...listed];
+  const candidates = [...new Set(wanted)]
+    .sort((a, b) => Number(/-latest$/.test(b)) - Number(/-latest$/.test(a)))
+    .slice(0, max);
+
+  const payload = { contents: [{ role: 'user', parts: [{ text: 'Reply with: OK' }] }] };
+  return Promise.all(candidates.map(async (model) => {
+    const t0 = Date.now();
+    try {
+      const r = await post(model, payload, 'probe');
+      return r.ok
+        ? { model, ok: true, ms: Date.now() - t0, detail: 'answered' }
+        : { model, ok: false, ms: Date.now() - t0, detail: `HTTP ${r.status}` };
+    } catch (e) {
+      return { model, ok: false, ms: Date.now() - t0, detail: String(e.message || e).slice(0, 80) };
+    }
+  }));
+}

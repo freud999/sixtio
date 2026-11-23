@@ -3,6 +3,7 @@ import { scoreCandidates } from './claude.js';
 import { notifyMatchBoth } from './bot.js';
 import { flagEnabled } from './flags.js';
 import { mutualGenderMatch, wantedGender } from './gendermatch.js';
+import { isAbandoned } from './activity.js';
 
 // Who can match with whom by relationship goal: "situational" is open to everyone.
 const COMPATIBLE_GOALS = {
@@ -73,7 +74,7 @@ export async function runMatching(userId, lang = 'uk') {
   // memory on the much smaller reduced set.
   let candQuery = supabase
     .from('users')
-    .select('id, telegram_id, name, tg_username, gender, seeking_gender, goal, age, city, interests, core_values, bio, photo_url, language_code')
+    .select('id, telegram_id, name, tg_username, gender, seeking_gender, goal, age, city, interests, core_values, bio, photo_url, language_code, last_active, created_at')
     .neq('id', userId)
     .eq('shadow_hidden', false)
     .gte('age', me.age - MAX_AGE_GAP)
@@ -98,6 +99,12 @@ export async function runMatching(userId, lang = 'uk') {
     if (hidden.has(c.id) || pairedIds.has(c.id)) continue;  // blocked or already paired
     if (!c.gender || !c.goal || !c.age) continue;
     if (!mutualGenderMatch(me, c)) continue;   // the one shared rule
+    // Never PAIR someone with an account that registered and never came back.
+    // The deck still shows them (last, see api/feed.js) — that is the user's own
+    // choice to swipe. A match is different: the app announces it to both sides,
+    // and announcing a partner who will never read it is a silence the app
+    // itself arranged. Both reports this app has received were that silence.
+    if (isAbandoned(c)) continue;
     if (!(COMPATIBLE_GOALS[me.goal] || []).includes(c.goal)) continue;
     prelim.push(c);
   }

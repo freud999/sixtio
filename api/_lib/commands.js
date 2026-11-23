@@ -388,6 +388,7 @@ export async function handleUserCommand(msg) {
   if (cmd === '/envcheck') { await sendEnvCheck(msg); return true; }
   if (cmd === '/broadcast') { await broadcast(msg); return true; }
   if (cmd === '/recover') { await recover(msg); return true; }
+  if (cmd === '/geminimodels') { await geminiModels(msg); return true; }
 
   // 4) A plain (non-command) message right after a bare /feedback — captured as
   // feedback via the armed DB flag, so the user doesn't have to reply-quote.
@@ -576,6 +577,49 @@ async function recover(msg) {
   if (remaining && !crash) lines.push('Send /recover again to continue.');
 
   await callBot('sendMessage', { chat_id: chatId, text: lines.join('\n'), parse_mode: 'HTML' });
+}
+
+// --- /geminimodels — which free models actually answer -----------------------
+//
+// Owner-only. Google retires models while still listing them, so picking a
+// replacement by name has twice meant picking a dead model. This makes one real
+// call to each candidate and recommends a fallback that (a) answers and (b) is
+// a DIFFERENT model from the one translation runs on — a fallback that shares
+// the primary's pool is the same queue twice, not a second chance.
+async function geminiModels(msg) {
+  const chatId = msg.chat.id;
+  if (!OWNER_TELEGRAM_ID || Number(msg.from && msg.from.id) !== OWNER_TELEGRAM_ID) return;
+  await callBot('sendMessage', { chat_id: chatId, text: '⏳ Calling each Gemini model…' });
+
+  let results;
+  try {
+    const { probeGeminiModels } = await import('./geminifetch.js');
+    results = await probeGeminiModels();
+  } catch (e) {
+    await callBot('sendMessage', { chat_id: chatId, text: `❌ Probe failed: ${String(e.message || e).slice(0, 200)}` });
+    return;
+  }
+
+  const primary = geminiModelLightInUse();
+  const fallback = geminiModelInUse();
+  const working = results.filter((r) => r.ok).sort((a, b) => a.ms - b.ms);
+  const pick = working.find((r) => r.model !== primary);
+
+  const tag = (m) => (m === primary ? ' ← translation' : m === fallback ? ' ← fallback now' : '');
+  const lines = results
+    .sort((a, b) => Number(b.ok) - Number(a.ok) || a.ms - b.ms)
+    .map((r) => `${r.ok ? '✅' : '❌'} ${r.model} · ${r.ok ? r.ms + 'ms' : r.detail}${tag(r.model)}`);
+
+  const advice = !pick
+    ? '\n⚠️ No working model other than the translation one — there is no spare to switch to right now.'
+    : pick.model === fallback
+      ? `\n✅ The current fallback (${fallback}) answers. Nothing to change.`
+      : `\n👉 Set <code>GEMINI_MODEL=${esc(pick.model)}</code> in Vercel → Environment Variables, then Redeploy.`;
+
+  await callBot('sendMessage', {
+    chat_id: chatId, parse_mode: 'HTML',
+    text: '<b>Gemini models — real calls, not the catalogue</b>\n<pre>' + esc(lines.join('\n')) + '</pre>' + advice,
+  });
 }
 
 async function sendEnvCheck(msg) {

@@ -8,6 +8,7 @@ import { signPhoto, signPhotos, photoKey, blurKey } from './_lib/photos.js';
 import { compatibilityPage } from './_lib/compat.js';
 import { flagEnabled } from './_lib/flags.js';
 import { mutualGenderMatch, wantedGender } from './_lib/gendermatch.js';
+import { activityTier, hideInactiveDays } from './_lib/activity.js';
 
 // Recommendation feed for the swipe deck (feed.html). Pure Supabase — no AI.
 // Candidates are opposite-gender, within ±10 years, never already swiped, and
@@ -198,7 +199,7 @@ export default async function handler(req, res) {
     // people who have no Big Five yet, so the deck still flows for a new market
     // where almost nobody is scored.
     const COLS = 'id, name, gender, seeking_gender, age, city, photo_url, photo_blur_url, '
-      + DARK_COLUMNS + ', kink_markers, interests, last_active, shadow_hidden';
+      + DARK_COLUMNS + ', kink_markers, interests, last_active, created_at, shadow_hidden';
     const scoredIds = [...compatMap.keys()];
 
     const candidates = [];
@@ -233,6 +234,8 @@ export default async function handler(req, res) {
     const darkOn = darkActive(me);
     const myInterests = normInterests(me.interests);
 
+    const nowMs = Date.now();
+    const hideDays = hideInactiveDays();
     const ranked = [];
     for (const c of candidates || []) {
       if (seen.has(c.id)) continue;                              // already swiped / blocked
@@ -244,6 +247,12 @@ export default async function handler(req, res) {
       if (!mutualGenderMatch(me, c)) continue;
       // Preferred age range — ±10 years, no geographical radius.
       if (me.age && Math.abs(me.age - c.age) > gap) continue;
+      // Optional hard cut-off by inactivity. OFF by default: measured
+      // 2026-11-23, a 14-day cut would have left each man a deck of two women.
+      // Ordering (below) does the work instead; this is for when there are
+      // enough active people that hiding no longer empties the deck.
+      if (hideDays && c.last_active
+          && nowMs - new Date(c.last_active).getTime() > hideDays * 86400000) continue;
 
       const hit = compatByUser[c.id];
       const card = {
@@ -273,6 +282,9 @@ export default async function handler(req, res) {
         interests: (c.interests || []).slice(0, 3),
         // Live presence for the green online dot on the card.
         online: isOnline(c.last_active),
+        // Server-side only (stripped before the response): how present this
+        // person is, from the shared definition in _lib/activity.js.
+        _tier: activityTier(c, nowMs),
       };
 
       // Shared-interest nudge (Layer 2): count normalized overlaps for ranking.
@@ -315,7 +327,11 @@ export default async function handler(req, res) {
       Math.max(c.compatibility || 0, c.darkMode ? (c.intimateCompatibility || 0) : 0)
       + Math.min(INTEREST_BOOST_MAX, (c.sharedInterests || 0) * INTEREST_BOOST_PER)
       - agePenalty(c);
-    ranked.sort((a, b) => rankScore(b) - rankScore(a));
+    // Presence FIRST, compatibility within it. A 92% match with someone who left
+    // two months ago is a message into silence — and both reports this app has
+    // received were exactly that, filed as "fake". Nobody is removed: people who
+    // are rarely here still appear, just after the ones who will answer.
+    ranked.sort((a, b) => (a._tier - b._tier) || (rankScore(b) - rankScore(a)));
 
     const start = Math.max(0, parseInt(offset, 10) || 0);
     const size = Math.min(50, Math.max(1, parseInt(limit, 10) || DEFAULT_LIMIT));
@@ -327,7 +343,7 @@ export default async function handler(req, res) {
       const sigMap = await signPhotos(page.map((c) => c._photoKey), supabase);
       for (const c of page) c.photoUrl = c._photoKey ? (sigMap.get(c._photoKey) || '') : '';
     } catch (e) { console.error('feed photo signing failed:', e.message); }
-    for (const c of page) delete c._photoKey;
+    for (const c of page) { delete c._photoKey; delete c._tier; }
 
     // Big Five for the deep-compatibility sheet: batch-load the paged candidates'
     // stored traits (+ this viewer's) in ONE query and attach them read-only.
@@ -398,6 +414,10 @@ async function resolveMysteryMatch(supabase, me, ranked, compatByUser, nameFallb
     // Big Five score (the deck order now also weighs intimate compatibility).
     let best = null;
     for (const c of ranked) {
+      // Never tease someone who has left: unlocking Mystery Match costs Stars,
+      // and paying to reveal an account that will never answer is the worst
+      // version of the ghost problem. Tier 2 = abandoned or gone > 60 days.
+      if (c._tier >= 2) continue;
       if (c.compatibility > MYSTERY_MIN_SCORE && (!best || c.compatibility > best.compatibility)) best = c;
     }
     targetId = best ? best.userId : null;
