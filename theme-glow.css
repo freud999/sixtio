@@ -153,11 +153,6 @@ html[data-design="glow"] .tab-item.active::before{
 html[data-design="glow"][data-theme="dark"] .tab-item.active::before{
   box-shadow:0 0 22px rgba(var(--acc-rgb),.65), 0 0 34px -6px rgba(var(--mag-rgb),.5);
 }
-html[data-design="glow"] .tab-item.active::after{
-  /* the small glowing dot under the active tab */
-  content:''; position:absolute; left:50%; bottom:-3px; width:5px; height:5px; margin-left:-2.5px;
-  border-radius:50%; background:#FF2D7A; box-shadow:0 0 8px rgba(var(--mag-rgb),.9);
-}
 
 /* ---------------- avatars: violet → magenta ring ---------------- */
 html[data-design="glow"] .story-avatar{

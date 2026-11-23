@@ -9,6 +9,7 @@ import { compatibilityPage } from './_lib/compat.js';
 import { flagEnabled } from './_lib/flags.js';
 import { mutualGenderMatch, wantedGender } from './_lib/gendermatch.js';
 import { activityTier, hideInactiveDays } from './_lib/activity.js';
+import { presentTags } from './_lib/whytags.js';
 
 // Recommendation feed for the swipe deck (feed.html). Pure Supabase — no AI.
 // Candidates are opposite-gender, within ±10 years, never already swiped, and
@@ -277,7 +278,9 @@ export default async function handler(req, res) {
         // profiles lead the deck and unscored ones follow instead of vanishing.
         compatibility: hit ? hit.score : null,
         // Compatibility tags drive the "Why you match" reason line on the card.
-        tags: hit ? (hit.tags || []).slice(0, 3) : [],
+        // Only reviewed, positive, translated words — never the raw analyst
+        // tags ("guarded", "no data"). See _lib/whytags.js.
+        tags: hit ? presentTags(hit.tags, lang) : [],
         // The candidate's own interests → value chips under the reason.
         interests: (c.interests || []).slice(0, 3),
         // Live presence for the green online dot on the card.
@@ -367,7 +370,7 @@ export default async function handler(req, res) {
     let mysteryMatch = null;
     if (start === 0) {
       try {
-        mysteryMatch = await resolveMysteryMatch(supabase, me, ranked, compatByUser, nameFallback);
+        mysteryMatch = await resolveMysteryMatch(supabase, me, ranked, compatByUser, nameFallback, lang);
       } catch (mmError) {
         console.error('mystery match failed:', mmError.message);
       }
@@ -402,7 +405,7 @@ export default async function handler(req, res) {
 // isMysteryMatch flag) until the user pays to unlock it, after which the real
 // identity is revealed. `ranked` is the already-filtered, score-sorted deck;
 // `compatByUser` maps userId -> { score, tags }.
-async function resolveMysteryMatch(supabase, me, ranked, compatByUser, nameFallback = 'Хтось особливий') {
+async function resolveMysteryMatch(supabase, me, ranked, compatByUser, nameFallback = 'Хтось особливий', lang = 'uk') {
   const now = Date.now();
   const lastMs = me.last_mystery_match_time ? new Date(me.last_mystery_match_time).getTime() : 0;
   const needRefresh = !lastMs || (now - lastMs) > MYSTERY_REFRESH_MS;
@@ -463,6 +466,6 @@ async function resolveMysteryMatch(supabase, me, ranked, compatByUser, nameFallb
     age: u.age, city: u.city || '',
     // Paid unlock → full photo, as a fresh signed URL.
     photoUrl: u.photo_url ? await signPhoto(photoKey(u.id), supabase) : '',
-    tags: hit ? (hit.tags || []).slice(0, 3) : [],
+    tags: hit ? presentTags(hit.tags, lang) : [],
   };
 }

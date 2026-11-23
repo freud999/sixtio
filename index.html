@@ -5,17 +5,43 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Sixtio</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="i18n.js?v=52"></script>
-<script src="theme.js?v=52"></script>
-<link rel="stylesheet" href="theme.css?v=52" />
-<link rel="stylesheet" href="theme-glow.css?v=52" />
+<script src="i18n.js?v=53"></script>
+<script src="theme.js?v=53"></script>
+<link rel="stylesheet" href="theme.css?v=53" />
+<link rel="stylesheet" href="theme-glow.css?v=53" />
+<script>
+  // A person who already has a profile never needs this screen. It used to show
+  // for as long as /api/me took to answer (seconds — it may translate), and only
+  // then redirect. Now: a cached profile leaves before anything paints; with no
+  // cache but a Telegram identity, only the logo shows until the server answers
+  // (capped, so a new user is never kept waiting on a slow call).
+  (function () {
+    var root = document.documentElement;
+    try {
+      var me = JSON.parse(localStorage.getItem('sixtio_me') || 'null');
+      if (me && me.profile) { root.setAttribute('data-leaving', ''); location.replace('matches.html'); return; }
+    } catch (e) {}
+    var tg = window.Telegram && window.Telegram.WebApp;
+    if (tg && tg.initData) {
+      root.setAttribute('data-checking', '');
+      setTimeout(function () { root.removeAttribute('data-checking'); }, 3500);
+    }
+  })();
+</script>
 <style>
+  html[data-leaving] body{ visibility:hidden; }
+  /* while we ask the server whether this is a returning user: logo only */
+  html[data-checking] .reveal{ opacity:0; pointer-events:none; }
+  .reveal{ transition:opacity .35s ease; }
+
   body{
     display:flex; flex-direction:column;
-    padding:env(safe-area-inset-top) 24px env(safe-area-inset-bottom);
-    overflow:hidden;
+    padding:calc(env(safe-area-inset-top) + 52px) 24px env(safe-area-inset-bottom);
+    /* small screens (Telegram's compact sheet) must be able to scroll */
+    height:100dvh; overflow-x:hidden; overflow-y:auto; -webkit-overflow-scrolling:touch;
+    overscroll-behavior:contain;
   }
-  .top{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  .top{ flex:1 0 auto; display:flex; flex-direction:column; align-items:center; justify-content:center;
     text-align:center; gap:20px; position:relative; z-index:1; }
   .bottom{ padding:16px 0 10px; position:relative; z-index:1; }
 
@@ -76,13 +102,13 @@
       <h1 class="wordmark led grad-text">Sixtio</h1>
       <div class="brand-sub glow-only">AI DATING</div>
     </div>
-    <p class="thesis" id="thesis" data-i18n="idx_thesis">Не свайпи. Знайомства, які справді мають сенс.</p>
-    <div class="sub-card glass">
+    <p class="thesis reveal" id="thesis" data-i18n="idx_thesis">Не свайпи. Знайомства, які справді мають сенс.</p>
+    <div class="sub-card glass reveal">
       <span id="sub" data-i18n="idx_sub">Sixtio — розумна сваха. Вона ставить кілька щирих запитань, вивчає, хто ви, і знаходить людину, з якою у вас справжня сумісність.</span>
     </div>
   </div>
 
-  <div class="bottom">
+  <div class="bottom reveal">
     <button class="btn-primary" id="start" style="width:100%;" data-i18n="idx_start">Познайомитись із Sixtio</button>
     <p class="note" data-i18n-html="idx_note"><b>Приватно.</b>&nbsp; Вашого профілю Telegram ніхто не бачить.</p>
     <p class="note" style="margin-top:6px;"><a href="privacy.html" style="color:var(--hint);" data-i18n="privacy_policy">Політика конфіденційності</a></p>
@@ -136,9 +162,13 @@
           if (me && me.user && window.SixtioTheme && me.user.gender) {
             window.SixtioTheme.setGender(me.user.gender);
           }
-          if (me && me.profile) window.location.replace('matches.html');
+          if (me && me.profile) { window.location.replace('matches.html'); return; }
+          document.documentElement.removeAttribute('data-checking');
         })
-        .catch(function(){ /* offline — stay on the welcome screen */ });
+        .catch(function(){
+          // offline — stay on the welcome screen
+          document.documentElement.removeAttribute('data-checking');
+        });
     })();
   </script>
 </body>

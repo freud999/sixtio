@@ -13,6 +13,7 @@
 
 import { getSupabase } from './supabase.js';
 import { claudeJson, personalityModelInUse } from './claude.js';
+import { ALLOWED_TAGS } from './whytags.js';
 
 // The five canonical Big Five dimensions, in the order we store them.
 const TRAITS = [
@@ -65,7 +66,11 @@ Calibration — use the FULL range; do NOT cluster scores around 50:
 Rules:
 - Base every score ONLY on evidence in the answers.
 - Return integers from 1 to 100 (never 0, never above 100).
-- Also return exactly 3 short lowercase descriptive tags (1-2 words each), e.g. ["empathetic", "rational", "adventurous"].
+- Also return up to 3 tags naming this person's STRENGTHS. Another user will see them
+  as the reason to like this person, so they must be kind and true. Choose ONLY from:
+  ${ALLOWED_TAGS.join(', ')}.
+  If the answers show no clear strength, return fewer tags or an empty list — never
+  a placeholder like "no data", and never a criticism.
 - Respond with the JSON object only — no commentary.`;
 
 /** Clamp to a 1..100 integer; falls back to the neutral midpoint on garbage. */
@@ -75,14 +80,17 @@ function clampTrait(value) {
   return Math.min(100, Math.max(1, n));
 }
 
-/** Normalise tags to exactly three short, trimmed, non-empty strings. */
+/**
+ * Keep only words from the shown vocabulary, at most three. No padding: a
+ * filler word ("balanced") on a card is a reason to like someone that the
+ * interview never gave.
+ */
 function normalizeTags(tags) {
-  const cleaned = (Array.isArray(tags) ? tags : [])
+  const allowed = new Set(ALLOWED_TAGS);
+  return [...new Set((Array.isArray(tags) ? tags : [])
     .map((t) => String(t || '').trim().toLowerCase())
-    .filter(Boolean)
+    .filter((t) => allowed.has(t)))]
     .slice(0, 3);
-  while (cleaned.length < 3) cleaned.push('balanced');
-  return cleaned;
 }
 
 /**

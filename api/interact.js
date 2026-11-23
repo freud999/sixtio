@@ -1,4 +1,5 @@
 import { resolveUser, pickLang } from './_lib/telegram.js';
+import { presentTags } from './_lib/whytags.js';
 import { captureError } from './_lib/sentry.js';
 import {
   findUserId, getSupabase, blockUser, unblockUser, reportUser, getPendingLikers,
@@ -99,7 +100,7 @@ export default async function handler(req, res) {
     if (op === 'purchase') return purchase(req, res, tgUser, body);
     if (op === 'toggle_dark_mode') return toggleDarkMode(res, tgUser, body);
     if (op === 'submit_kink_interview') return submitKinkInterview(res, tgUser, body);
-    if (op === 'unlock_mystery_match') return unlockMysteryMatch(res, tgUser);
+    if (op === 'unlock_mystery_match') return unlockMysteryMatch(res, tgUser, body);
     if (op === 'open_lootbox') return openLootbox(res, tgUser);
     if (op === 'track') return trackClientEvent(res, tgUser, body);
     if (op === 'likers') return listLikers(res, tgUser);
@@ -416,7 +417,7 @@ async function submitKinkInterview(res, tgUser, body) {
 // guarded RPC (never double-charges, never goes negative); if already unlocked
 // we skip the charge and just re-serve the identity. Returns the full card so
 // the client can flip the "?" into a real person without another round-trip.
-async function unlockMysteryMatch(res, tgUser) {
+async function unlockMysteryMatch(res, tgUser, body = {}) {
   const supabase = getSupabase();
   const { data: me, error } = await supabase
     .from('users')
@@ -440,12 +441,12 @@ async function unlockMysteryMatch(res, tgUser) {
     starsBalance = newBalance;
   }
 
-  const profile = await revealMysteryCard(supabase, me.id, me.last_mystery_match_id);
+  const profile = await revealMysteryCard(supabase, me.id, me.last_mystery_match_id, pickLang(body.lang, tgUser));
   return res.status(200).json({ ok: true, starsBalance, profile });
 }
 
 // Builds the unlocked Mystery Match card (identity + fresh Big Five score/tags).
-async function revealMysteryCard(supabase, meId, targetId) {
+async function revealMysteryCard(supabase, meId, targetId, lang = 'uk') {
   const { data: u } = await supabase
     .from('users')
     .select('id, name, age, city, photo_url')
@@ -459,7 +460,7 @@ async function revealMysteryCard(supabase, meId, targetId) {
     // One person's score, asked for as one person's score. This used to rank the
     // entire database and then `.find()` the single row it wanted (F-09).
     const hit = (await compatibilityFor(supabase, meId, [targetId])).get(targetId);
-    if (hit) { compatibility = hit.score; tags = (hit.tags || []).slice(0, 3); }
+    if (hit) { compatibility = hit.score; tags = presentTags(hit.tags, lang); }
   } catch (e) {
     console.error('mystery reveal compat failed:', e.message);
   }

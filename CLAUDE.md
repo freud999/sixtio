@@ -6,7 +6,7 @@ Telegram Mini App dating service. AI matchmaker: a short interview builds a
 ## Stack
 - Frontend: vanilla multi-page HTML + inline JS. Shared assets on every page:
   `i18n.js`, `theme.js`, `paywall.js`, `theme.css`, `theme-glow.css`, each with a
-  `?v=NN` cache-buster (currently **v=52** — bump ALL references together on any
+  `?v=NN` cache-buster (currently **v=53** — bump ALL references together on any
   shared-asset change).
 - Design: «Glow» (violet + magenta, ghost logo) is a LAYER in `theme-glow.css`,
   scoped to `html[data-design="glow"]`, over the complete old «Clarity» in
