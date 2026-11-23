@@ -100,3 +100,10 @@ test('/recover is owner-only and silent for everyone else', () => {
   assert.match(fn, /OWNER_TELEGRAM_ID[\s\S]{0,120}?return;/);
   assert.match(fn, /Anthropic still has no credit/, 'it must say so when the cause is billing');
 });
+
+test('/envcheck shows the photo-moderation mode and is never green while fail-open', () => {
+  // The override let 17 photos onto an 18+ product unchecked, and no screen
+  // anywhere showed that it was on.
+  assert.match(commands, /photo moderation: \$\{photoModerationFailOpen\(\) \?/);
+  assert.match(commands, /&& !photoModerationFailOpen\(\);/);
+});

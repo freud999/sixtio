@@ -20,6 +20,7 @@ import { findUserId, deleteUserCascade, armFeedback, consumeFeedback } from './s
 import { buildReferralLink } from './referrals.js';
 import { flagStates, flagsDown } from './flags.js';
 import { sentryConfigured } from './sentry.js';
+import { photoModerationFailOpen } from './claude.js';
 import {
   smokeEnv, formatSmoke, smokeHealthy, validateEnv, formatProblems,
   geminiModelInUse, geminiModelLightInUse, kinkModelInUse,
@@ -589,7 +590,9 @@ async function sendEnvCheck(msg) {
   // A kill switch left down is the realistic failure here — not the emergency
   // itself, but forgetting to switch back. So "all green" is FALSE while any
   // switch is off: /envcheck must never report health while a feature is dark.
-  const allOk = !shape.length && smokeHealthy(live) && !down.length;
+  // Fail-open moderation on an 18+ product is a live safety gap, not a config
+  // detail, so it keeps the check from reporting all-green.
+  const allOk = !shape.length && smokeHealthy(live) && !down.length && !photoModerationFailOpen();
 
   const text =
     `<b>${allOk ? '✅ All green' : '⚠️ Problems found'}</b>\n\n` +
@@ -614,7 +617,10 @@ async function sendEnvCheck(msg) {
       // every webhook call, and a per-payment check against Telegram's own
       // transaction list (verifyStarCharge). The second works regardless; this
       // line says whether the first one exists, which nothing else showed.
-      `payment webhook auth: ${process.env.TELEGRAM_WEBHOOK_SECRET ? 'secret set (2 layers)' : 'NO SECRET — charge verification only (1 layer)'}`
+      `payment webhook auth: ${process.env.TELEGRAM_WEBHOOK_SECRET ? 'secret set (2 layers)' : 'NO SECRET — charge verification only (1 layer)'}\n` +
+      // This switch let 17 photos onto an 18+ product unchecked during the
+      // 2026-10/11 outage, and nothing anywhere showed that it was on.
+      `photo moderation: ${photoModerationFailOpen() ? 'FAIL-OPEN — photos stored UNCHECKED when AI is down' : 'fail-closed (uploads refused when AI is down)'}`
     )}</pre>`;
 
   await callBot('sendMessage', { chat_id: chatId, text, parse_mode: 'HTML' });
