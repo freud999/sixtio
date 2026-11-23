@@ -386,6 +386,7 @@ export async function handleUserCommand(msg) {
 
   if (cmd === '/envcheck') { await sendEnvCheck(msg); return true; }
   if (cmd === '/broadcast') { await broadcast(msg); return true; }
+  if (cmd === '/recover') { await recover(msg); return true; }
 
   // 4) A plain (non-command) message right after a bare /feedback — captured as
   // feedback via the armed DB flag, so the user doesn't have to reply-quote.
@@ -528,6 +529,52 @@ async function broadcast(msg) {
       `🚫 unreachable: <b>${unreachable}</b> (blocked, or never opened a chat — now skipped in future sends)\n` +
       `⚠️ retryable failures: <b>${failed}</b>`,
   });
+}
+
+// --- /recover — repair what an AI outage skipped ----------------------------
+//
+// Owner-only. Each call runs ONE phase of _lib/recovery.js (photos, then Twins,
+// then Big Five) as a single parallel round, so it always fits inside the 30s
+// function limit, and reports what is left. Send it again until it says done.
+// The daily cron runs the same step too, so stopping halfway loses nothing.
+async function recover(msg) {
+  const chatId = msg.chat.id;
+  if (!OWNER_TELEGRAM_ID || Number(msg.from && msg.from.id) !== OWNER_TELEGRAM_ID) return;
+
+  const { recoverStep, recoveryBacklog } = await import('./recovery.js');
+  await callBot('sendMessage', { chat_id: chatId, text: '⏳ Recovering…' });
+
+  let step = null, crash = null;
+  try { step = await recoverStep(); } catch (e) { crash = String((e && e.message) || e); }
+  const left = await recoveryBacklog().catch(() => ({}));
+
+  const NAMES = { photos: '🛡 Photo checks', twins: '🧬 Digital Twins', big_five: '🧠 Big Five' };
+  const lines = [];
+  if (crash) {
+    lines.push(`❌ Recovery step failed: <code>${esc(crash.slice(0, 200))}</code>`);
+  } else if (!step) {
+    lines.push('✅ <b>Nothing left to recover.</b> Every finished interview has a Twin and Big Five, and every photo has been checked.');
+  } else {
+    lines.push(`<b>${NAMES[step.phase] || step.phase}</b>: ${step.done} done` +
+      (step.rejected && step.rejected.length ? `, <b>${step.rejected.length} rejected</b>` : '') +
+      (step.failed.length ? `, ${step.failed.length} failed` : ''));
+    if (step.rejected && step.rejected.length) {
+      // Removed from every screen, files kept, so a wrong call can be undone.
+      lines.push('Hidden (files kept, reversible):');
+      for (const r of step.rejected) lines.push(`• <code>${r.id}</code> — ${esc(r.reason).slice(0, 80)}`);
+    }
+    if (step.failed.length) {
+      const first = step.failed[0].error || '';
+      lines.push(/credit balance|billing/i.test(first)
+        ? '🚨 Anthropic still has no credit — top up before running this again.'
+        : `First error: <code>${esc(first)}</code>`);
+    }
+  }
+  const remaining = (left.photos || 0) + (left.twins || 0) + (left.traits || 0);
+  lines.push('', `Left: 🛡 ${left.photos ?? '?'} photos · 🧬 ${left.twins ?? '?'} Twins · 🧠 ${left.traits ?? '?'} Big Five`);
+  if (remaining && !crash) lines.push('Send /recover again to continue.');
+
+  await callBot('sendMessage', { chat_id: chatId, text: lines.join('\n'), parse_mode: 'HTML' });
 }
 
 async function sendEnvCheck(msg) {

@@ -105,8 +105,15 @@ export default async function handler(req, res) {
     // upload. The two failures below are different events and are treated as
     // such: a verdict of "nsfw" is a normal product answer (422, no alert),
     // being unable to GET a verdict is an outage (503, alert, retryable).
+    // Whether a verdict actually came back. Stored as photo_checked_at below, so
+    // a photo let through by the fail-open override is recorded as UNCHECKED and
+    // re-checked later by recovery (_lib/recovery.js). Before migration 049 the
+    // two looked identical, and after the 47-day outage the only way to find the
+    // 17 unchecked photos was by file timestamps.
+    let checked = false;
     try {
       const verdict = await moderatePhoto(buffer.toString('base64'));
+      checked = true;
       if (verdict.nsfw) {
         console.warn(`photo rejected (nsfw) for tg ${tgUser.id}: ${verdict.reason}`);
         return res.status(422).json({ error: 'photo_rejected' });
@@ -154,7 +161,10 @@ export default async function handler(req, res) {
 
     // Store the object KEYS, not URLs — the bucket is private and every read mints
     // a fresh signed URL. The columns double as "has a (blur) photo" presence flags.
-    const patch = { photo_url: photoKey(userId) };
+    // photo_checked_at is ALWAYS written — including null — because a re-upload
+    // replaces the file: a new unchecked photo must not inherit the stamp of the
+    // checked one it replaced.
+    const patch = { photo_url: photoKey(userId), photo_checked_at: checked ? new Date().toISOString() : null };
     if (blurStoredKey) patch.photo_blur_url = blurStoredKey;
     const { error } = await supabase.from('users').update(patch).eq('id', userId);
     if (error) throw error;

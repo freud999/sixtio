@@ -1,7 +1,6 @@
 import { resolveUser, getStartParam, pickLang } from './_lib/telegram.js';
 import { getSupabase, upsertUser } from './_lib/supabase.js';
-import { generateProfile } from './_lib/claude.js';
-import { questionLabel } from './_lib/questions.js';
+import { buildTwin } from './_lib/twin.js';
 import { runMatching } from './_lib/matching.js';
 import { captureReferral } from './_lib/referrals.js';
 import { applySourceOnRegistration } from './_lib/sources.js';
@@ -34,46 +33,22 @@ export default async function handler(req, res) {
     const supabase = getSupabase();
     const userId = await upsertUser(tgUser);
 
-    const { data: rows, error } = await supabase
-      .from('answers')
-      .select('question_id, answer_text, created_at')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: true });
-    if (error) throw error;
-    if (!rows || rows.length === 0) {
-      return res.status(400).json({ error: 'No answers to analyze' });
-    }
-
     const { data: userRow } = await supabase
       .from('users')
       .select('gender')
       .eq('id', userId)
       .maybeSingle();
 
-    const qaLines = rows.map(
-      (r) => `Питання: ${questionLabel(r.question_id)}\nВідповідь: ${r.answer_text}\n`
-    );
     // Digital Twin traits/vibe/summary in the user's native language (Task 26).
+    // Built by the same function server-side recovery uses (_lib/twin.js), so
+    // a Twin made live and a Twin made after an outage cannot differ.
     const lang = pickLang(clientLang, tgUser);
-    const profile = await generateProfile(qaLines, userRow ? userRow.gender : null, lang);
-
-    const { error: upsertError } = await supabase.from('profiles').upsert(
-      {
-        user_id: userId,
-        traits_json: profile.traits,
-        vibe: profile.vibe || null,
-        summary_text: profile.summary,
-        portrait_json: profile.portrait || null,
-        // Record which language this was written in, so readers never have to
-        // guess — and drop any cached translations, which now describe text that
-        // no longer exists (migration 034).
-        lang,
-        i18n: {},
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'user_id' }
-    );
-    if (upsertError) throw upsertError;
+    const profile = await buildTwin(supabase, userId, {
+      gender: userRow ? userRow.gender : null, lang,
+    });
+    if (!profile) {
+      return res.status(400).json({ error: 'No answers to analyze' });
+    }
 
     // Funnel: the Digital Twin existing IS the definition of "onboarded".
     await track(userId, EVENTS.ONBOARDING_COMPLETE);
